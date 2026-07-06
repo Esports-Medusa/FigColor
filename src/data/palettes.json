@@ -1,0 +1,8858 @@
+[
+  {
+    "id": "pal_001",
+    "name": "Muted Categorical 3",
+    "slug": "muted-categorical-3",
+    "colors": [
+      {
+        "hex": "#5577A0",
+        "rgb": [
+          85,
+          119,
+          160
+        ]
+      },
+      {
+        "hex": "#E3943A",
+        "rgb": [
+          227,
+          148,
+          58
+        ]
+      },
+      {
+        "hex": "#5B9B55",
+        "rgb": [
+          91,
+          155,
+          85
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "nature"
+    ],
+    "chart_type": [
+      "line",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "multi_group_comparison",
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "environmental_science",
+      "neuroscience",
+      "single_cell"
+    ],
+    "tags": [
+      "low_saturation",
+      "pastel",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_002",
+    "name": "Clean Sequential 4",
+    "slug": "clean-sequential-4",
+    "colors": [
+      {
+        "hex": "#2175C2",
+        "rgb": [
+          33,
+          117,
+          194
+        ]
+      },
+      {
+        "hex": "#FF9A24",
+        "rgb": [
+          255,
+          154,
+          36
+        ]
+      },
+      {
+        "hex": "#30AD39",
+        "rgb": [
+          48,
+          173,
+          57
+        ]
+      },
+      {
+        "hex": "#DB4237",
+        "rgb": [
+          219,
+          66,
+          55
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "scatter",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "chemistry"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "presentation_friendly",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_003",
+    "name": "Soft Diverging 5",
+    "slug": "soft-diverging-5",
+    "colors": [
+      {
+        "hex": "#005299",
+        "rgb": [
+          0,
+          82,
+          153
+        ]
+      },
+      {
+        "hex": "#C69E00",
+        "rgb": [
+          198,
+          158,
+          0
+        ]
+      },
+      {
+        "hex": "#008872",
+        "rgb": [
+          0,
+          136,
+          114
+        ]
+      },
+      {
+        "hex": "#B76500",
+        "rgb": [
+          183,
+          101,
+          0
+        ]
+      },
+      {
+        "hex": "#C65286",
+        "rgb": [
+          198,
+          82,
+          134
+        ]
+      }
+    ],
+    "journal_style": [
+      "science"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line",
+      "stacked_bar"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "omics",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "materials_science"
+    ],
+    "tags": [
+      "clean",
+      "muted",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_004",
+    "name": "Clinical Comparison 6",
+    "slug": "clinical-comparison-6",
+    "colors": [
+      {
+        "hex": "#43306D",
+        "rgb": [
+          67,
+          48,
+          109
+        ]
+      },
+      {
+        "hex": "#84AED4",
+        "rgb": [
+          132,
+          174,
+          212
+        ]
+      },
+      {
+        "hex": "#4F8C8B",
+        "rgb": [
+          79,
+          140,
+          139
+        ]
+      },
+      {
+        "hex": "#205D3D",
+        "rgb": [
+          32,
+          93,
+          61
+        ]
+      },
+      {
+        "hex": "#747C3F",
+        "rgb": [
+          116,
+          124,
+          63
+        ]
+      },
+      {
+        "hex": "#C3C176",
+        "rgb": [
+          195,
+          193,
+          118
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "area",
+      "bar",
+      "line",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "multi_group_comparison",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "engineering",
+      "environmental_science",
+      "neuroscience"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "low_saturation",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_005",
+    "name": "Genomics Time Series 8",
+    "slug": "genomics-time-series-8",
+    "colors": [
+      {
+        "hex": "#0D2E4F",
+        "rgb": [
+          13,
+          46,
+          79
+        ]
+      },
+      {
+        "hex": "#665984",
+        "rgb": [
+          102,
+          89,
+          132
+        ]
+      },
+      {
+        "hex": "#AD5F7F",
+        "rgb": [
+          173,
+          95,
+          127
+        ]
+      },
+      {
+        "hex": "#E98D77",
+        "rgb": [
+          233,
+          141,
+          119
+        ]
+      },
+      {
+        "hex": "#DBBC24",
+        "rgb": [
+          219,
+          188,
+          36
+        ]
+      },
+      {
+        "hex": "#4F0F1F",
+        "rgb": [
+          79,
+          15,
+          31
+        ]
+      },
+      {
+        "hex": "#86735B",
+        "rgb": [
+          134,
+          115,
+          91
+        ]
+      },
+      {
+        "hex": "#70AD65",
+        "rgb": [
+          112,
+          173,
+          101
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "scatter",
+      "violin"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "omics",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable"
+    ],
+    "discipline": [
+      "biomedical",
+      "environmental_science",
+      "genomics",
+      "immunology"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "high_contrast",
+      "low_saturation",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_006",
+    "name": "AI Panel 10",
+    "slug": "ai-panel-10",
+    "colors": [
+      {
+        "hex": "#2D4156",
+        "rgb": [
+          45,
+          65,
+          86
+        ]
+      },
+      {
+        "hex": "#3796A0",
+        "rgb": [
+          55,
+          150,
+          160
+        ]
+      },
+      {
+        "hex": "#E4DE8A",
+        "rgb": [
+          228,
+          222,
+          138
+        ]
+      },
+      {
+        "hex": "#EDC984",
+        "rgb": [
+          237,
+          201,
+          132
+        ]
+      },
+      {
+        "hex": "#E09F71",
+        "rgb": [
+          224,
+          159,
+          113
+        ]
+      },
+      {
+        "hex": "#572F38",
+        "rgb": [
+          87,
+          47,
+          56
+        ]
+      },
+      {
+        "hex": "#A13A7E",
+        "rgb": [
+          161,
+          58,
+          126
+        ]
+      },
+      {
+        "hex": "#92D5E4",
+        "rgb": [
+          146,
+          213,
+          228
+        ]
+      },
+      {
+        "hex": "#8DEBE2",
+        "rgb": [
+          141,
+          235,
+          226
+        ]
+      },
+      {
+        "hex": "#79DFBD",
+        "rgb": [
+          121,
+          223,
+          189
+        ]
+      }
+    ],
+    "journal_style": [
+      "general"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "pca",
+      "violin"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "omics",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "engineering",
+      "machine_learning",
+      "single_cell"
+    ],
+    "tags": [
+      "low_saturation",
+      "pastel",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_007",
+    "name": "Biomedical Contrast 3",
+    "slug": "biomedical-contrast-3",
+    "colors": [
+      {
+        "hex": "#093148",
+        "rgb": [
+          9,
+          49,
+          72
+        ]
+      },
+      {
+        "hex": "#076C78",
+        "rgb": [
+          7,
+          108,
+          120
+        ]
+      },
+      {
+        "hex": "#92BBDB",
+        "rgb": [
+          146,
+          187,
+          219
+        ]
+      }
+    ],
+    "journal_style": [
+      "science"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line",
+      "scatter"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "control_vs_treatment",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "engineering",
+      "oncology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "low_saturation",
+      "presentation_friendly",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_008",
+    "name": "Minimal Figure 4",
+    "slug": "minimal-figure-4",
+    "colors": [
+      {
+        "hex": "#2E476A",
+        "rgb": [
+          46,
+          71,
+          106
+        ]
+      },
+      {
+        "hex": "#665072",
+        "rgb": [
+          102,
+          80,
+          114
+        ]
+      },
+      {
+        "hex": "#B35062",
+        "rgb": [
+          179,
+          80,
+          98
+        ]
+      },
+      {
+        "hex": "#E94C4C",
+        "rgb": [
+          233,
+          76,
+          76
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "heatmap",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "publication",
+      "thesis",
+      "time_series"
+    ],
+    "avoid_case": [
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "clinical",
+      "materials_science"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "pastel",
+      "professional",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_009",
+    "name": "Professional Publication 5",
+    "slug": "professional-publication-5",
+    "colors": [
+      {
+        "hex": "#31323E",
+        "rgb": [
+          49,
+          50,
+          62
+        ]
+      },
+      {
+        "hex": "#565D6E",
+        "rgb": [
+          86,
+          93,
+          110
+        ]
+      },
+      {
+        "hex": "#BFC0C0",
+        "rgb": [
+          191,
+          192,
+          192
+        ]
+      },
+      {
+        "hex": "#FFFFFF",
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "hex": "#D4956F",
+        "rgb": [
+          212,
+          149,
+          111
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet",
+      "nejm"
+    ],
+    "chart_type": [
+      "area",
+      "bar",
+      "violin"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "omics",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "environmental_science",
+      "genomics",
+      "machine_learning"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "high_contrast",
+      "pastel",
+      "presentation_friendly",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_010",
+    "name": "High Contrast Analysis 6",
+    "slug": "high-contrast-analysis-6",
+    "colors": [
+      {
+        "hex": "#4C5D80",
+        "rgb": [
+          76,
+          93,
+          128
+        ]
+      },
+      {
+        "hex": "#B5C8DA",
+        "rgb": [
+          181,
+          200,
+          218
+        ]
+      },
+      {
+        "hex": "#FFFFFF",
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "hex": "#DD9678",
+        "rgb": [
+          221,
+          150,
+          120
+        ]
+      },
+      {
+        "hex": "#303543",
+        "rgb": [
+          48,
+          53,
+          67
+        ]
+      },
+      {
+        "hex": "#814F53",
+        "rgb": [
+          129,
+          79,
+          83
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "scatter",
+      "survival_curve",
+      "violin"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "poster",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "biomedical",
+      "chemistry",
+      "general",
+      "neuroscience"
+    ],
+    "tags": [
+      "cool",
+      "publication_ready",
+      "soft",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_011",
+    "name": "Pastel Categorical 8",
+    "slug": "pastel-categorical-8",
+    "colors": [
+      {
+        "hex": "#234063",
+        "rgb": [
+          35,
+          64,
+          99
+        ]
+      },
+      {
+        "hex": "#377A87",
+        "rgb": [
+          55,
+          122,
+          135
+        ]
+      },
+      {
+        "hex": "#44B695",
+        "rgb": [
+          68,
+          182,
+          149
+        ]
+      },
+      {
+        "hex": "#5EDC8D",
+        "rgb": [
+          94,
+          220,
+          141
+        ]
+      },
+      {
+        "hex": "#96EBAB",
+        "rgb": [
+          150,
+          235,
+          171
+        ]
+      },
+      {
+        "hex": "#642532",
+        "rgb": [
+          100,
+          37,
+          50
+        ]
+      },
+      {
+        "hex": "#883A68",
+        "rgb": [
+          136,
+          58,
+          104
+        ]
+      },
+      {
+        "hex": "#B249B7",
+        "rgb": [
+          178,
+          73,
+          183
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "scatter",
+      "violin"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "clinical"
+    ],
+    "tags": [
+      "clean",
+      "pastel",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_012",
+    "name": "Cool Sequential 10",
+    "slug": "cool-sequential-10",
+    "colors": [
+      {
+        "hex": "#8900A9",
+        "rgb": [
+          137,
+          0,
+          169
+        ]
+      },
+      {
+        "hex": "#792CB3",
+        "rgb": [
+          121,
+          44,
+          179
+        ]
+      },
+      {
+        "hex": "#604CC8",
+        "rgb": [
+          96,
+          76,
+          200
+        ]
+      },
+      {
+        "hex": "#3F68D5",
+        "rgb": [
+          63,
+          104,
+          213
+        ]
+      },
+      {
+        "hex": "#3A81DA",
+        "rgb": [
+          58,
+          129,
+          218
+        ]
+      },
+      {
+        "hex": "#3399E0",
+        "rgb": [
+          51,
+          153,
+          224
+        ]
+      },
+      {
+        "hex": "#55A804",
+        "rgb": [
+          85,
+          168,
+          4
+        ]
+      },
+      {
+        "hex": "#90B430",
+        "rgb": [
+          144,
+          180,
+          48
+        ]
+      },
+      {
+        "hex": "#C7B753",
+        "rgb": [
+          199,
+          183,
+          83
+        ]
+      },
+      {
+        "hex": "#D28248",
+        "rgb": [
+          210,
+          130,
+          72
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "science"
+    ],
+    "chart_type": [
+      "bar",
+      "stacked_bar",
+      "umap",
+      "violin"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "control_vs_treatment",
+      "omics",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "AI",
+      "genomics",
+      "machine_learning"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "low_saturation",
+      "presentation_friendly",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_013",
+    "name": "Warm Diverging 3",
+    "slug": "warm-diverging-3",
+    "colors": [
+      {
+        "hex": "#89B7EB",
+        "rgb": [
+          137,
+          183,
+          235
+        ]
+      },
+      {
+        "hex": "#187EC5",
+        "rgb": [
+          24,
+          126,
+          197
+        ]
+      },
+      {
+        "hex": "#002149",
+        "rgb": [
+          0,
+          33,
+          73
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "line",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "omics",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "clinical",
+      "single_cell"
+    ],
+    "tags": [
+      "low_saturation",
+      "muted",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_014",
+    "name": "Balanced Comparison 4",
+    "slug": "balanced-comparison-4",
+    "colors": [
+      {
+        "hex": "#141554",
+        "rgb": [
+          20,
+          21,
+          84
+        ]
+      },
+      {
+        "hex": "#2276A2",
+        "rgb": [
+          34,
+          118,
+          162
+        ]
+      },
+      {
+        "hex": "#29A7C0",
+        "rgb": [
+          41,
+          167,
+          192
+        ]
+      },
+      {
+        "hex": "#B7DFE6",
+        "rgb": [
+          183,
+          223,
+          230
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature",
+      "science"
+    ],
+    "chart_type": [
+      "area",
+      "line",
+      "violin"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "multi_group_comparison",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "general"
+    ],
+    "tags": [
+      "clean",
+      "high_contrast",
+      "low_saturation",
+      "publication_ready",
+      "soft",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_015",
+    "name": "Modern Time Series 5",
+    "slug": "modern-time-series-5",
+    "colors": [
+      {
+        "hex": "#5E4A76",
+        "rgb": [
+          94,
+          74,
+          118
+        ]
+      },
+      {
+        "hex": "#2A6794",
+        "rgb": [
+          42,
+          103,
+          148
+        ]
+      },
+      {
+        "hex": "#6F9934",
+        "rgb": [
+          111,
+          153,
+          52
+        ]
+      },
+      {
+        "hex": "#DDB530",
+        "rgb": [
+          221,
+          181,
+          48
+        ]
+      },
+      {
+        "hex": "#E14847",
+        "rgb": [
+          225,
+          72,
+          71
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "boxplot",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "omics",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "clinical",
+      "single_cell"
+    ],
+    "tags": [
+      "minimal",
+      "muted",
+      "pastel",
+      "professional",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_016",
+    "name": "Calm Panel 6",
+    "slug": "calm-panel-6",
+    "colors": [
+      {
+        "hex": "#222135",
+        "rgb": [
+          34,
+          33,
+          53
+        ]
+      },
+      {
+        "hex": "#46485E",
+        "rgb": [
+          70,
+          72,
+          94
+        ]
+      },
+      {
+        "hex": "#8E818B",
+        "rgb": [
+          142,
+          129,
+          139
+        ]
+      },
+      {
+        "hex": "#BBA198",
+        "rgb": [
+          187,
+          161,
+          152
+        ]
+      },
+      {
+        "hex": "#E4D7CD",
+        "rgb": [
+          228,
+          215,
+          205
+        ]
+      },
+      {
+        "hex": "#352822",
+        "rgb": [
+          53,
+          40,
+          34
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "nature"
+    ],
+    "chart_type": [
+      "heatmap",
+      "pca",
+      "scatter"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "multi_group_comparison",
+      "omics",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "single_cell"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "cool",
+      "low_saturation",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_017",
+    "name": "Sharp Contrast 8",
+    "slug": "sharp-contrast-8",
+    "colors": [
+      {
+        "hex": "#006077",
+        "rgb": [
+          0,
+          96,
+          119
+        ]
+      },
+      {
+        "hex": "#83C5C5",
+        "rgb": [
+          131,
+          197,
+          197
+        ]
+      },
+      {
+        "hex": "#EDF5F9",
+        "rgb": [
+          237,
+          245,
+          249
+        ]
+      },
+      {
+        "hex": "#FFE2D2",
+        "rgb": [
+          255,
+          226,
+          210
+        ]
+      },
+      {
+        "hex": "#E2A078",
+        "rgb": [
+          226,
+          160,
+          120
+        ]
+      },
+      {
+        "hex": "#760343",
+        "rgb": [
+          118,
+          3,
+          67
+        ]
+      },
+      {
+        "hex": "#C689B6",
+        "rgb": [
+          198,
+          137,
+          182
+        ]
+      },
+      {
+        "hex": "#FBF4F7",
+        "rgb": [
+          251,
+          244,
+          247
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "nature"
+    ],
+    "chart_type": [
+      "bar",
+      "pca",
+      "violin"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background"
+    ],
+    "discipline": [
+      "biomedical",
+      "environmental_science",
+      "machine_learning"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "high_contrast",
+      "low_saturation",
+      "muted",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_018",
+    "name": "Elegant Figure 10",
+    "slug": "elegant-figure-10",
+    "colors": [
+      {
+        "hex": "#5503BA",
+        "rgb": [
+          85,
+          3,
+          186
+        ]
+      },
+      {
+        "hex": "#5056F9",
+        "rgb": [
+          80,
+          86,
+          249
+        ]
+      },
+      {
+        "hex": "#5BBEFB",
+        "rgb": [
+          91,
+          190,
+          251
+        ]
+      },
+      {
+        "hex": "#FF3473",
+        "rgb": [
+          255,
+          52,
+          115
+        ]
+      },
+      {
+        "hex": "#CE0F96",
+        "rgb": [
+          206,
+          15,
+          150
+        ]
+      },
+      {
+        "hex": "#B98408",
+        "rgb": [
+          185,
+          132,
+          8
+        ]
+      },
+      {
+        "hex": "#F57D5B",
+        "rgb": [
+          245,
+          125,
+          91
+        ]
+      },
+      {
+        "hex": "#F7659B",
+        "rgb": [
+          247,
+          101,
+          155
+        ]
+      },
+      {
+        "hex": "#47FE3B",
+        "rgb": [
+          71,
+          254,
+          59
+        ]
+      },
+      {
+        "hex": "#69CD14",
+        "rgb": [
+          105,
+          205,
+          20
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "pca",
+      "scatter",
+      "stacked_bar",
+      "umap"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "omics",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "genomics",
+      "materials_science",
+      "neuroscience"
+    ],
+    "tags": [
+      "low_saturation",
+      "muted",
+      "publication_ready",
+      "soft",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_019",
+    "name": "Neutral Publication 3",
+    "slug": "neutral-publication-3",
+    "colors": [
+      {
+        "hex": "#2A2835",
+        "rgb": [
+          42,
+          40,
+          53
+        ]
+      },
+      {
+        "hex": "#7A7F95",
+        "rgb": [
+          122,
+          127,
+          149
+        ]
+      },
+      {
+        "hex": "#C7CFD6",
+        "rgb": [
+          199,
+          207,
+          214
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "poster",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "statistics"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "low_saturation",
+      "minimal",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_020",
+    "name": "Vivid Analysis 4",
+    "slug": "vivid-analysis-4",
+    "colors": [
+      {
+        "hex": "#1E3838",
+        "rgb": [
+          30,
+          56,
+          56
+        ]
+      },
+      {
+        "hex": "#315A59",
+        "rgb": [
+          49,
+          90,
+          89
+        ]
+      },
+      {
+        "hex": "#457B79",
+        "rgb": [
+          69,
+          123,
+          121
+        ]
+      },
+      {
+        "hex": "#6FB2AD",
+        "rgb": [
+          111,
+          178,
+          173
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet",
+      "science"
+    ],
+    "chart_type": [
+      "area",
+      "bar",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "poster",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "clinical",
+      "statistics"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "high_contrast",
+      "minimal",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_021",
+    "name": "Muted Categorical 5",
+    "slug": "muted-categorical-5",
+    "colors": [
+      {
+        "hex": "#5569A0",
+        "rgb": [
+          85,
+          105,
+          160
+        ]
+      },
+      {
+        "hex": "#E3B23A",
+        "rgb": [
+          227,
+          178,
+          58
+        ]
+      },
+      {
+        "hex": "#559B5B",
+        "rgb": [
+          85,
+          155,
+          91
+        ]
+      },
+      {
+        "hex": "#D77861",
+        "rgb": [
+          215,
+          120,
+          97
+        ]
+      },
+      {
+        "hex": "#AC7E96",
+        "rgb": [
+          172,
+          126,
+          150
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "survival_curve",
+      "violin"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "biomedical"
+    ],
+    "tags": [
+      "low_saturation",
+      "pastel",
+      "presentation_friendly",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_022",
+    "name": "Clean Sequential 6",
+    "slug": "clean-sequential-6",
+    "colors": [
+      {
+        "hex": "#2159C2",
+        "rgb": [
+          33,
+          89,
+          194
+        ]
+      },
+      {
+        "hex": "#FFC024",
+        "rgb": [
+          255,
+          192,
+          36
+        ]
+      },
+      {
+        "hex": "#30AD4E",
+        "rgb": [
+          48,
+          173,
+          78
+        ]
+      },
+      {
+        "hex": "#DB5E37",
+        "rgb": [
+          219,
+          94,
+          55
+        ]
+      },
+      {
+        "hex": "#B277C4",
+        "rgb": [
+          178,
+          119,
+          196
+        ]
+      },
+      {
+        "hex": "#976E51",
+        "rgb": [
+          151,
+          110,
+          81
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "area",
+      "line",
+      "scatter",
+      "survival_curve",
+      "violin"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "chemistry",
+      "neuroscience",
+      "statistics"
+    ],
+    "tags": [
+      "pastel",
+      "professional",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_023",
+    "name": "Soft Diverging 8",
+    "slug": "soft-diverging-8",
+    "colors": [
+      {
+        "hex": "#003799",
+        "rgb": [
+          0,
+          55,
+          153
+        ]
+      },
+      {
+        "hex": "#C6C100",
+        "rgb": [
+          198,
+          193,
+          0
+        ]
+      },
+      {
+        "hex": "#008788",
+        "rgb": [
+          0,
+          135,
+          136
+        ]
+      },
+      {
+        "hex": "#B78400",
+        "rgb": [
+          183,
+          132,
+          0
+        ]
+      },
+      {
+        "hex": "#C65271",
+        "rgb": [
+          198,
+          82,
+          113
+        ]
+      },
+      {
+        "hex": "#246CEF",
+        "rgb": [
+          36,
+          108,
+          239
+        ]
+      },
+      {
+        "hex": "#9C3500",
+        "rgb": [
+          156,
+          53,
+          0
+        ]
+      },
+      {
+        "hex": "#0042CA",
+        "rgb": [
+          0,
+          66,
+          202
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "pca",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "control_vs_treatment",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "chemistry"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_024",
+    "name": "Clinical Comparison 10",
+    "slug": "clinical-comparison-10",
+    "colors": [
+      {
+        "hex": "#4D306D",
+        "rgb": [
+          77,
+          48,
+          109
+        ]
+      },
+      {
+        "hex": "#84A0D4",
+        "rgb": [
+          132,
+          160,
+          212
+        ]
+      },
+      {
+        "hex": "#4F838C",
+        "rgb": [
+          79,
+          131,
+          140
+        ]
+      },
+      {
+        "hex": "#205D48",
+        "rgb": [
+          32,
+          93,
+          72
+        ]
+      },
+      {
+        "hex": "#697C3F",
+        "rgb": [
+          105,
+          124,
+          63
+        ]
+      },
+      {
+        "hex": "#B7C376",
+        "rgb": [
+          183,
+          195,
+          118
+        ]
+      },
+      {
+        "hex": "#B27368",
+        "rgb": [
+          178,
+          115,
+          104
+        ]
+      },
+      {
+        "hex": "#6D303B",
+        "rgb": [
+          109,
+          48,
+          59
+        ]
+      },
+      {
+        "hex": "#326D37",
+        "rgb": [
+          50,
+          109,
+          55
+        ]
+      },
+      {
+        "hex": "#C2D48B",
+        "rgb": [
+          194,
+          212,
+          139
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "scatter",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "immunology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "muted",
+      "pastel",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_025",
+    "name": "Genomics Time Series 3",
+    "slug": "genomics-time-series-3",
+    "colors": [
+      {
+        "hex": "#0D234F",
+        "rgb": [
+          13,
+          35,
+          79
+        ]
+      },
+      {
+        "hex": "#6E5984",
+        "rgb": [
+          110,
+          89,
+          132
+        ]
+      },
+      {
+        "hex": "#AD5F72",
+        "rgb": [
+          173,
+          95,
+          114
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet",
+      "science"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "clinical",
+      "poster",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "environmental_science"
+    ],
+    "tags": [
+      "low_saturation",
+      "muted",
+      "presentation_friendly",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_026",
+    "name": "AI Panel 4",
+    "slug": "ai-panel-4",
+    "colors": [
+      {
+        "hex": "#2D3A56",
+        "rgb": [
+          45,
+          58,
+          86
+        ]
+      },
+      {
+        "hex": "#3784A0",
+        "rgb": [
+          55,
+          132,
+          160
+        ]
+      },
+      {
+        "hex": "#DCE48A",
+        "rgb": [
+          220,
+          228,
+          138
+        ]
+      },
+      {
+        "hex": "#EDDB84",
+        "rgb": [
+          237,
+          219,
+          132
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "nature"
+    ],
+    "chart_type": [
+      "area",
+      "bar",
+      "boxplot",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "presentation",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "environmental_science",
+      "general",
+      "oncology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "low_saturation",
+      "minimal",
+      "presentation_friendly",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_027",
+    "name": "Biomedical Contrast 5",
+    "slug": "biomedical-contrast-5",
+    "colors": [
+      {
+        "hex": "#091648",
+        "rgb": [
+          9,
+          22,
+          72
+        ]
+      },
+      {
+        "hex": "#073C78",
+        "rgb": [
+          7,
+          60,
+          120
+        ]
+      },
+      {
+        "hex": "#929CDB",
+        "rgb": [
+          146,
+          156,
+          219
+        ]
+      },
+      {
+        "hex": "#FF7E2A",
+        "rgb": [
+          255,
+          126,
+          42
+        ]
+      },
+      {
+        "hex": "#AC5119",
+        "rgb": [
+          172,
+          81,
+          25
+        ]
+      }
+    ],
+    "journal_style": [
+      "science"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "omics",
+      "poster",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "clinical",
+      "genomics",
+      "oncology"
+    ],
+    "tags": [
+      "low_saturation",
+      "minimal",
+      "muted",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_028",
+    "name": "Minimal Figure 6",
+    "slug": "minimal-figure-6",
+    "colors": [
+      {
+        "hex": "#2E3D6A",
+        "rgb": [
+          46,
+          61,
+          106
+        ]
+      },
+      {
+        "hex": "#6C5072",
+        "rgb": [
+          108,
+          80,
+          114
+        ]
+      },
+      {
+        "hex": "#B35051",
+        "rgb": [
+          179,
+          80,
+          81
+        ]
+      },
+      {
+        "hex": "#E9684C",
+        "rgb": [
+          233,
+          104,
+          76
+        ]
+      },
+      {
+        "hex": "#ECB36B",
+        "rgb": [
+          236,
+          179,
+          107
+        ]
+      },
+      {
+        "hex": "#6B3030",
+        "rgb": [
+          107,
+          48,
+          48
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "area",
+      "line",
+      "scatter",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "poster",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "AI",
+      "engineering",
+      "immunology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "muted",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_029",
+    "name": "Professional Publication 8",
+    "slug": "professional-publication-8",
+    "colors": [
+      {
+        "hex": "#31313E",
+        "rgb": [
+          49,
+          49,
+          62
+        ]
+      },
+      {
+        "hex": "#56596E",
+        "rgb": [
+          86,
+          89,
+          110
+        ]
+      },
+      {
+        "hex": "#BFC0C0",
+        "rgb": [
+          191,
+          192,
+          192
+        ]
+      },
+      {
+        "hex": "#FFFFFF",
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "hex": "#D4A66F",
+        "rgb": [
+          212,
+          166,
+          111
+        ]
+      },
+      {
+        "hex": "#3F3632",
+        "rgb": [
+          63,
+          54,
+          50
+        ]
+      },
+      {
+        "hex": "#705B58",
+        "rgb": [
+          112,
+          91,
+          88
+        ]
+      },
+      {
+        "hex": "#C4C3C3",
+        "rgb": [
+          196,
+          195,
+          195
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "line",
+      "pca",
+      "stacked_bar",
+      "umap"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "control_vs_treatment",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "chemistry",
+      "immunology"
+    ],
+    "tags": [
+      "muted",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_030",
+    "name": "High Contrast Analysis 10",
+    "slug": "high-contrast-analysis-10",
+    "colors": [
+      {
+        "hex": "#4C5480",
+        "rgb": [
+          76,
+          84,
+          128
+        ]
+      },
+      {
+        "hex": "#B5C2DA",
+        "rgb": [
+          181,
+          194,
+          218
+        ]
+      },
+      {
+        "hex": "#FFFFFF",
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "hex": "#DDA878",
+        "rgb": [
+          221,
+          168,
+          120
+        ]
+      },
+      {
+        "hex": "#303243",
+        "rgb": [
+          48,
+          50,
+          67
+        ]
+      },
+      {
+        "hex": "#81544F",
+        "rgb": [
+          129,
+          84,
+          79
+        ]
+      },
+      {
+        "hex": "#DCBBBE",
+        "rgb": [
+          220,
+          187,
+          190
+        ]
+      },
+      {
+        "hex": "#7FDCC2",
+        "rgb": [
+          127,
+          220,
+          194
+        ]
+      },
+      {
+        "hex": "#433431",
+        "rgb": [
+          67,
+          52,
+          49
+        ]
+      },
+      {
+        "hex": "#ADB1D7",
+        "rgb": [
+          173,
+          177,
+          215
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "science"
+    ],
+    "chart_type": [
+      "line",
+      "pca",
+      "scatter",
+      "umap",
+      "violin"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "biomedical",
+      "clinical",
+      "oncology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "presentation_friendly",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_031",
+    "name": "Pastel Categorical 3",
+    "slug": "pastel-categorical-3",
+    "colors": [
+      {
+        "hex": "#233563",
+        "rgb": [
+          35,
+          53,
+          99
+        ]
+      },
+      {
+        "hex": "#376C87",
+        "rgb": [
+          55,
+          108,
+          135
+        ]
+      },
+      {
+        "hex": "#44B6A9",
+        "rgb": [
+          68,
+          182,
+          169
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "control_vs_treatment",
+      "multi_group_comparison",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "single_cell"
+    ],
+    "tags": [
+      "cool",
+      "low_saturation",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_032",
+    "name": "Cool Sequential 4",
+    "slug": "cool-sequential-4",
+    "colors": [
+      {
+        "hex": "#A700A9",
+        "rgb": [
+          167,
+          0,
+          169
+        ]
+      },
+      {
+        "hex": "#902CB3",
+        "rgb": [
+          144,
+          44,
+          179
+        ]
+      },
+      {
+        "hex": "#764CC8",
+        "rgb": [
+          118,
+          76,
+          200
+        ]
+      },
+      {
+        "hex": "#3F4ED5",
+        "rgb": [
+          63,
+          78,
+          213
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "lancet"
+    ],
+    "chart_type": [
+      "heatmap",
+      "pca",
+      "scatter",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "publication"
+    ],
+    "avoid_case": [
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "general"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "low_saturation",
+      "minimal",
+      "pastel",
+      "presentation_friendly",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_033",
+    "name": "Warm Diverging 5",
+    "slug": "warm-diverging-5",
+    "colors": [
+      {
+        "hex": "#89A5EB",
+        "rgb": [
+          137,
+          165,
+          235
+        ]
+      },
+      {
+        "hex": "#1860C5",
+        "rgb": [
+          24,
+          96,
+          197
+        ]
+      },
+      {
+        "hex": "#001449",
+        "rgb": [
+          0,
+          20,
+          73
+        ]
+      },
+      {
+        "hex": "#E5FF03",
+        "rgb": [
+          229,
+          255,
+          3
+        ]
+      },
+      {
+        "hex": "#FBE700",
+        "rgb": [
+          251,
+          231,
+          0
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "science"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "control_vs_treatment",
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "genomics"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "low_saturation",
+      "minimal",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_034",
+    "name": "Balanced Comparison 6",
+    "slug": "balanced-comparison-6",
+    "colors": [
+      {
+        "hex": "#2F1454",
+        "rgb": [
+          47,
+          20,
+          84
+        ]
+      },
+      {
+        "hex": "#2240A2",
+        "rgb": [
+          34,
+          64,
+          162
+        ]
+      },
+      {
+        "hex": "#2967C0",
+        "rgb": [
+          41,
+          103,
+          192
+        ]
+      },
+      {
+        "hex": "#B7CBE6",
+        "rgb": [
+          183,
+          203,
+          230
+        ]
+      },
+      {
+        "hex": "#EDF2F9",
+        "rgb": [
+          237,
+          242,
+          249
+        ]
+      },
+      {
+        "hex": "#544016",
+        "rgb": [
+          84,
+          64,
+          22
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "nejm"
+    ],
+    "chart_type": [
+      "line",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable"
+    ],
+    "discipline": [
+      "oncology",
+      "single_cell"
+    ],
+    "tags": [
+      "high_contrast",
+      "professional",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_035",
+    "name": "Modern Time Series 8",
+    "slug": "modern-time-series-8",
+    "colors": [
+      {
+        "hex": "#664A76",
+        "rgb": [
+          102,
+          74,
+          118
+        ]
+      },
+      {
+        "hex": "#2A5594",
+        "rgb": [
+          42,
+          85,
+          148
+        ]
+      },
+      {
+        "hex": "#5D9934",
+        "rgb": [
+          93,
+          153,
+          52
+        ]
+      },
+      {
+        "hex": "#DDD330",
+        "rgb": [
+          221,
+          211,
+          48
+        ]
+      },
+      {
+        "hex": "#E16347",
+        "rgb": [
+          225,
+          99,
+          71
+        ]
+      },
+      {
+        "hex": "#77724D",
+        "rgb": [
+          119,
+          114,
+          77
+        ]
+      },
+      {
+        "hex": "#942E3D",
+        "rgb": [
+          148,
+          46,
+          61
+        ]
+      },
+      {
+        "hex": "#38479A",
+        "rgb": [
+          56,
+          71,
+          154
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "AI",
+      "biomedical",
+      "general"
+    ],
+    "tags": [
+      "clean",
+      "cool",
+      "presentation_friendly",
+      "publication_ready",
+      "soft",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_036",
+    "name": "Calm Panel 10",
+    "slug": "calm-panel-10",
+    "colors": [
+      {
+        "hex": "#262135",
+        "rgb": [
+          38,
+          33,
+          53
+        ]
+      },
+      {
+        "hex": "#49465E",
+        "rgb": [
+          73,
+          70,
+          94
+        ]
+      },
+      {
+        "hex": "#8E8189",
+        "rgb": [
+          142,
+          129,
+          137
+        ]
+      },
+      {
+        "hex": "#BBA798",
+        "rgb": [
+          187,
+          167,
+          152
+        ]
+      },
+      {
+        "hex": "#E4DBCD",
+        "rgb": [
+          228,
+          219,
+          205
+        ]
+      },
+      {
+        "hex": "#352C22",
+        "rgb": [
+          53,
+          44,
+          34
+        ]
+      },
+      {
+        "hex": "#605148",
+        "rgb": [
+          96,
+          81,
+          72
+        ]
+      },
+      {
+        "hex": "#889084",
+        "rgb": [
+          136,
+          144,
+          132
+        ]
+      },
+      {
+        "hex": "#9DBDB2",
+        "rgb": [
+          157,
+          189,
+          178
+        ]
+      },
+      {
+        "hex": "#D3E6E3",
+        "rgb": [
+          211,
+          230,
+          227
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm",
+      "science"
+    ],
+    "chart_type": [
+      "bar",
+      "scatter",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "omics",
+      "publication",
+      "thesis",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "AI",
+      "environmental_science",
+      "general",
+      "genomics"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "pastel",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_037",
+    "name": "Sharp Contrast 3",
+    "slug": "sharp-contrast-3",
+    "colors": [
+      {
+        "hex": "#004B77",
+        "rgb": [
+          0,
+          75,
+          119
+        ]
+      },
+      {
+        "hex": "#83B9C5",
+        "rgb": [
+          131,
+          185,
+          197
+        ]
+      },
+      {
+        "hex": "#EDF3F9",
+        "rgb": [
+          237,
+          243,
+          249
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "omics",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "immunology",
+      "machine_learning"
+    ],
+    "tags": [
+      "low_saturation",
+      "pastel",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_038",
+    "name": "Elegant Figure 4",
+    "slug": "elegant-figure-4",
+    "colors": [
+      {
+        "hex": "#7503BA",
+        "rgb": [
+          117,
+          3,
+          186
+        ]
+      },
+      {
+        "hex": "#6850F9",
+        "rgb": [
+          104,
+          80,
+          249
+        ]
+      },
+      {
+        "hex": "#5BA2FB",
+        "rgb": [
+          91,
+          162,
+          251
+        ]
+      },
+      {
+        "hex": "#FF3450",
+        "rgb": [
+          255,
+          52,
+          80
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "boxplot",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "presentation",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "oncology"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "muted",
+      "presentation_friendly",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_039",
+    "name": "Neutral Publication 5",
+    "slug": "neutral-publication-5",
+    "colors": [
+      {
+        "hex": "#2C2835",
+        "rgb": [
+          44,
+          40,
+          53
+        ]
+      },
+      {
+        "hex": "#7A7B95",
+        "rgb": [
+          122,
+          123,
+          149
+        ]
+      },
+      {
+        "hex": "#C7CDD6",
+        "rgb": [
+          199,
+          205,
+          214
+        ]
+      },
+      {
+        "hex": "#B85234",
+        "rgb": [
+          184,
+          82,
+          52
+        ]
+      },
+      {
+        "hex": "#9B3923",
+        "rgb": [
+          155,
+          57,
+          35
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "scatter",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "chemistry",
+      "general",
+      "machine_learning"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "presentation_friendly",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_040",
+    "name": "Vivid Analysis 6",
+    "slug": "vivid-analysis-6",
+    "colors": [
+      {
+        "hex": "#1E3438",
+        "rgb": [
+          30,
+          52,
+          56
+        ]
+      },
+      {
+        "hex": "#31535A",
+        "rgb": [
+          49,
+          83,
+          90
+        ]
+      },
+      {
+        "hex": "#45737B",
+        "rgb": [
+          69,
+          115,
+          123
+        ]
+      },
+      {
+        "hex": "#6FABB2",
+        "rgb": [
+          111,
+          171,
+          178
+        ]
+      },
+      {
+        "hex": "#A7D3D1",
+        "rgb": [
+          167,
+          211,
+          209
+        ]
+      },
+      {
+        "hex": "#391F2E",
+        "rgb": [
+          57,
+          31,
+          46
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm",
+      "science"
+    ],
+    "chart_type": [
+      "heatmap",
+      "pca",
+      "scatter",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "dark_background"
+    ],
+    "discipline": [
+      "biomedical",
+      "statistics"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "cool",
+      "high_contrast",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_041",
+    "name": "Muted Categorical 8",
+    "slug": "muted-categorical-8",
+    "colors": [
+      {
+        "hex": "#6055A0",
+        "rgb": [
+          96,
+          85,
+          160
+        ]
+      },
+      {
+        "hex": "#CCE33A",
+        "rgb": [
+          204,
+          227,
+          58
+        ]
+      },
+      {
+        "hex": "#559B79",
+        "rgb": [
+          85,
+          155,
+          121
+        ]
+      },
+      {
+        "hex": "#D7AA61",
+        "rgb": [
+          215,
+          170,
+          97
+        ]
+      },
+      {
+        "hex": "#AC7E82",
+        "rgb": [
+          172,
+          126,
+          130
+        ]
+      },
+      {
+        "hex": "#A27658",
+        "rgb": [
+          162,
+          118,
+          88
+        ]
+      },
+      {
+        "hex": "#43A4E0",
+        "rgb": [
+          67,
+          164,
+          224
+        ]
+      },
+      {
+        "hex": "#8C599C",
+        "rgb": [
+          140,
+          89,
+          156
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "pca",
+      "scatter",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "immunology",
+      "single_cell"
+    ],
+    "tags": [
+      "clean",
+      "cool",
+      "muted",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_042",
+    "name": "Clean Sequential 10",
+    "slug": "clean-sequential-10",
+    "colors": [
+      {
+        "hex": "#213DC2",
+        "rgb": [
+          33,
+          61,
+          194
+        ]
+      },
+      {
+        "hex": "#FFE724",
+        "rgb": [
+          255,
+          231,
+          36
+        ]
+      },
+      {
+        "hex": "#30AD64",
+        "rgb": [
+          48,
+          173,
+          100
+        ]
+      },
+      {
+        "hex": "#DB7B37",
+        "rgb": [
+          219,
+          123,
+          55
+        ]
+      },
+      {
+        "hex": "#C077C4",
+        "rgb": [
+          192,
+          119,
+          196
+        ]
+      },
+      {
+        "hex": "#977A51",
+        "rgb": [
+          151,
+          122,
+          81
+        ]
+      },
+      {
+        "hex": "#C27926",
+        "rgb": [
+          194,
+          121,
+          38
+        ]
+      },
+      {
+        "hex": "#2F82FA",
+        "rgb": [
+          47,
+          130,
+          250
+        ]
+      },
+      {
+        "hex": "#AD349E",
+        "rgb": [
+          173,
+          52,
+          158
+        ]
+      },
+      {
+        "hex": "#3FC6D7",
+        "rgb": [
+          63,
+          198,
+          215
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "line",
+      "pca",
+      "violin"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "presentation",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "AI",
+      "engineering"
+    ],
+    "tags": [
+      "cool",
+      "muted",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_043",
+    "name": "Soft Diverging 3",
+    "slug": "soft-diverging-3",
+    "colors": [
+      {
+        "hex": "#001C99",
+        "rgb": [
+          0,
+          28,
+          153
+        ]
+      },
+      {
+        "hex": "#A9C600",
+        "rgb": [
+          169,
+          198,
+          0
+        ]
+      },
+      {
+        "hex": "#006F88",
+        "rgb": [
+          0,
+          111,
+          136
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "boxplot",
+      "line",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "clinical",
+      "omics",
+      "poster",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "clinical",
+      "single_cell",
+      "statistics"
+    ],
+    "tags": [
+      "muted",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_044",
+    "name": "Clinical Comparison 4",
+    "slug": "clinical-comparison-4",
+    "colors": [
+      {
+        "hex": "#58306D",
+        "rgb": [
+          88,
+          48,
+          109
+        ]
+      },
+      {
+        "hex": "#8492D4",
+        "rgb": [
+          132,
+          146,
+          212
+        ]
+      },
+      {
+        "hex": "#4F788C",
+        "rgb": [
+          79,
+          120,
+          140
+        ]
+      },
+      {
+        "hex": "#205D52",
+        "rgb": [
+          32,
+          93,
+          82
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "area",
+      "boxplot",
+      "line",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "clinical",
+      "single_cell",
+      "statistics"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "presentation_friendly",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_045",
+    "name": "Genomics Time Series 5",
+    "slug": "genomics-time-series-5",
+    "colors": [
+      {
+        "hex": "#0D174F",
+        "rgb": [
+          13,
+          23,
+          79
+        ]
+      },
+      {
+        "hex": "#755984",
+        "rgb": [
+          117,
+          89,
+          132
+        ]
+      },
+      {
+        "hex": "#AD5F64",
+        "rgb": [
+          173,
+          95,
+          100
+        ]
+      },
+      {
+        "hex": "#E9B577",
+        "rgb": [
+          233,
+          181,
+          119
+        ]
+      },
+      {
+        "hex": "#BADB24",
+        "rgb": [
+          186,
+          219,
+          36
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "omics",
+      "publication",
+      "thesis",
+      "time_series"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "genomics",
+      "immunology",
+      "oncology"
+    ],
+    "tags": [
+      "high_contrast",
+      "minimal",
+      "professional",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_046",
+    "name": "AI Panel 6",
+    "slug": "ai-panel-6",
+    "colors": [
+      {
+        "hex": "#2D3356",
+        "rgb": [
+          45,
+          51,
+          86
+        ]
+      },
+      {
+        "hex": "#3772A0",
+        "rgb": [
+          55,
+          114,
+          160
+        ]
+      },
+      {
+        "hex": "#CCE48A",
+        "rgb": [
+          204,
+          228,
+          138
+        ]
+      },
+      {
+        "hex": "#ECED84",
+        "rgb": [
+          236,
+          237,
+          132
+        ]
+      },
+      {
+        "hex": "#E0C671",
+        "rgb": [
+          224,
+          198,
+          113
+        ]
+      },
+      {
+        "hex": "#57332F",
+        "rgb": [
+          87,
+          51,
+          47
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "scatter",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "chemistry",
+      "environmental_science"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "minimal",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_047",
+    "name": "Biomedical Contrast 8",
+    "slug": "biomedical-contrast-8",
+    "colors": [
+      {
+        "hex": "#090B48",
+        "rgb": [
+          9,
+          11,
+          72
+        ]
+      },
+      {
+        "hex": "#072978",
+        "rgb": [
+          7,
+          41,
+          120
+        ]
+      },
+      {
+        "hex": "#9592DB",
+        "rgb": [
+          149,
+          146,
+          219
+        ]
+      },
+      {
+        "hex": "#FFA32A",
+        "rgb": [
+          255,
+          163,
+          42
+        ]
+      },
+      {
+        "hex": "#AC6A19",
+        "rgb": [
+          172,
+          106,
+          25
+        ]
+      },
+      {
+        "hex": "#48190B",
+        "rgb": [
+          72,
+          25,
+          11
+        ]
+      },
+      {
+        "hex": "#770A0F",
+        "rgb": [
+          119,
+          10,
+          15
+        ]
+      },
+      {
+        "hex": "#DBAD99",
+        "rgb": [
+          219,
+          173,
+          153
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "bar",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "control_vs_treatment",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "environmental_science",
+      "immunology"
+    ],
+    "tags": [
+      "professional",
+      "publication_ready",
+      "soft",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_048",
+    "name": "Minimal Figure 10",
+    "slug": "minimal-figure-10",
+    "colors": [
+      {
+        "hex": "#382E6A",
+        "rgb": [
+          56,
+          46,
+          106
+        ]
+      },
+      {
+        "hex": "#72506A",
+        "rgb": [
+          114,
+          80,
+          106
+        ]
+      },
+      {
+        "hex": "#B37A50",
+        "rgb": [
+          179,
+          122,
+          80
+        ]
+      },
+      {
+        "hex": "#E9AB4C",
+        "rgb": [
+          233,
+          171,
+          76
+        ]
+      },
+      {
+        "hex": "#ECEA6B",
+        "rgb": [
+          236,
+          234,
+          107
+        ]
+      },
+      {
+        "hex": "#6B4930",
+        "rgb": [
+          107,
+          73,
+          48
+        ]
+      },
+      {
+        "hex": "#637353",
+        "rgb": [
+          99,
+          115,
+          83
+        ]
+      },
+      {
+        "hex": "#57B294",
+        "rgb": [
+          87,
+          178,
+          148
+        ]
+      },
+      {
+        "hex": "#55E6D1",
+        "rgb": [
+          85,
+          230,
+          209
+        ]
+      },
+      {
+        "hex": "#74CEEA",
+        "rgb": [
+          116,
+          206,
+          234
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "pca",
+      "scatter",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "chemistry"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "low_saturation",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_049",
+    "name": "Professional Publication 3",
+    "slug": "professional-publication-3",
+    "colors": [
+      {
+        "hex": "#34313E",
+        "rgb": [
+          52,
+          49,
+          62
+        ]
+      },
+      {
+        "hex": "#57566E",
+        "rgb": [
+          87,
+          86,
+          110
+        ]
+      },
+      {
+        "hex": "#BFC0C0",
+        "rgb": [
+          191,
+          192,
+          192
+        ]
+      }
+    ],
+    "journal_style": [
+      "general"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "poster",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "neuroscience"
+    ],
+    "tags": [
+      "clean",
+      "low_saturation",
+      "professional",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_050",
+    "name": "High Contrast Analysis 4",
+    "slug": "high-contrast-analysis-4",
+    "colors": [
+      {
+        "hex": "#4D4C80",
+        "rgb": [
+          77,
+          76,
+          128
+        ]
+      },
+      {
+        "hex": "#B5BBDA",
+        "rgb": [
+          181,
+          187,
+          218
+        ]
+      },
+      {
+        "hex": "#FFFFFF",
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "hex": "#DDB978",
+        "rgb": [
+          221,
+          185,
+          120
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "scatter",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "chemistry"
+    ],
+    "tags": [
+      "low_saturation",
+      "pastel",
+      "publication_ready",
+      "vivid",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_051",
+    "name": "Pastel Categorical 5",
+    "slug": "pastel-categorical-5",
+    "colors": [
+      {
+        "hex": "#232A63",
+        "rgb": [
+          35,
+          42,
+          99
+        ]
+      },
+      {
+        "hex": "#375E87",
+        "rgb": [
+          55,
+          94,
+          135
+        ]
+      },
+      {
+        "hex": "#44B0B6",
+        "rgb": [
+          68,
+          176,
+          182
+        ]
+      },
+      {
+        "hex": "#5EDCB9",
+        "rgb": [
+          94,
+          220,
+          185
+        ]
+      },
+      {
+        "hex": "#96EBC9",
+        "rgb": [
+          150,
+          235,
+          201
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "area",
+      "line",
+      "scatter",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "poster",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "chemistry"
+    ],
+    "tags": [
+      "muted",
+      "pastel",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_052",
+    "name": "Cool Sequential 6",
+    "slug": "cool-sequential-6",
+    "colors": [
+      {
+        "hex": "#A9008E",
+        "rgb": [
+          169,
+          0,
+          142
+        ]
+      },
+      {
+        "hex": "#A82CB3",
+        "rgb": [
+          168,
+          44,
+          179
+        ]
+      },
+      {
+        "hex": "#8B4CC8",
+        "rgb": [
+          139,
+          76,
+          200
+        ]
+      },
+      {
+        "hex": "#4A3FD5",
+        "rgb": [
+          74,
+          63,
+          213
+        ]
+      },
+      {
+        "hex": "#3A49DA",
+        "rgb": [
+          58,
+          73,
+          218
+        ]
+      },
+      {
+        "hex": "#335DE0",
+        "rgb": [
+          51,
+          93,
+          224
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "boxplot",
+      "line",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background"
+    ],
+    "discipline": [
+      "biomedical"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "high_contrast",
+      "minimal",
+      "muted",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_053",
+    "name": "Warm Diverging 8",
+    "slug": "warm-diverging-8",
+    "colors": [
+      {
+        "hex": "#8994EB",
+        "rgb": [
+          137,
+          148,
+          235
+        ]
+      },
+      {
+        "hex": "#1842C5",
+        "rgb": [
+          24,
+          66,
+          197
+        ]
+      },
+      {
+        "hex": "#000749",
+        "rgb": [
+          0,
+          7,
+          73
+        ]
+      },
+      {
+        "hex": "#B9FF03",
+        "rgb": [
+          185,
+          255,
+          3
+        ]
+      },
+      {
+        "hex": "#E3FB00",
+        "rgb": [
+          227,
+          251,
+          0
+        ]
+      },
+      {
+        "hex": "#EA9D91",
+        "rgb": [
+          234,
+          157,
+          145
+        ]
+      },
+      {
+        "hex": "#C51E1D",
+        "rgb": [
+          197,
+          30,
+          29
+        ]
+      },
+      {
+        "hex": "#4A0B00",
+        "rgb": [
+          74,
+          11,
+          0
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "nature"
+    ],
+    "chart_type": [
+      "bar",
+      "scatter",
+      "stacked_bar",
+      "umap",
+      "violin"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "clinical"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_054",
+    "name": "Balanced Comparison 10",
+    "slug": "balanced-comparison-10",
+    "colors": [
+      {
+        "hex": "#3A1454",
+        "rgb": [
+          58,
+          20,
+          84
+        ]
+      },
+      {
+        "hex": "#2229A2",
+        "rgb": [
+          34,
+          41,
+          162
+        ]
+      },
+      {
+        "hex": "#294CC0",
+        "rgb": [
+          41,
+          76,
+          192
+        ]
+      },
+      {
+        "hex": "#B7C3E6",
+        "rgb": [
+          183,
+          195,
+          230
+        ]
+      },
+      {
+        "hex": "#EDF0F9",
+        "rgb": [
+          237,
+          240,
+          249
+        ]
+      },
+      {
+        "hex": "#544A16",
+        "rgb": [
+          84,
+          74,
+          22
+        ]
+      },
+      {
+        "hex": "#A23F26",
+        "rgb": [
+          162,
+          63,
+          38
+        ]
+      },
+      {
+        "hex": "#C0302E",
+        "rgb": [
+          192,
+          48,
+          46
+        ]
+      },
+      {
+        "hex": "#E7BFBF",
+        "rgb": [
+          231,
+          191,
+          191
+        ]
+      },
+      {
+        "hex": "#FBF5F4",
+        "rgb": [
+          251,
+          245,
+          244
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet",
+      "nature"
+    ],
+    "chart_type": [
+      "bar",
+      "pca",
+      "scatter"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "omics",
+      "presentation",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable"
+    ],
+    "discipline": [
+      "chemistry",
+      "clinical",
+      "genomics",
+      "materials_science"
+    ],
+    "tags": [
+      "high_contrast",
+      "low_saturation",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_055",
+    "name": "Modern Time Series 3",
+    "slug": "modern-time-series-3",
+    "colors": [
+      {
+        "hex": "#764A73",
+        "rgb": [
+          118,
+          74,
+          115
+        ]
+      },
+      {
+        "hex": "#2C2A94",
+        "rgb": [
+          44,
+          42,
+          148
+        ]
+      },
+      {
+        "hex": "#349937",
+        "rgb": [
+          52,
+          153,
+          55
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line",
+      "scatter"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "clinical",
+      "poster",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "chemistry",
+      "statistics"
+    ],
+    "tags": [
+      "clean",
+      "cool",
+      "low_saturation",
+      "minimal",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_056",
+    "name": "Calm Panel 4",
+    "slug": "calm-panel-4",
+    "colors": [
+      {
+        "hex": "#292135",
+        "rgb": [
+          41,
+          33,
+          53
+        ]
+      },
+      {
+        "hex": "#4D465E",
+        "rgb": [
+          77,
+          70,
+          94
+        ]
+      },
+      {
+        "hex": "#8E8186",
+        "rgb": [
+          142,
+          129,
+          134
+        ]
+      },
+      {
+        "hex": "#BBAD98",
+        "rgb": [
+          187,
+          173,
+          152
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet",
+      "science"
+    ],
+    "chart_type": [
+      "heatmap",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "clinical",
+      "machine_learning"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "publication_ready",
+      "vivid",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_057",
+    "name": "Sharp Contrast 5",
+    "slug": "sharp-contrast-5",
+    "colors": [
+      {
+        "hex": "#003777",
+        "rgb": [
+          0,
+          55,
+          119
+        ]
+      },
+      {
+        "hex": "#83AEC5",
+        "rgb": [
+          131,
+          174,
+          197
+        ]
+      },
+      {
+        "hex": "#EDF1F9",
+        "rgb": [
+          237,
+          241,
+          249
+        ]
+      },
+      {
+        "hex": "#FFF2D2",
+        "rgb": [
+          255,
+          242,
+          210
+        ]
+      },
+      {
+        "hex": "#E2C578",
+        "rgb": [
+          226,
+          197,
+          120
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "lancet"
+    ],
+    "chart_type": [
+      "area",
+      "boxplot",
+      "scatter",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "clinical"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "muted",
+      "presentation_friendly",
+      "professional",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_058",
+    "name": "Elegant Figure 6",
+    "slug": "elegant-figure-6",
+    "colors": [
+      {
+        "hex": "#9503BA",
+        "rgb": [
+          149,
+          3,
+          186
+        ]
+      },
+      {
+        "hex": "#8650F9",
+        "rgb": [
+          134,
+          80,
+          249
+        ]
+      },
+      {
+        "hex": "#5B86FB",
+        "rgb": [
+          91,
+          134,
+          251
+        ]
+      },
+      {
+        "hex": "#FF3B34",
+        "rgb": [
+          255,
+          59,
+          52
+        ]
+      },
+      {
+        "hex": "#CE0F54",
+        "rgb": [
+          206,
+          15,
+          84
+        ]
+      },
+      {
+        "hex": "#B1B908",
+        "rgb": [
+          177,
+          185,
+          8
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "area",
+      "line",
+      "scatter",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "omics",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "single_cell"
+    ],
+    "tags": [
+      "clean",
+      "minimal",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_059",
+    "name": "Neutral Publication 8",
+    "slug": "neutral-publication-8",
+    "colors": [
+      {
+        "hex": "#2E2835",
+        "rgb": [
+          46,
+          40,
+          53
+        ]
+      },
+      {
+        "hex": "#7F7A95",
+        "rgb": [
+          127,
+          122,
+          149
+        ]
+      },
+      {
+        "hex": "#C7CAD6",
+        "rgb": [
+          199,
+          202,
+          214
+        ]
+      },
+      {
+        "hex": "#B86934",
+        "rgb": [
+          184,
+          105,
+          52
+        ]
+      },
+      {
+        "hex": "#9B4E23",
+        "rgb": [
+          155,
+          78,
+          35
+        ]
+      },
+      {
+        "hex": "#36322A",
+        "rgb": [
+          54,
+          50,
+          42
+        ]
+      },
+      {
+        "hex": "#96887E",
+        "rgb": [
+          150,
+          136,
+          126
+        ]
+      },
+      {
+        "hex": "#DACDCC",
+        "rgb": [
+          218,
+          205,
+          204
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "nejm"
+    ],
+    "chart_type": [
+      "line",
+      "pca",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "AI"
+    ],
+    "tags": [
+      "clean",
+      "minimal",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_060",
+    "name": "Vivid Analysis 10",
+    "slug": "vivid-analysis-10",
+    "colors": [
+      {
+        "hex": "#1E2F38",
+        "rgb": [
+          30,
+          47,
+          56
+        ]
+      },
+      {
+        "hex": "#314C5A",
+        "rgb": [
+          49,
+          76,
+          90
+        ]
+      },
+      {
+        "hex": "#456A7B",
+        "rgb": [
+          69,
+          106,
+          123
+        ]
+      },
+      {
+        "hex": "#6F9FB2",
+        "rgb": [
+          111,
+          159,
+          178
+        ]
+      },
+      {
+        "hex": "#A7CDD3",
+        "rgb": [
+          167,
+          205,
+          211
+        ]
+      },
+      {
+        "hex": "#391F2A",
+        "rgb": [
+          57,
+          31,
+          42
+        ]
+      },
+      {
+        "hex": "#5A3344",
+        "rgb": [
+          90,
+          51,
+          68
+        ]
+      },
+      {
+        "hex": "#7C485F",
+        "rgb": [
+          124,
+          72,
+          95
+        ]
+      },
+      {
+        "hex": "#B27592",
+        "rgb": [
+          178,
+          117,
+          146
+        ]
+      },
+      {
+        "hex": "#D4AEC5",
+        "rgb": [
+          212,
+          174,
+          197
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature",
+      "nejm"
+    ],
+    "chart_type": [
+      "line",
+      "pca",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "biomedical",
+      "immunology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "low_saturation",
+      "muted",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_061",
+    "name": "Muted Categorical 3",
+    "slug": "muted-categorical-3",
+    "colors": [
+      {
+        "hex": "#6D55A0",
+        "rgb": [
+          109,
+          85,
+          160
+        ]
+      },
+      {
+        "hex": "#AFE33A",
+        "rgb": [
+          175,
+          227,
+          58
+        ]
+      },
+      {
+        "hex": "#559B85",
+        "rgb": [
+          85,
+          155,
+          133
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "scatter"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "clinical",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "engineering"
+    ],
+    "tags": [
+      "clean",
+      "muted",
+      "pastel",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_062",
+    "name": "Clean Sequential 4",
+    "slug": "clean-sequential-4",
+    "colors": [
+      {
+        "hex": "#4B21C2",
+        "rgb": [
+          75,
+          33,
+          194
+        ]
+      },
+      {
+        "hex": "#BAFF24",
+        "rgb": [
+          186,
+          255,
+          36
+        ]
+      },
+      {
+        "hex": "#30AD9A",
+        "rgb": [
+          48,
+          173,
+          154
+        ]
+      },
+      {
+        "hex": "#DBC037",
+        "rgb": [
+          219,
+          192,
+          55
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "science"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "presentation",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "machine_learning"
+    ],
+    "tags": [
+      "clean",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_063",
+    "name": "Soft Diverging 5",
+    "slug": "soft-diverging-5",
+    "colors": [
+      {
+        "hex": "#000299",
+        "rgb": [
+          0,
+          2,
+          153
+        ]
+      },
+      {
+        "hex": "#86C600",
+        "rgb": [
+          134,
+          198,
+          0
+        ]
+      },
+      {
+        "hex": "#005788",
+        "rgb": [
+          0,
+          87,
+          136
+        ]
+      },
+      {
+        "hex": "#AAB700",
+        "rgb": [
+          170,
+          183,
+          0
+        ]
+      },
+      {
+        "hex": "#C65B52",
+        "rgb": [
+          198,
+          91,
+          82
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "scatter",
+      "violin"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "control_vs_treatment",
+      "omics",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "genomics",
+      "single_cell"
+    ],
+    "tags": [
+      "cool",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_064",
+    "name": "Clinical Comparison 6",
+    "slug": "clinical-comparison-6",
+    "colors": [
+      {
+        "hex": "#62306D",
+        "rgb": [
+          98,
+          48,
+          109
+        ]
+      },
+      {
+        "hex": "#8484D4",
+        "rgb": [
+          132,
+          132,
+          212
+        ]
+      },
+      {
+        "hex": "#4F6E8C",
+        "rgb": [
+          79,
+          110,
+          140
+        ]
+      },
+      {
+        "hex": "#205D5D",
+        "rgb": [
+          32,
+          93,
+          93
+        ]
+      },
+      {
+        "hex": "#547C3F",
+        "rgb": [
+          84,
+          124,
+          63
+        ]
+      },
+      {
+        "hex": "#9CC376",
+        "rgb": [
+          156,
+          195,
+          118
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "heatmap",
+      "pca",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "multi_group_comparison",
+      "publication"
+    ],
+    "avoid_case": [
+      "small_print"
+    ],
+    "discipline": [
+      "biomedical",
+      "environmental_science",
+      "neuroscience"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "presentation_friendly",
+      "publication_ready",
+      "soft",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_065",
+    "name": "Genomics Time Series 8",
+    "slug": "genomics-time-series-8",
+    "colors": [
+      {
+        "hex": "#0E0D4F",
+        "rgb": [
+          14,
+          13,
+          79
+        ]
+      },
+      {
+        "hex": "#7D5984",
+        "rgb": [
+          125,
+          89,
+          132
+        ]
+      },
+      {
+        "hex": "#AD685F",
+        "rgb": [
+          173,
+          104,
+          95
+        ]
+      },
+      {
+        "hex": "#E9C877",
+        "rgb": [
+          233,
+          200,
+          119
+        ]
+      },
+      {
+        "hex": "#9ADB24",
+        "rgb": [
+          154,
+          219,
+          36
+        ]
+      },
+      {
+        "hex": "#4F200F",
+        "rgb": [
+          79,
+          32,
+          15
+        ]
+      },
+      {
+        "hex": "#82865B",
+        "rgb": [
+          130,
+          134,
+          91
+        ]
+      },
+      {
+        "hex": "#65AD7F",
+        "rgb": [
+          101,
+          173,
+          127
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "bar",
+      "stacked_bar",
+      "umap"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "biomedical",
+      "chemistry"
+    ],
+    "tags": [
+      "clean",
+      "presentation_friendly",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_066",
+    "name": "AI Panel 10",
+    "slug": "ai-panel-10",
+    "colors": [
+      {
+        "hex": "#2E2D56",
+        "rgb": [
+          46,
+          45,
+          86
+        ]
+      },
+      {
+        "hex": "#375FA0",
+        "rgb": [
+          55,
+          95,
+          160
+        ]
+      },
+      {
+        "hex": "#BCE48A",
+        "rgb": [
+          188,
+          228,
+          138
+        ]
+      },
+      {
+        "hex": "#DAED84",
+        "rgb": [
+          218,
+          237,
+          132
+        ]
+      },
+      {
+        "hex": "#E0D971",
+        "rgb": [
+          224,
+          217,
+          113
+        ]
+      },
+      {
+        "hex": "#573A2F",
+        "rgb": [
+          87,
+          58,
+          47
+        ]
+      },
+      {
+        "hex": "#A13A48",
+        "rgb": [
+          161,
+          58,
+          72
+        ]
+      },
+      {
+        "hex": "#92ABE4",
+        "rgb": [
+          146,
+          171,
+          228
+        ]
+      },
+      {
+        "hex": "#8DC2EB",
+        "rgb": [
+          141,
+          194,
+          235
+        ]
+      },
+      {
+        "hex": "#79CCDF",
+        "rgb": [
+          121,
+          204,
+          223
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "stacked_bar"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "omics",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "engineering",
+      "environmental_science",
+      "materials_science"
+    ],
+    "tags": [
+      "clean",
+      "cool",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_067",
+    "name": "Biomedical Contrast 3",
+    "slug": "biomedical-contrast-3",
+    "colors": [
+      {
+        "hex": "#120948",
+        "rgb": [
+          18,
+          9,
+          72
+        ]
+      },
+      {
+        "hex": "#071578",
+        "rgb": [
+          7,
+          21,
+          120
+        ]
+      },
+      {
+        "hex": "#A292DB",
+        "rgb": [
+          162,
+          146,
+          219
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "control_vs_treatment",
+      "omics",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "engineering",
+      "genomics",
+      "oncology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "pastel",
+      "presentation_friendly",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_068",
+    "name": "Minimal Figure 4",
+    "slug": "minimal-figure-4",
+    "colors": [
+      {
+        "hex": "#432E6A",
+        "rgb": [
+          67,
+          46,
+          106
+        ]
+      },
+      {
+        "hex": "#725064",
+        "rgb": [
+          114,
+          80,
+          100
+        ]
+      },
+      {
+        "hex": "#B38B50",
+        "rgb": [
+          179,
+          139,
+          80
+        ]
+      },
+      {
+        "hex": "#E9C64C",
+        "rgb": [
+          233,
+          198,
+          76
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "scatter",
+      "survival_curve",
+      "violin"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "multi_group_comparison",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "chemistry",
+      "materials_science"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_069",
+    "name": "Professional Publication 5",
+    "slug": "professional-publication-5",
+    "colors": [
+      {
+        "hex": "#3A313E",
+        "rgb": [
+          58,
+          49,
+          62
+        ]
+      },
+      {
+        "hex": "#61566E",
+        "rgb": [
+          97,
+          86,
+          110
+        ]
+      },
+      {
+        "hex": "#BFBFC0",
+        "rgb": [
+          191,
+          191,
+          192
+        ]
+      },
+      {
+        "hex": "#FFFFFF",
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "hex": "#C5D46F",
+        "rgb": [
+          197,
+          212,
+          111
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature",
+      "nejm"
+    ],
+    "chart_type": [
+      "line",
+      "scatter",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "control_vs_treatment",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "chemistry"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "high_contrast",
+      "low_saturation",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_070",
+    "name": "High Contrast Analysis 6",
+    "slug": "high-contrast-analysis-6",
+    "colors": [
+      {
+        "hex": "#564C80",
+        "rgb": [
+          86,
+          76,
+          128
+        ]
+      },
+      {
+        "hex": "#B5B5DA",
+        "rgb": [
+          181,
+          181,
+          218
+        ]
+      },
+      {
+        "hex": "#FFFFFF",
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "hex": "#DDCB78",
+        "rgb": [
+          221,
+          203,
+          120
+        ]
+      },
+      {
+        "hex": "#353043",
+        "rgb": [
+          53,
+          48,
+          67
+        ]
+      },
+      {
+        "hex": "#81654F",
+        "rgb": [
+          129,
+          101,
+          79
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "violin"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "omics",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable"
+    ],
+    "discipline": [
+      "AI",
+      "biomedical",
+      "environmental_science",
+      "genomics",
+      "materials_science"
+    ],
+    "tags": [
+      "clean",
+      "high_contrast",
+      "low_saturation",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_071",
+    "name": "Pastel Categorical 8",
+    "slug": "pastel-categorical-8",
+    "colors": [
+      {
+        "hex": "#272363",
+        "rgb": [
+          39,
+          35,
+          99
+        ]
+      },
+      {
+        "hex": "#375087",
+        "rgb": [
+          55,
+          80,
+          135
+        ]
+      },
+      {
+        "hex": "#449CB6",
+        "rgb": [
+          68,
+          156,
+          182
+        ]
+      },
+      {
+        "hex": "#5EDCCE",
+        "rgb": [
+          94,
+          220,
+          206
+        ]
+      },
+      {
+        "hex": "#96EBD7",
+        "rgb": [
+          150,
+          235,
+          215
+        ]
+      },
+      {
+        "hex": "#643925",
+        "rgb": [
+          100,
+          57,
+          37
+        ]
+      },
+      {
+        "hex": "#883A3F",
+        "rgb": [
+          136,
+          58,
+          63
+        ]
+      },
+      {
+        "hex": "#B74982",
+        "rgb": [
+          183,
+          73,
+          130
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "pca",
+      "umap"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "AI",
+      "biomedical",
+      "materials_science"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "cool",
+      "minimal",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_072",
+    "name": "Cool Sequential 10",
+    "slug": "cool-sequential-10",
+    "colors": [
+      {
+        "hex": "#A90071",
+        "rgb": [
+          169,
+          0,
+          113
+        ]
+      },
+      {
+        "hex": "#B32CA7",
+        "rgb": [
+          179,
+          44,
+          167
+        ]
+      },
+      {
+        "hex": "#A14CC8",
+        "rgb": [
+          161,
+          76,
+          200
+        ]
+      },
+      {
+        "hex": "#643FD5",
+        "rgb": [
+          100,
+          63,
+          213
+        ]
+      },
+      {
+        "hex": "#463ADA",
+        "rgb": [
+          70,
+          58,
+          218
+        ]
+      },
+      {
+        "hex": "#333FE0",
+        "rgb": [
+          51,
+          63,
+          224
+        ]
+      },
+      {
+        "hex": "#04A80A",
+        "rgb": [
+          4,
+          168,
+          10
+        ]
+      },
+      {
+        "hex": "#4CB430",
+        "rgb": [
+          76,
+          180,
+          48
+        ]
+      },
+      {
+        "hex": "#9AC753",
+        "rgb": [
+          154,
+          199,
+          83
+        ]
+      },
+      {
+        "hex": "#D2CB48",
+        "rgb": [
+          210,
+          203,
+          72
+        ]
+      }
+    ],
+    "journal_style": [
+      "science"
+    ],
+    "chart_type": [
+      "pca",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "control_vs_treatment",
+      "omics",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "AI",
+      "environmental_science",
+      "genomics"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "muted",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_073",
+    "name": "Warm Diverging 3",
+    "slug": "warm-diverging-3",
+    "colors": [
+      {
+        "hex": "#8E89EB",
+        "rgb": [
+          142,
+          137,
+          235
+        ]
+      },
+      {
+        "hex": "#1824C5",
+        "rgb": [
+          24,
+          36,
+          197
+        ]
+      },
+      {
+        "hex": "#050049",
+        "rgb": [
+          5,
+          0,
+          73
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "multi_group_comparison",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "statistics"
+    ],
+    "tags": [
+      "minimal",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_074",
+    "name": "Balanced Comparison 4",
+    "slug": "balanced-comparison-4",
+    "colors": [
+      {
+        "hex": "#451454",
+        "rgb": [
+          69,
+          20,
+          84
+        ]
+      },
+      {
+        "hex": "#3222A2",
+        "rgb": [
+          50,
+          34,
+          162
+        ]
+      },
+      {
+        "hex": "#2932C0",
+        "rgb": [
+          41,
+          50,
+          192
+        ]
+      },
+      {
+        "hex": "#B7BBE6",
+        "rgb": [
+          183,
+          187,
+          230
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "science"
+    ],
+    "chart_type": [
+      "boxplot",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "clinical",
+      "engineering",
+      "environmental_science"
+    ],
+    "tags": [
+      "high_contrast",
+      "pastel",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_075",
+    "name": "Modern Time Series 5",
+    "slug": "modern-time-series-5",
+    "colors": [
+      {
+        "hex": "#764A6C",
+        "rgb": [
+          118,
+          74,
+          108
+        ]
+      },
+      {
+        "hex": "#3F2A94",
+        "rgb": [
+          63,
+          42,
+          148
+        ]
+      },
+      {
+        "hex": "#349948",
+        "rgb": [
+          52,
+          153,
+          72
+        ]
+      },
+      {
+        "hex": "#7FDD30",
+        "rgb": [
+          127,
+          221,
+          48
+        ]
+      },
+      {
+        "hex": "#E1BF47",
+        "rgb": [
+          225,
+          191,
+          71
+        ]
+      }
+    ],
+    "journal_style": [
+      "science"
+    ],
+    "chart_type": [
+      "area",
+      "bar",
+      "scatter",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "omics",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "genomics"
+    ],
+    "tags": [
+      "clean",
+      "pastel",
+      "presentation_friendly",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_076",
+    "name": "Calm Panel 6",
+    "slug": "calm-panel-6",
+    "colors": [
+      {
+        "hex": "#322135",
+        "rgb": [
+          50,
+          33,
+          53
+        ]
+      },
+      {
+        "hex": "#58465E",
+        "rgb": [
+          88,
+          70,
+          94
+        ]
+      },
+      {
+        "hex": "#8E8181",
+        "rgb": [
+          142,
+          129,
+          129
+        ]
+      },
+      {
+        "hex": "#BABB98",
+        "rgb": [
+          186,
+          187,
+          152
+        ]
+      },
+      {
+        "hex": "#DFE4CD",
+        "rgb": [
+          223,
+          228,
+          205
+        ]
+      },
+      {
+        "hex": "#333522",
+        "rgb": [
+          51,
+          53,
+          34
+        ]
+      }
+    ],
+    "journal_style": [
+      "science"
+    ],
+    "chart_type": [
+      "area",
+      "boxplot",
+      "line",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "multi_group_comparison",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "chemistry",
+      "engineering",
+      "oncology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "minimal",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_077",
+    "name": "Sharp Contrast 8",
+    "slug": "sharp-contrast-8",
+    "colors": [
+      {
+        "hex": "#002277",
+        "rgb": [
+          0,
+          34,
+          119
+        ]
+      },
+      {
+        "hex": "#83A2C5",
+        "rgb": [
+          131,
+          162,
+          197
+        ]
+      },
+      {
+        "hex": "#EDEEF9",
+        "rgb": [
+          237,
+          238,
+          249
+        ]
+      },
+      {
+        "hex": "#FFF9D2",
+        "rgb": [
+          255,
+          249,
+          210
+        ]
+      },
+      {
+        "hex": "#E2D878",
+        "rgb": [
+          226,
+          216,
+          120
+        ]
+      },
+      {
+        "hex": "#760307",
+        "rgb": [
+          118,
+          3,
+          7
+        ]
+      },
+      {
+        "hex": "#C68997",
+        "rgb": [
+          198,
+          137,
+          151
+        ]
+      },
+      {
+        "hex": "#FBF5F4",
+        "rgb": [
+          251,
+          245,
+          244
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "nejm"
+    ],
+    "chart_type": [
+      "line",
+      "stacked_bar",
+      "umap"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "control_vs_treatment",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "AI",
+      "engineering"
+    ],
+    "tags": [
+      "cool",
+      "minimal",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_078",
+    "name": "Elegant Figure 10",
+    "slug": "elegant-figure-10",
+    "colors": [
+      {
+        "hex": "#B403BA",
+        "rgb": [
+          180,
+          3,
+          186
+        ]
+      },
+      {
+        "hex": "#A350F9",
+        "rgb": [
+          163,
+          80,
+          249
+        ]
+      },
+      {
+        "hex": "#5B6AFB",
+        "rgb": [
+          91,
+          106,
+          251
+        ]
+      },
+      {
+        "hex": "#FF5E34",
+        "rgb": [
+          255,
+          94,
+          52
+        ]
+      },
+      {
+        "hex": "#CE0F33",
+        "rgb": [
+          206,
+          15,
+          51
+        ]
+      },
+      {
+        "hex": "#92B908",
+        "rgb": [
+          146,
+          185,
+          8
+        ]
+      },
+      {
+        "hex": "#F5CD5B",
+        "rgb": [
+          245,
+          205,
+          91
+        ]
+      },
+      {
+        "hex": "#F77C65",
+        "rgb": [
+          247,
+          124,
+          101
+        ]
+      },
+      {
+        "hex": "#3BFE94",
+        "rgb": [
+          59,
+          254,
+          148
+        ]
+      },
+      {
+        "hex": "#14CD1F",
+        "rgb": [
+          20,
+          205,
+          31
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "nejm"
+    ],
+    "chart_type": [
+      "line",
+      "scatter",
+      "stacked_bar"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable"
+    ],
+    "discipline": [
+      "genomics"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "high_contrast",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_079",
+    "name": "Neutral Publication 3",
+    "slug": "neutral-publication-3",
+    "colors": [
+      {
+        "hex": "#302835",
+        "rgb": [
+          48,
+          40,
+          53
+        ]
+      },
+      {
+        "hex": "#837A95",
+        "rgb": [
+          131,
+          122,
+          149
+        ]
+      },
+      {
+        "hex": "#C7C7D6",
+        "rgb": [
+          199,
+          199,
+          214
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "chemistry",
+      "general",
+      "machine_learning"
+    ],
+    "tags": [
+      "muted",
+      "presentation_friendly",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_080",
+    "name": "Vivid Analysis 4",
+    "slug": "vivid-analysis-4",
+    "colors": [
+      {
+        "hex": "#1E2B38",
+        "rgb": [
+          30,
+          43,
+          56
+        ]
+      },
+      {
+        "hex": "#31455A",
+        "rgb": [
+          49,
+          69,
+          90
+        ]
+      },
+      {
+        "hex": "#45617B",
+        "rgb": [
+          69,
+          97,
+          123
+        ]
+      },
+      {
+        "hex": "#6F94B2",
+        "rgb": [
+          111,
+          148,
+          178
+        ]
+      }
+    ],
+    "journal_style": [
+      "science"
+    ],
+    "chart_type": [
+      "heatmap",
+      "scatter",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "poster",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "clinical",
+      "engineering"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "cool",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_081",
+    "name": "Muted Categorical 5",
+    "slug": "muted-categorical-5",
+    "colors": [
+      {
+        "hex": "#7B55A0",
+        "rgb": [
+          123,
+          85,
+          160
+        ]
+      },
+      {
+        "hex": "#92E33A",
+        "rgb": [
+          146,
+          227,
+          58
+        ]
+      },
+      {
+        "hex": "#559B91",
+        "rgb": [
+          85,
+          155,
+          145
+        ]
+      },
+      {
+        "hex": "#D7D361",
+        "rgb": [
+          215,
+          211,
+          97
+        ]
+      },
+      {
+        "hex": "#AC8A7E",
+        "rgb": [
+          172,
+          138,
+          126
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet",
+      "science"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "colorblind_sensitive",
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "biomedical",
+      "genomics"
+    ],
+    "tags": [
+      "low_saturation",
+      "publication_ready",
+      "vivid",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_082",
+    "name": "Clean Sequential 6",
+    "slug": "clean-sequential-6",
+    "colors": [
+      {
+        "hex": "#6721C2",
+        "rgb": [
+          103,
+          33,
+          194
+        ]
+      },
+      {
+        "hex": "#94FF24",
+        "rgb": [
+          148,
+          255,
+          36
+        ]
+      },
+      {
+        "hex": "#30AAAD",
+        "rgb": [
+          48,
+          170,
+          173
+        ]
+      },
+      {
+        "hex": "#D8DB37",
+        "rgb": [
+          216,
+          219,
+          55
+        ]
+      },
+      {
+        "hex": "#C4779A",
+        "rgb": [
+          196,
+          119,
+          154
+        ]
+      },
+      {
+        "hex": "#8A9751",
+        "rgb": [
+          138,
+          151,
+          81
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "scatter",
+      "survival_curve",
+      "violin"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "poster",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background"
+    ],
+    "discipline": [
+      "neuroscience"
+    ],
+    "tags": [
+      "cool",
+      "high_contrast",
+      "muted",
+      "presentation_friendly",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_083",
+    "name": "Soft Diverging 8",
+    "slug": "soft-diverging-8",
+    "colors": [
+      {
+        "hex": "#400099",
+        "rgb": [
+          64,
+          0,
+          153
+        ]
+      },
+      {
+        "hex": "#32C600",
+        "rgb": [
+          50,
+          198,
+          0
+        ]
+      },
+      {
+        "hex": "#001D88",
+        "rgb": [
+          0,
+          29,
+          136
+        ]
+      },
+      {
+        "hex": "#5CB700",
+        "rgb": [
+          92,
+          183,
+          0
+        ]
+      },
+      {
+        "hex": "#C68C52",
+        "rgb": [
+          198,
+          140,
+          82
+        ]
+      },
+      {
+        "hex": "#7824EF",
+        "rgb": [
+          120,
+          36,
+          239
+        ]
+      },
+      {
+        "hex": "#8A9C00",
+        "rgb": [
+          138,
+          156,
+          0
+        ]
+      },
+      {
+        "hex": "#5A00CA",
+        "rgb": [
+          90,
+          0,
+          202
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "omics",
+      "presentation",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "biomedical",
+      "genomics"
+    ],
+    "tags": [
+      "clean",
+      "presentation_friendly",
+      "publication_ready",
+      "soft",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_084",
+    "name": "Clinical Comparison 10",
+    "slug": "clinical-comparison-10",
+    "colors": [
+      {
+        "hex": "#6D306C",
+        "rgb": [
+          109,
+          48,
+          108
+        ]
+      },
+      {
+        "hex": "#9284D4",
+        "rgb": [
+          146,
+          132,
+          212
+        ]
+      },
+      {
+        "hex": "#4F638C",
+        "rgb": [
+          79,
+          99,
+          140
+        ]
+      },
+      {
+        "hex": "#20525D",
+        "rgb": [
+          32,
+          82,
+          93
+        ]
+      },
+      {
+        "hex": "#497C3F",
+        "rgb": [
+          73,
+          124,
+          63
+        ]
+      },
+      {
+        "hex": "#8FC376",
+        "rgb": [
+          143,
+          195,
+          118
+        ]
+      },
+      {
+        "hex": "#B29A68",
+        "rgb": [
+          178,
+          154,
+          104
+        ]
+      },
+      {
+        "hex": "#6D4430",
+        "rgb": [
+          109,
+          68,
+          48
+        ]
+      },
+      {
+        "hex": "#326D56",
+        "rgb": [
+          50,
+          109,
+          86
+        ]
+      },
+      {
+        "hex": "#9BD48B",
+        "rgb": [
+          155,
+          212,
+          139
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "pca",
+      "umap",
+      "violin"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "control_vs_treatment",
+      "multi_group_comparison",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "AI",
+      "statistics"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "cool",
+      "minimal",
+      "muted",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_085",
+    "name": "Genomics Time Series 3",
+    "slug": "genomics-time-series-3",
+    "colors": [
+      {
+        "hex": "#1A0D4F",
+        "rgb": [
+          26,
+          13,
+          79
+        ]
+      },
+      {
+        "hex": "#845984",
+        "rgb": [
+          132,
+          89,
+          132
+        ]
+      },
+      {
+        "hex": "#AD755F",
+        "rgb": [
+          173,
+          117,
+          95
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature",
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "scatter"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "clinical",
+      "poster",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "biomedical",
+      "clinical",
+      "general"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "presentation_friendly",
+      "publication_ready",
+      "soft",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_086",
+    "name": "AI Panel 4",
+    "slug": "ai-panel-4",
+    "colors": [
+      {
+        "hex": "#352D56",
+        "rgb": [
+          53,
+          45,
+          86
+        ]
+      },
+      {
+        "hex": "#374DA0",
+        "rgb": [
+          55,
+          77,
+          160
+        ]
+      },
+      {
+        "hex": "#ACE48A",
+        "rgb": [
+          172,
+          228,
+          138
+        ]
+      },
+      {
+        "hex": "#C7ED84",
+        "rgb": [
+          199,
+          237,
+          132
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "lancet"
+    ],
+    "chart_type": [
+      "area",
+      "bar",
+      "line",
+      "stacked_bar"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "machine_learning",
+      "statistics"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "low_saturation",
+      "presentation_friendly",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_087",
+    "name": "Biomedical Contrast 5",
+    "slug": "biomedical-contrast-5",
+    "colors": [
+      {
+        "hex": "#1D0948",
+        "rgb": [
+          29,
+          9,
+          72
+        ]
+      },
+      {
+        "hex": "#0C0778",
+        "rgb": [
+          12,
+          7,
+          120
+        ]
+      },
+      {
+        "hex": "#AF92DB",
+        "rgb": [
+          175,
+          146,
+          219
+        ]
+      },
+      {
+        "hex": "#FFED2A",
+        "rgb": [
+          255,
+          237,
+          42
+        ]
+      },
+      {
+        "hex": "#AC9D19",
+        "rgb": [
+          172,
+          157,
+          25
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "scatter",
+      "violin"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "clinical",
+      "immunology",
+      "oncology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_088",
+    "name": "Minimal Figure 6",
+    "slug": "minimal-figure-6",
+    "colors": [
+      {
+        "hex": "#4E2E6A",
+        "rgb": [
+          78,
+          46,
+          106
+        ]
+      },
+      {
+        "hex": "#72505E",
+        "rgb": [
+          114,
+          80,
+          94
+        ]
+      },
+      {
+        "hex": "#B39C50",
+        "rgb": [
+          179,
+          156,
+          80
+        ]
+      },
+      {
+        "hex": "#E9E24C",
+        "rgb": [
+          233,
+          226,
+          76
+        ]
+      },
+      {
+        "hex": "#C1EC6B",
+        "rgb": [
+          193,
+          236,
+          107
+        ]
+      },
+      {
+        "hex": "#6B5E30",
+        "rgb": [
+          107,
+          94,
+          48
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell",
+      "general"
+    ],
+    "chart_type": [
+      "pca",
+      "scatter",
+      "umap"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "multi_group_comparison",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "machine_learning"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "minimal",
+      "muted",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_089",
+    "name": "Professional Publication 8",
+    "slug": "professional-publication-8",
+    "colors": [
+      {
+        "hex": "#3C313E",
+        "rgb": [
+          60,
+          49,
+          62
+        ]
+      },
+      {
+        "hex": "#66566E",
+        "rgb": [
+          102,
+          86,
+          110
+        ]
+      },
+      {
+        "hex": "#BFBFC0",
+        "rgb": [
+          191,
+          191,
+          192
+        ]
+      },
+      {
+        "hex": "#FFFFFF",
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "hex": "#B3D46F",
+        "rgb": [
+          179,
+          212,
+          111
+        ]
+      },
+      {
+        "hex": "#3E3F32",
+        "rgb": [
+          62,
+          63,
+          50
+        ]
+      },
+      {
+        "hex": "#706E58",
+        "rgb": [
+          112,
+          110,
+          88
+        ]
+      },
+      {
+        "hex": "#C4C3C3",
+        "rgb": [
+          196,
+          195,
+          195
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "pca",
+      "stacked_bar",
+      "umap"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "clinical",
+      "immunology"
+    ],
+    "tags": [
+      "cool",
+      "pastel",
+      "presentation_friendly",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_090",
+    "name": "High Contrast Analysis 10",
+    "slug": "high-contrast-analysis-10",
+    "colors": [
+      {
+        "hex": "#6C4C80",
+        "rgb": [
+          108,
+          76,
+          128
+        ]
+      },
+      {
+        "hex": "#C4B5DA",
+        "rgb": [
+          196,
+          181,
+          218
+        ]
+      },
+      {
+        "hex": "#FFFFFF",
+        "rgb": [
+          255,
+          255,
+          255
+        ]
+      },
+      {
+        "hex": "#C3DD78",
+        "rgb": [
+          195,
+          221,
+          120
+        ]
+      },
+      {
+        "hex": "#3D3043",
+        "rgb": [
+          61,
+          48,
+          67
+        ]
+      },
+      {
+        "hex": "#817B4F",
+        "rgb": [
+          129,
+          123,
+          79
+        ]
+      },
+      {
+        "hex": "#DCD1BB",
+        "rgb": [
+          220,
+          209,
+          187
+        ]
+      },
+      {
+        "hex": "#7FAEDC",
+        "rgb": [
+          127,
+          174,
+          220
+        ]
+      },
+      {
+        "hex": "#434231",
+        "rgb": [
+          67,
+          66,
+          49
+        ]
+      },
+      {
+        "hex": "#BA6195",
+        "rgb": [
+          186,
+          97,
+          149
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "lancet"
+    ],
+    "chart_type": [
+      "line",
+      "pca",
+      "scatter",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "omics",
+      "poster",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background"
+    ],
+    "discipline": [
+      "biomedical",
+      "engineering",
+      "genomics",
+      "machine_learning"
+    ],
+    "tags": [
+      "high_contrast",
+      "muted",
+      "presentation_friendly",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_091",
+    "name": "Pastel Categorical 3",
+    "slug": "pastel-categorical-3",
+    "colors": [
+      {
+        "hex": "#322363",
+        "rgb": [
+          50,
+          35,
+          99
+        ]
+      },
+      {
+        "hex": "#374287",
+        "rgb": [
+          55,
+          66,
+          135
+        ]
+      },
+      {
+        "hex": "#4488B6",
+        "rgb": [
+          68,
+          136,
+          182
+        ]
+      }
+    ],
+    "journal_style": [
+      "nature"
+    ],
+    "chart_type": [
+      "bar",
+      "boxplot",
+      "line",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "multi_group_comparison",
+      "omics",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "chemistry"
+    ],
+    "tags": [
+      "high_contrast",
+      "presentation_friendly",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_092",
+    "name": "Cool Sequential 4",
+    "slug": "cool-sequential-4",
+    "colors": [
+      {
+        "hex": "#A90054",
+        "rgb": [
+          169,
+          0,
+          84
+        ]
+      },
+      {
+        "hex": "#B32C90",
+        "rgb": [
+          179,
+          44,
+          144
+        ]
+      },
+      {
+        "hex": "#B74CC8",
+        "rgb": [
+          183,
+          76,
+          200
+        ]
+      },
+      {
+        "hex": "#7E3FD5",
+        "rgb": [
+          126,
+          63,
+          213
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet",
+      "nature"
+    ],
+    "chart_type": [
+      "area",
+      "line",
+      "survival_curve"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "multi_group_comparison",
+      "omics",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "genomics"
+    ],
+    "tags": [
+      "clean",
+      "colorblind_friendly",
+      "cool",
+      "publication_ready",
+      "vivid",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_093",
+    "name": "Warm Diverging 5",
+    "slug": "warm-diverging-5",
+    "colors": [
+      {
+        "hex": "#9F89EB",
+        "rgb": [
+          159,
+          137,
+          235
+        ]
+      },
+      {
+        "hex": "#2A18C5",
+        "rgb": [
+          42,
+          24,
+          197
+        ]
+      },
+      {
+        "hex": "#120049",
+        "rgb": [
+          18,
+          0,
+          73
+        ]
+      },
+      {
+        "hex": "#61FF03",
+        "rgb": [
+          97,
+          255,
+          3
+        ]
+      },
+      {
+        "hex": "#8CFB00",
+        "rgb": [
+          140,
+          251,
+          0
+        ]
+      }
+    ],
+    "journal_style": [
+      "science"
+    ],
+    "chart_type": [
+      "area",
+      "stacked_bar",
+      "violin"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "clinical",
+      "control_vs_treatment",
+      "multi_group_comparison",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "clinical",
+      "immunology",
+      "oncology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "low_saturation",
+      "minimal",
+      "muted",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_094",
+    "name": "Balanced Comparison 6",
+    "slug": "balanced-comparison-6",
+    "colors": [
+      {
+        "hex": "#501454",
+        "rgb": [
+          80,
+          20,
+          84
+        ]
+      },
+      {
+        "hex": "#4822A2",
+        "rgb": [
+          72,
+          34,
+          162
+        ]
+      },
+      {
+        "hex": "#3A29C0",
+        "rgb": [
+          58,
+          41,
+          192
+        ]
+      },
+      {
+        "hex": "#BCB7E6",
+        "rgb": [
+          188,
+          183,
+          230
+        ]
+      },
+      {
+        "hex": "#EEEDF9",
+        "rgb": [
+          238,
+          237,
+          249
+        ]
+      },
+      {
+        "hex": "#495416",
+        "rgb": [
+          73,
+          84,
+          22
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "nature"
+    ],
+    "chart_type": [
+      "scatter",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "control_vs_treatment",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "neuroscience"
+    ],
+    "tags": [
+      "clean",
+      "muted",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_095",
+    "name": "Modern Time Series 8",
+    "slug": "modern-time-series-8",
+    "colors": [
+      {
+        "hex": "#764A64",
+        "rgb": [
+          118,
+          74,
+          100
+        ]
+      },
+      {
+        "hex": "#512A94",
+        "rgb": [
+          81,
+          42,
+          148
+        ]
+      },
+      {
+        "hex": "#34995A",
+        "rgb": [
+          52,
+          153,
+          90
+        ]
+      },
+      {
+        "hex": "#61DD30",
+        "rgb": [
+          97,
+          221,
+          48
+        ]
+      },
+      {
+        "hex": "#E1DA47",
+        "rgb": [
+          225,
+          218,
+          71
+        ]
+      },
+      {
+        "hex": "#5B774D",
+        "rgb": [
+          91,
+          119,
+          77
+        ]
+      },
+      {
+        "hex": "#946D2E",
+        "rgb": [
+          148,
+          109,
+          46
+        ]
+      },
+      {
+        "hex": "#75389A",
+        "rgb": [
+          117,
+          56,
+          154
+        ]
+      }
+    ],
+    "journal_style": [
+      "nejm"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "pca",
+      "scatter",
+      "violin"
+    ],
+    "color_count": 8,
+    "use_case": [
+      "clinical",
+      "omics",
+      "presentation",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "biomedical",
+      "chemistry",
+      "machine_learning",
+      "single_cell"
+    ],
+    "tags": [
+      "clean",
+      "muted",
+      "pastel",
+      "presentation_friendly",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_096",
+    "name": "Calm Panel 10",
+    "slug": "calm-panel-10",
+    "colors": [
+      {
+        "hex": "#352134",
+        "rgb": [
+          53,
+          33,
+          52
+        ]
+      },
+      {
+        "hex": "#5C465E",
+        "rgb": [
+          92,
+          70,
+          94
+        ]
+      },
+      {
+        "hex": "#8E8381",
+        "rgb": [
+          142,
+          131,
+          129
+        ]
+      },
+      {
+        "hex": "#B4BB98",
+        "rgb": [
+          180,
+          187,
+          152
+        ]
+      },
+      {
+        "hex": "#DBE4CD",
+        "rgb": [
+          219,
+          228,
+          205
+        ]
+      },
+      {
+        "hex": "#303522",
+        "rgb": [
+          48,
+          53,
+          34
+        ]
+      },
+      {
+        "hex": "#5C6048",
+        "rgb": [
+          92,
+          96,
+          72
+        ]
+      },
+      {
+        "hex": "#849089",
+        "rgb": [
+          132,
+          144,
+          137
+        ]
+      },
+      {
+        "hex": "#9DAEBD",
+        "rgb": [
+          157,
+          174,
+          189
+        ]
+      },
+      {
+        "hex": "#D3DAE6",
+        "rgb": [
+          211,
+          218,
+          230
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "nejm"
+    ],
+    "chart_type": [
+      "scatter",
+      "umap",
+      "volcano_plot"
+    ],
+    "color_count": 10,
+    "use_case": [
+      "clinical",
+      "multi_group_comparison",
+      "publication",
+      "time_series"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "small_print"
+    ],
+    "discipline": [
+      "clinical",
+      "oncology"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "cool",
+      "low_saturation",
+      "pastel",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_097",
+    "name": "Sharp Contrast 3",
+    "slug": "sharp-contrast-3",
+    "colors": [
+      {
+        "hex": "#110077",
+        "rgb": [
+          17,
+          0,
+          119
+        ]
+      },
+      {
+        "hex": "#8386C5",
+        "rgb": [
+          131,
+          134,
+          197
+        ]
+      },
+      {
+        "hex": "#F1EDF9",
+        "rgb": [
+          241,
+          237,
+          249
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "scatter",
+      "survival_curve"
+    ],
+    "color_count": 3,
+    "use_case": [
+      "clinical",
+      "omics",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "clinical",
+      "machine_learning"
+    ],
+    "tags": [
+      "minimal",
+      "pastel",
+      "publication_ready",
+      "soft"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_098",
+    "name": "Elegant Figure 4",
+    "slug": "elegant-figure-4",
+    "colors": [
+      {
+        "hex": "#BA039F",
+        "rgb": [
+          186,
+          3,
+          159
+        ]
+      },
+      {
+        "hex": "#C050F9",
+        "rgb": [
+          192,
+          80,
+          249
+        ]
+      },
+      {
+        "hex": "#675BFB",
+        "rgb": [
+          103,
+          91,
+          251
+        ]
+      },
+      {
+        "hex": "#FF8234",
+        "rgb": [
+          255,
+          130,
+          52
+        ]
+      }
+    ],
+    "journal_style": [
+      "cell"
+    ],
+    "chart_type": [
+      "bar",
+      "line",
+      "scatter",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 4,
+    "use_case": [
+      "multi_group_comparison",
+      "publication",
+      "thesis"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "dark_background",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "chemistry",
+      "environmental_science"
+    ],
+    "tags": [
+      "cool",
+      "high_contrast",
+      "minimal",
+      "pastel",
+      "publication_ready",
+      "warm"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_099",
+    "name": "Neutral Publication 5",
+    "slug": "neutral-publication-5",
+    "colors": [
+      {
+        "hex": "#332835",
+        "rgb": [
+          51,
+          40,
+          53
+        ]
+      },
+      {
+        "hex": "#887A95",
+        "rgb": [
+          136,
+          122,
+          149
+        ]
+      },
+      {
+        "hex": "#CAC7D6",
+        "rgb": [
+          202,
+          199,
+          214
+        ]
+      },
+      {
+        "hex": "#B89734",
+        "rgb": [
+          184,
+          151,
+          52
+        ]
+      },
+      {
+        "hex": "#9B7723",
+        "rgb": [
+          155,
+          119,
+          35
+        ]
+      }
+    ],
+    "journal_style": [
+      "general",
+      "nejm"
+    ],
+    "chart_type": [
+      "area",
+      "bar",
+      "scatter",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 5,
+    "use_case": [
+      "multi_group_comparison",
+      "omics",
+      "presentation",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print",
+      "too_many_groups"
+    ],
+    "discipline": [
+      "AI",
+      "genomics",
+      "materials_science",
+      "statistics"
+    ],
+    "tags": [
+      "clean",
+      "minimal",
+      "professional",
+      "publication_ready"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  },
+  {
+    "id": "pal_100",
+    "name": "Vivid Analysis 6",
+    "slug": "vivid-analysis-6",
+    "colors": [
+      {
+        "hex": "#1E2638",
+        "rgb": [
+          30,
+          38,
+          56
+        ]
+      },
+      {
+        "hex": "#313E5A",
+        "rgb": [
+          49,
+          62,
+          90
+        ]
+      },
+      {
+        "hex": "#45577B",
+        "rgb": [
+          69,
+          87,
+          123
+        ]
+      },
+      {
+        "hex": "#6F88B2",
+        "rgb": [
+          111,
+          136,
+          178
+        ]
+      },
+      {
+        "hex": "#A7BED3",
+        "rgb": [
+          167,
+          190,
+          211
+        ]
+      },
+      {
+        "hex": "#391F21",
+        "rgb": [
+          57,
+          31,
+          33
+        ]
+      }
+    ],
+    "journal_style": [
+      "lancet"
+    ],
+    "chart_type": [
+      "line",
+      "scatter",
+      "stacked_bar",
+      "survival_curve"
+    ],
+    "color_count": 6,
+    "use_case": [
+      "clinical",
+      "omics",
+      "poster",
+      "publication"
+    ],
+    "avoid_case": [
+      "continuous_variable",
+      "small_print"
+    ],
+    "discipline": [
+      "biomedical",
+      "neuroscience"
+    ],
+    "tags": [
+      "colorblind_friendly",
+      "minimal",
+      "pastel",
+      "publication_ready",
+      "vivid"
+    ],
+    "created_at": "2026-05-11T00:00:00Z",
+    "updated_at": "2026-05-11T00:00:00Z"
+  }
+]
