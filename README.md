@@ -75,6 +75,23 @@ createdb figcolor
 go run ./cmd/server
 ```
 
+### Temporary Admin Account
+
+- Account: `admin@figcolor.local`
+- Password: `admin123`
+
+### Temporary Test Accounts
+
+These local development accounts are not part of the production migration chain. To create or refresh them manually, run:
+
+```bash
+psql "$DATABASE_URL" -f backend/dev/seed_test_users.sql
+```
+
+- Account: `test1@figcolor.local` / Password: `test1234`
+- Account: `test2@figcolor.local` / Password: `test1234`
+- Account: `test3@figcolor.local` / Password: `test1234`
+
 ## Routes
 
 - `/` - Home page
