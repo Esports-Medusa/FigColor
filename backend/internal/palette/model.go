@@ -2,13 +2,17 @@ package palette
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
 // PaletteColor represents a single color in a palette
 type PaletteColor struct {
-	Hex string       `json:"hex"`
-	RGB [3]int       `json:"rgb"` // [R, G, B]
+	ID    string `json:"id"`
+	Hex   string `json:"hex"`
+	RGB   [3]int `json:"rgb"` // [R, G, B]
+	Label string `json:"label,omitempty"`
+	Order int    `json:"order"`
 }
 
 // Accessibility represents accessibility features of a palette
@@ -20,29 +24,56 @@ type Accessibility struct {
 
 // Palette represents a color palette for charting
 type Palette struct {
-	ID            string          `json:"id"`
-	Slug          string          `json:"slug"`
-	Name          string          `json:"name"`
-	Colors        json.RawMessage `json:"colors"` // []PaletteColor
-	ColorCount    int             `json:"color_count"`
-	Type          string          `json:"type"` // categorical, sequential, diverging, qualitative, heatmap
-	ChartTypes    []string        `json:"chart_types,omitempty"`
-	JournalStyle  []string        `json:"journal_style,omitempty"`
-	Discipline    []string        `json:"discipline,omitempty"`
-	UseCase       []string        `json:"use_case,omitempty"`
-	AvoidCase     []string        `json:"avoid_case,omitempty"`
-	Tags          []string        `json:"tags,omitempty"`
-	Accessibility *Accessibility  `json:"accessibility,omitempty"`
-	SourceType    string          `json:"source_type,omitempty"` // manual, figure_extracted, curated
-	SourceImage   string          `json:"source_image,omitempty"`
-	SourceNote    string          `json:"source_note,omitempty"`
-	Status        string          `json:"status"` // draft, candidate, published, archived
-	Version       string          `json:"version,omitempty"`
-	CreatedBy     *string         `json:"created_by,omitempty"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at"`
-	PublishedAt   *time.Time      `json:"published_at,omitempty"`
-	ArchivedAt    *time.Time      `json:"archived_at,omitempty"`
+	ID                 string                    `json:"id"`
+	Slug               string                    `json:"slug"`
+	Name               string                    `json:"name"`
+	Colors             json.RawMessage           `json:"colors"` // []PaletteColor
+	ColorCount         int                       `json:"color_count"`
+	Type               string                    `json:"type"` // categorical, sequential, diverging, mixed, qualitative, heatmap
+	ChartTypes         []string                  `json:"chart_types,omitempty"`
+	ChartApplicability *[]ChartTypeApplicability `json:"chart_applicability,omitempty"`
+	JournalStyle       []string                  `json:"journal_style,omitempty"`
+	Discipline         []string                  `json:"discipline,omitempty"`
+	UseCase            []string                  `json:"use_case,omitempty"`
+	AvoidCase          []string                  `json:"avoid_case,omitempty"`
+	Tags               []string                  `json:"tags,omitempty"`
+	Accessibility      *Accessibility            `json:"accessibility,omitempty"`
+	SourceType         string                    `json:"source_type,omitempty"` // manual, figure_extracted, curated
+	SourceImage        string                    `json:"source_image,omitempty"`
+	SourceNote         string                    `json:"source_note,omitempty"`
+	Status             string                    `json:"status"` // draft, candidate, published, archived
+	Version            string                    `json:"version,omitempty"`
+	CreatedBy          *string                   `json:"created_by,omitempty"`
+	CreatedAt          time.Time                 `json:"created_at"`
+	UpdatedAt          time.Time                 `json:"updated_at"`
+	PublishedAt        *time.Time                `json:"published_at,omitempty"`
+	ArchivedAt         *time.Time                `json:"archived_at,omitempty"`
+}
+
+// ChartTypeApplicability is the authoritative authored chart support metadata
+// for Phase 1 scientific previews.
+type ChartTypeApplicability struct {
+	ChartType   string `json:"chart_type"`
+	Suitability string `json:"suitability"`
+	Notes       string `json:"notes,omitempty"`
+	Source      string `json:"source,omitempty"`
+}
+
+// OptionalChartApplicability preserves the write distinction between omitted,
+// explicit null, empty array, and populated array.
+type OptionalChartApplicability struct {
+	Present bool
+	Null    bool
+	Raw     json.RawMessage
+	Value   []ChartTypeApplicability
+}
+
+func (o *OptionalChartApplicability) UnmarshalJSON(data []byte) error {
+	o.Present = true
+	o.Raw = append(o.Raw[:0], data...)
+	o.Null = string(data) == "null"
+	o.Value = nil
+	return nil
 }
 
 // PaletteListParams represents query parameters for listing palettes
@@ -58,70 +89,67 @@ type PaletteListParams struct {
 
 // PaletteStats represents statistics for the dashboard
 type PaletteStats struct {
-	Total      int `json:"total"`
-	Draft      int `json:"draft"`
-	Candidate  int `json:"candidate"`
-	Published  int `json:"published"`
-	Archived   int `json:"archived"`
+	Total     int `json:"total"`
+	Draft     int `json:"draft"`
+	Candidate int `json:"candidate"`
+	Published int `json:"published"`
+	Archived  int `json:"archived"`
 }
 
 // CreatePaletteRequest represents the request body for creating a palette
 type CreatePaletteRequest struct {
-	Name          string          `json:"name" binding:"required"`
-	Slug          string          `json:"slug" binding:"required"`
-	Colors        json.RawMessage `json:"colors" binding:"required"`
-	ColorCount    int             `json:"color_count" binding:"required,min=1"`
-	Type          string          `json:"type" binding:"required"`
-	ChartTypes    []string        `json:"chart_types,omitempty"`
-	JournalStyle  []string        `json:"journal_style,omitempty"`
-	Discipline    []string        `json:"discipline,omitempty"`
-	UseCase       []string        `json:"use_case,omitempty"`
-	AvoidCase     []string        `json:"avoid_case,omitempty"`
-	Tags          []string        `json:"tags,omitempty"`
-	Accessibility *Accessibility  `json:"accessibility,omitempty"`
-	SourceType    string          `json:"source_type,omitempty"`
-	SourceImage   string          `json:"source_image,omitempty"`
-	SourceNote    string          `json:"source_note,omitempty"`
-	Version       string          `json:"version,omitempty"`
-	Status        string          `json:"status,omitempty"`
+	Name               string                     `json:"name" binding:"required"`
+	Slug               string                     `json:"slug"`
+	Colors             json.RawMessage            `json:"colors" binding:"required"`
+	ColorCount         int                        `json:"color_count"`
+	Type               string                     `json:"type" binding:"required"`
+	ChartTypes         []string                   `json:"chart_types,omitempty"`
+	ChartApplicability OptionalChartApplicability `json:"chart_applicability,omitempty"`
+	JournalStyle       []string                   `json:"journal_style,omitempty"`
+	Discipline         []string                   `json:"discipline,omitempty"`
+	UseCase            []string                   `json:"use_case,omitempty"`
+	AvoidCase          []string                   `json:"avoid_case,omitempty"`
+	Tags               []string                   `json:"tags,omitempty"`
+	Accessibility      *Accessibility             `json:"accessibility,omitempty"`
+	SourceType         string                     `json:"source_type,omitempty"`
+	SourceImage        string                     `json:"source_image,omitempty"`
+	SourceNote         string                     `json:"source_note,omitempty"`
+	Version            string                     `json:"version,omitempty"`
+	Status             string                     `json:"status,omitempty"`
 }
 
 // UpdatePaletteRequest represents the request body for updating a palette
 type UpdatePaletteRequest struct {
-	Name          *string         `json:"name,omitempty"`
-	Slug          *string         `json:"slug,omitempty"`
-	Colors        json.RawMessage `json:"colors,omitempty"`
-	ColorCount    *int            `json:"color_count,omitempty"`
-	Type          *string         `json:"type,omitempty"`
-	ChartTypes    []string        `json:"chart_types,omitempty"`
-	JournalStyle  []string        `json:"journal_style,omitempty"`
-	Discipline    []string        `json:"discipline,omitempty"`
-	UseCase       []string        `json:"use_case,omitempty"`
-	AvoidCase     []string        `json:"avoid_case,omitempty"`
-	Tags          []string        `json:"tags,omitempty"`
-	Accessibility *Accessibility  `json:"accessibility,omitempty"`
-	SourceType    *string         `json:"source_type,omitempty"`
-	SourceImage   *string         `json:"source_image,omitempty"`
-	SourceNote    *string         `json:"source_note,omitempty"`
-	Version       *string         `json:"version,omitempty"`
-	Status        *string         `json:"status,omitempty"`
+	Name               *string                    `json:"name,omitempty"`
+	Slug               *string                    `json:"slug,omitempty"`
+	Colors             json.RawMessage            `json:"colors,omitempty"`
+	ColorCount         *int                       `json:"color_count,omitempty"`
+	Type               *string                    `json:"type,omitempty"`
+	ChartTypes         []string                   `json:"chart_types,omitempty"`
+	ChartApplicability OptionalChartApplicability `json:"chart_applicability,omitempty"`
+	JournalStyle       []string                   `json:"journal_style,omitempty"`
+	Discipline         []string                   `json:"discipline,omitempty"`
+	UseCase            []string                   `json:"use_case,omitempty"`
+	AvoidCase          []string                   `json:"avoid_case,omitempty"`
+	Tags               []string                   `json:"tags,omitempty"`
+	Accessibility      *Accessibility             `json:"accessibility,omitempty"`
+	SourceType         *string                    `json:"source_type,omitempty"`
+	SourceImage        *string                    `json:"source_image,omitempty"`
+	SourceNote         *string                    `json:"source_note,omitempty"`
+	Version            *string                    `json:"version,omitempty"`
+	Status             *string                    `json:"status,omitempty"`
 }
 
-// PaletteColorInput represents the input format for colors (HEX only, RGB computed)
-type PaletteColorInput struct {
-	Hex string `json:"hex" binding:"required"`
-}
-
-// ToPaletteColors converts input colors to PaletteColor array
-func ToPaletteColors(inputs []PaletteColorInput) []PaletteColor {
-	colors := make([]PaletteColor, len(inputs))
-	for i, input := range inputs {
-		colors[i] = PaletteColor{
-			Hex: input.Hex,
-			RGB: HexToRGB(input.Hex),
-		}
+// NormalizeHex returns uppercase #RRGGBB when the input is a valid HEX color.
+// Invalid values are returned trimmed and uppercased for display only; callers
+// must validate with IsValidHex before deriving RGB.
+func NormalizeHex(hex string) string {
+	hex = strings.TrimSpace(hex)
+	if hex == "" {
+		return ""
 	}
-	return colors
+	hex = trimHash(hex)
+	return "#" + strings.ToUpper(hex)
 }
 
 // HexToRGB converts a HEX color string to RGB array
@@ -157,7 +185,7 @@ func hexToInt(hex string) int {
 
 // IsValidHex checks if a string is a valid HEX color
 func IsValidHex(hex string) bool {
-	hex = trimHash(hex)
+	hex = strings.TrimSpace(trimHash(hex))
 	if len(hex) != 6 {
 		return false
 	}

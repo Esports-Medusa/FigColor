@@ -19,22 +19,30 @@ func NewRepository() *Repository {
 
 // GetByID retrieves a palette by its ID
 func (r *Repository) GetByID(id string) (*Palette, error) {
+	return r.getByID(database.DB, id, false)
+}
+
+func (r *Repository) getByID(q previewCaseQueryer, id string, forUpdate bool) (*Palette, error) {
 	var palette Palette
-	var colors, accessibility []byte
+	var colors, chartApplicability, accessibility []byte
 	var chartTypes, journalStyle, discipline, useCase, avoidCase, tags []string
 	var sourceType, sourceImage, sourceNote, version sql.NullString
 	var createdBy sql.NullString
 	var publishedAt, archivedAt sql.NullTime
+	lockClause := ""
+	if forUpdate {
+		lockClause = " FOR UPDATE"
+	}
 
-	err := database.DB.QueryRow(`
+	err := q.QueryRow(`
 		SELECT id, slug, name, colors, color_count, type,
-			chart_types, journal_style, discipline, use_case, avoid_case, tags,
+			chart_types, chart_applicability, journal_style, discipline, use_case, avoid_case, tags,
 			accessibility, source_type, source_image, source_note,
 			status, version, created_by, created_at, updated_at,
 			published_at, archived_at
 		FROM palettes
 		WHERE id = $1
-	`, id).Scan(
+	`+lockClause, id).Scan(
 		&palette.ID,
 		&palette.Slug,
 		&palette.Name,
@@ -42,6 +50,7 @@ func (r *Repository) GetByID(id string) (*Palette, error) {
 		&palette.ColorCount,
 		&palette.Type,
 		pq.Array(&chartTypes),
+		&chartApplicability,
 		pq.Array(&journalStyle),
 		pq.Array(&discipline),
 		pq.Array(&useCase),
@@ -69,6 +78,9 @@ func (r *Repository) GetByID(id string) (*Palette, error) {
 
 	palette.Colors = colors
 	palette.ChartTypes = chartTypes
+	if err := scanChartApplicability(chartApplicability, &palette); err != nil {
+		return nil, err
+	}
 	palette.JournalStyle = journalStyle
 	palette.Discipline = discipline
 	palette.UseCase = useCase
@@ -102,10 +114,18 @@ func (r *Repository) GetByID(id string) (*Palette, error) {
 	return &palette, nil
 }
 
+func (r *Repository) GetPaletteByIDTx(tx *sql.Tx, id string) (*Palette, error) {
+	return r.getByID(tx, id, false)
+}
+
+func (r *Repository) LockPaletteByIDTx(tx *sql.Tx, id string) (*Palette, error) {
+	return r.getByID(tx, id, true)
+}
+
 // GetBySlug retrieves a palette by its slug
 func (r *Repository) GetBySlug(slug string) (*Palette, error) {
 	var palette Palette
-	var colors, accessibility []byte
+	var colors, chartApplicability, accessibility []byte
 	var chartTypes, journalStyle, discipline, useCase, avoidCase, tags []string
 	var sourceType, sourceImage, sourceNote, version sql.NullString
 	var createdBy sql.NullString
@@ -113,7 +133,7 @@ func (r *Repository) GetBySlug(slug string) (*Palette, error) {
 
 	err := database.DB.QueryRow(`
 		SELECT id, slug, name, colors, color_count, type,
-			chart_types, journal_style, discipline, use_case, avoid_case, tags,
+			chart_types, chart_applicability, journal_style, discipline, use_case, avoid_case, tags,
 			accessibility, source_type, source_image, source_note,
 			status, version, created_by, created_at, updated_at,
 			published_at, archived_at
@@ -127,6 +147,7 @@ func (r *Repository) GetBySlug(slug string) (*Palette, error) {
 		&palette.ColorCount,
 		&palette.Type,
 		pq.Array(&chartTypes),
+		&chartApplicability,
 		pq.Array(&journalStyle),
 		pq.Array(&discipline),
 		pq.Array(&useCase),
@@ -154,6 +175,9 @@ func (r *Repository) GetBySlug(slug string) (*Palette, error) {
 
 	palette.Colors = colors
 	palette.ChartTypes = chartTypes
+	if err := scanChartApplicability(chartApplicability, &palette); err != nil {
+		return nil, err
+	}
 	palette.JournalStyle = journalStyle
 	palette.Discipline = discipline
 	palette.UseCase = useCase
@@ -189,13 +213,13 @@ func (r *Repository) GetBySlug(slug string) (*Palette, error) {
 
 // ListParams represents query parameters for listing palettes
 type ListParams struct {
-	Status       string
-	Type         string
-	ChartType    string
-	JournalStyle string
-	Discipline   string
-	Page         int
-	PageSize     int
+	Status        string
+	Type          string
+	ChartType     string
+	JournalStyle  string
+	Discipline    string
+	Page          int
+	PageSize      int
 	PublishedOnly bool // For public API
 }
 
@@ -259,7 +283,7 @@ func (r *Repository) List(params ListParams) ([]*Palette, int, error) {
 	// Fetch palettes
 	query := fmt.Sprintf(`
 		SELECT id, slug, name, colors, color_count, type,
-			chart_types, journal_style, discipline, use_case, avoid_case, tags,
+			chart_types, chart_applicability, journal_style, discipline, use_case, avoid_case, tags,
 			accessibility, source_type, source_image, source_note,
 			status, version, created_by, created_at, updated_at,
 			published_at, archived_at
@@ -280,7 +304,7 @@ func (r *Repository) List(params ListParams) ([]*Palette, int, error) {
 	var palettes []*Palette
 	for rows.Next() {
 		var palette Palette
-		var colors, accessibility []byte
+		var colors, chartApplicability, accessibility []byte
 		var chartTypes, journalStyle, discipline, useCase, avoidCase, tags []string
 		var sourceType, sourceImage, sourceNote, version sql.NullString
 		var createdBy sql.NullString
@@ -294,8 +318,9 @@ func (r *Repository) List(params ListParams) ([]*Palette, int, error) {
 			&palette.ColorCount,
 			&palette.Type,
 			pq.Array(&chartTypes),
+			&chartApplicability,
 			pq.Array(&journalStyle),
-		pq.Array(&discipline),
+			pq.Array(&discipline),
 			pq.Array(&useCase),
 			pq.Array(&avoidCase),
 			pq.Array(&tags),
@@ -317,6 +342,9 @@ func (r *Repository) List(params ListParams) ([]*Palette, int, error) {
 
 		palette.Colors = colors
 		palette.ChartTypes = chartTypes
+		if err := scanChartApplicability(chartApplicability, &palette); err != nil {
+			return nil, 0, err
+		}
 		palette.JournalStyle = journalStyle
 		palette.Discipline = discipline
 		palette.UseCase = useCase
@@ -393,13 +421,17 @@ func (r *Repository) Create(req *CreatePaletteRequest, createdBy string) (*Palet
 	}
 
 	var paletteID string
-	err := database.DB.QueryRow(`
+	chartApplicabilityJSON, err := chartApplicabilityJSONValue(req.ChartApplicability)
+	if err != nil {
+		return nil, err
+	}
+	err = database.DB.QueryRow(`
 		INSERT INTO palettes (
 			slug, name, colors, color_count, type,
-			chart_types, journal_style, discipline, use_case, avoid_case, tags,
+			chart_types, chart_applicability, journal_style, discipline, use_case, avoid_case, tags,
 			accessibility, source_type, source_image, source_note,
 			status, version, created_by, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING id
 	`,
 		req.Slug,
@@ -408,6 +440,7 @@ func (r *Repository) Create(req *CreatePaletteRequest, createdBy string) (*Palet
 		req.ColorCount,
 		req.Type,
 		pq.Array(req.ChartTypes),
+		chartApplicabilityJSON,
 		pq.Array(req.JournalStyle),
 		pq.Array(req.Discipline),
 		pq.Array(req.UseCase),
@@ -468,6 +501,15 @@ func (r *Repository) Update(id string, req *UpdatePaletteRequest) (*Palette, err
 	if req.ChartTypes != nil {
 		setClauses = append(setClauses, fmt.Sprintf("chart_types = $%d", argIndex))
 		args = append(args, pq.Array(req.ChartTypes))
+		argIndex++
+	}
+	if req.ChartApplicability.Present {
+		chartApplicabilityJSON, err := chartApplicabilityJSONValue(req.ChartApplicability)
+		if err != nil {
+			return nil, err
+		}
+		setClauses = append(setClauses, fmt.Sprintf("chart_applicability = $%d", argIndex))
+		args = append(args, chartApplicabilityJSON)
 		argIndex++
 	}
 	if req.JournalStyle != nil {
@@ -620,4 +662,28 @@ func (r *Repository) SlugExists(slug string, excludeID string) (bool, error) {
 		return false, fmt.Errorf("failed to check slug existence: %w", err)
 	}
 	return count > 0, nil
+}
+
+func scanChartApplicability(raw []byte, palette *Palette) error {
+	if raw == nil {
+		palette.ChartApplicability = nil
+		return nil
+	}
+	var applicability []ChartTypeApplicability
+	if err := json.Unmarshal(raw, &applicability); err != nil {
+		return fmt.Errorf("failed to scan chart applicability: %w", err)
+	}
+	palette.ChartApplicability = &applicability
+	return nil
+}
+
+func chartApplicabilityJSONValue(input OptionalChartApplicability) (interface{}, error) {
+	if !input.Present || input.Null {
+		return nil, nil
+	}
+	encoded, err := json.Marshal(input.Value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode chart applicability: %w", err)
+	}
+	return encoded, nil
 }

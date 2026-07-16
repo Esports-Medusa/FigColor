@@ -8,9 +8,34 @@ import (
 	"github.com/qiqi/figcolor/backend/internal/authctx"
 )
 
+type handlerService interface {
+	GetByID(id string) (*Palette, error)
+	GetBySlug(slug string) (*Palette, error)
+	List(params ListParams) ([]*Palette, int, error)
+	GetStats() (*PaletteStats, error)
+	Create(req *CreatePaletteRequest, createdBy string) (*Palette, error)
+	Update(id string, req *UpdatePaletteRequest) (*Palette, error)
+	Publish(id string) (*Palette, error)
+	Unpublish(id string) (*Palette, error)
+	Archive(id string) (*Palette, error)
+	Delete(id string) error
+	ListPublic(params ListParams) ([]*PublicPaletteDTO, int, error)
+	GetPublicBySlug(slug string) (*PublicPaletteDTO, error)
+	GetPublicByID(id string) (*PublicPaletteDTO, error)
+
+	ListPreviewCasesByPalette(paletteID string, includeArchived bool) ([]*PalettePreviewCase, error)
+	GetPreviewCaseByID(id string) (*PalettePreviewCase, error)
+	CreatePreviewCase(paletteID string, req *CreatePreviewCaseRequest) (*PalettePreviewCase, error)
+	UpdatePreviewCase(id string, req *UpdatePreviewCaseRequest) (*PalettePreviewCase, error)
+	DeleteDraftPreviewCase(id string) error
+	PublishPreviewCase(id string) (*PalettePreviewCase, error)
+	ArchivePreviewCase(id string) (*PalettePreviewCase, error)
+	SetPrimaryPreviewCase(id string) (*PalettePreviewCase, error)
+}
+
 // Handler handles HTTP requests for palette management
 type Handler struct {
-	service *Service
+	service handlerService
 }
 
 // NewHandler creates a new palette handler
@@ -30,11 +55,22 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, jwtSecret string, auth
 		{
 			palettes.GET("", h.List)
 			palettes.GET("/:id", h.GetByID)
+			palettes.GET("/:id/preview-cases", h.ListPreviewCases)
+			palettes.POST("/:id/preview-cases", h.CreatePreviewCase)
 			palettes.POST("", h.Create)
 			palettes.PATCH("/:id", h.Update)
 			palettes.POST("/:id/publish", h.Publish)
 			palettes.POST("/:id/unpublish", h.Unpublish)
 			palettes.DELETE("/:id", h.Delete)
+		}
+		previewCases := admin.Group("/preview-cases")
+		{
+			previewCases.GET("/:id", h.GetPreviewCase)
+			previewCases.PATCH("/:id", h.UpdatePreviewCase)
+			previewCases.DELETE("/:id", h.DeletePreviewCase)
+			previewCases.POST("/:id/publish", h.PublishPreviewCase)
+			previewCases.POST("/:id/archive", h.ArchivePreviewCase)
+			previewCases.POST("/:id/set-primary", h.SetPrimaryPreviewCase)
 		}
 	}
 
@@ -68,9 +104,9 @@ func (h *Handler) List(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"palettes": palettes,
-		"total":    total,
-		"page":     page,
+		"palettes":  palettes,
+		"total":     total,
+		"page":      page,
 		"page_size": pageSize,
 	})
 }
@@ -104,6 +140,10 @@ func (h *Handler) Create(c *gin.Context) {
 
 	palette, err := h.service.Create(&req, userID)
 	if err != nil {
+		if validationErr, ok := IsValidationError(err); ok {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": validationErr.Error(), "issues": validationErr.Issues})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -123,6 +163,10 @@ func (h *Handler) Update(c *gin.Context) {
 
 	palette, err := h.service.Update(id, &req)
 	if err != nil {
+		if validationErr, ok := IsValidationError(err); ok {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": validationErr.Error(), "issues": validationErr.Issues})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -173,8 +217,8 @@ func (h *Handler) Delete(c *gin.Context) {
 // ListPublic returns only published palettes for public API
 func (h *Handler) ListPublic(c *gin.Context) {
 	params := ListParams{
-		Page:         1,
-		PageSize:     100, // Public API returns more items by default
+		Page:          1,
+		PageSize:      100, // Public API returns more items by default
 		PublishedOnly: true,
 	}
 
@@ -189,16 +233,16 @@ func (h *Handler) ListPublic(c *gin.Context) {
 	params.Page = page
 	params.PageSize = pageSize
 
-	palettes, total, err := h.service.List(params)
+	palettes, total, err := h.service.ListPublic(params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"palettes": palettes,
-		"total":    total,
-		"page":     page,
+		"palettes":  palettes,
+		"total":     total,
+		"page":      page,
 		"page_size": pageSize,
 	})
 }

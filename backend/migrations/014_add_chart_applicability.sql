@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE palettes
+ADD COLUMN IF NOT EXISTS chart_applicability JSONB;
+
+COMMIT;
