@@ -5,11 +5,21 @@
       <p class="subtitle">Your saved color palettes</p>
     </header>
 
-    <div v-if="favoritePalettes.length" class="palettes-grid">
+    <div v-if="pageLoading || isLoading" class="loading-state">
+      <p>Loading favorites...</p>
+    </div>
+
+    <div v-else-if="error" class="error-state">
+      <p>{{ error }}</p>
+    </div>
+
+    <div v-else-if="favoritePalettes.length" class="palettes-grid">
       <PaletteCard
         v-for="palette in favoritePalettes"
         :key="palette.id"
         :palette="palette"
+        :is-favorited="true"
+        @toggle-favorite="handleToggleFavorite"
       />
     </div>
 
@@ -23,19 +33,35 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useFavorites } from '@/composables/useFavorites'
 import PaletteCard from '@/components/PaletteCard.vue'
-import palettes from '@/data/palettes.json'
+import { loadPalettes } from '@/lib/palette'
+import type { Palette } from '@/types/palette'
 
-const { favorites, loadFavorites, favoritePaletteIds } = useFavorites()
+const { loadFavorites, removeFavorite, favoritePaletteIds, isLoading, error } = useFavorites()
+const palettes = ref<Palette[]>([])
+const pageLoading = ref(true)
 
 const favoritePalettes = computed(() =>
-  palettes.filter(p => favoritePaletteIds.value.includes(p.id))
+  palettes.value.filter(p => favoritePaletteIds.value.includes(p.id))
 )
 
-onMounted(() => {
-  loadFavorites()
+async function handleToggleFavorite(paletteId: string) {
+  await removeFavorite(paletteId)
+}
+
+onMounted(async () => {
+  pageLoading.value = true
+  try {
+    const [loadedPalettes] = await Promise.all([
+      loadPalettes(),
+      loadFavorites(),
+    ])
+    palettes.value = loadedPalettes
+  } finally {
+    pageLoading.value = false
+  }
 })
 </script>
 
@@ -82,6 +108,17 @@ onMounted(() => {
 .empty-state p {
   color: #666;
   margin-bottom: 1.5rem;
+}
+
+.loading-state,
+.error-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #666;
+}
+
+.error-state {
+  color: #b91c1c;
 }
 
 .btn-primary {

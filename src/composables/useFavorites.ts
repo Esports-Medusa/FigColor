@@ -1,7 +1,6 @@
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed } from 'vue'
 import { getToken } from '@/api/auth'
-import palettes from '@/data/palettes.json'
+import { getAllPalettes } from '@/lib/palette'
 
 interface FavoritePalette {
   id: string
@@ -10,18 +9,22 @@ interface FavoritePalette {
   createdAt: string
 }
 
-export function useFavorites() {
-  const favorites = ref<FavoritePalette[]>([])
-  const isLoading = ref(false)
-  const error = ref<string | null>(null)
+const favorites = ref<FavoritePalette[]>([])
+const isLoading = ref(false)
+const error = ref<string | null>(null)
 
-  const favoritePaletteIds = computed(() => 
-    favorites.value.map(f => f.paletteId)
-  )
+const favoritePaletteIds = computed(() =>
+  favorites.value.map(f => f.paletteId)
+)
+
+export function useFavorites() {
 
   async function loadFavorites() {
     const token = getToken()
-    if (!token) return
+    if (!token) {
+      favorites.value = []
+      return
+    }
 
     isLoading.value = true
     error.value = null
@@ -60,7 +63,14 @@ export function useFavorites() {
 
       if (res.ok) {
         const data = await res.json()
-        favorites.value.push(data)
+        if (data.paletteId) {
+          favorites.value = [
+            data,
+            ...favorites.value.filter(f => f.paletteId !== data.paletteId)
+          ]
+        } else {
+          await loadFavorites()
+        }
         return true
       }
       return false
@@ -96,7 +106,7 @@ export function useFavorites() {
   }
 
   function getFavoritePalettes() {
-    return palettes.filter(p => favoritePaletteIds.value.includes(p.id))
+    return getAllPalettes().filter(p => favoritePaletteIds.value.includes(p.id))
   }
 
   return {

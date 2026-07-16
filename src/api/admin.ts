@@ -1,12 +1,16 @@
 // Admin API Client for FigColor
 
 import { getAuthHeaders } from './auth'
+import type { ChartTypeApplicability } from '@/types/palette'
 
 const API_BASE = '/api'
 
 export interface PaletteColor {
+  id?: string
   hex: string
   rgb: [number, number, number]
+  label?: string
+  order?: number
 }
 
 export interface Accessibility {
@@ -21,8 +25,9 @@ export interface AdminPalette {
   name: string
   colors: PaletteColor[]
   color_count: number
-  type: 'categorical' | 'sequential' | 'diverging' | 'qualitative' | 'heatmap'
+  type: 'categorical' | 'sequential' | 'diverging' | 'mixed' | 'qualitative' | 'heatmap'
   chart_types: string[]
+  chart_applicability?: ChartTypeApplicability[] | null
   journal_style: string[]
   discipline: string[]
   use_case: string[]
@@ -48,9 +53,11 @@ export interface CreatePaletteRequest {
   color_count?: number
   type: string
   chart_types?: string[]
+  chart_applicability?: ChartTypeApplicability[] | null
   journal_style?: string[]
   discipline?: string[]
   use_case?: string[]
+  avoid_case?: string[]
   tags?: string[]
   accessibility?: Accessibility
   source_type?: string
@@ -67,6 +74,7 @@ export interface UpdatePaletteRequest {
   color_count?: number
   type?: string
   chart_types?: string[]
+  chart_applicability?: ChartTypeApplicability[] | null
   journal_style?: string[]
   discipline?: string[]
   use_case?: string[]
@@ -255,13 +263,82 @@ export function generateSlug(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
-export function parseColorsInput(input: string): { hex: string; rgb: [number, number, number] }[] {
+export function parseColorsInput(input: string): PaletteColor[] {
   const lines = input.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-  return lines.map(line => {
+  return lines.map((line, index) => {
     const hex = line.startsWith('#') ? line : `#${line}`
     return {
       hex: hex.toUpperCase(),
       rgb: hexToRgb(hex),
+      order: index,
     }
   })
+}
+
+export function preservePaletteColorIds(
+  loadedColors: PaletteColor[],
+  parsedColors: PaletteColor[]
+): PaletteColor[] {
+  if (loadedColors.length === 0) {
+    return parsedColors
+  }
+
+  const assigned: PaletteColor[] = parsedColors.map((color, index) => ({
+    ...color,
+    id: undefined,
+    label: undefined,
+    order: index,
+  }))
+
+  // A plain textarea has no stable per-row client key. When the row count is
+  // unchanged, treat each row as the same color identity so duplicate HEX values
+  // and multi-row HEX edits preserve persisted IDs. Same-length reorder cannot
+  // be distinguished from in-place edits in this UI and is handled by position.
+  if (loadedColors.length === parsedColors.length) {
+    return assigned.map((color, index) => ({
+      ...color,
+      id: loadedColors[index]?.id,
+      label: loadedColors[index]?.label,
+    }))
+  }
+
+  const loadedCounts = countColorsByHex(loadedColors)
+  const parsedCounts = countColorsByHex(parsedColors)
+  const usedLoadedIndexes = new Set<number>()
+
+  parsedColors.forEach((color, parsedIndex) => {
+    const hex = normalizeComparableHex(color.hex)
+    if (loadedCounts.get(hex) !== 1 || parsedCounts.get(hex) !== 1) {
+      return
+    }
+
+    const loadedIndex = loadedColors.findIndex((loaded, index) =>
+      !usedLoadedIndexes.has(index) && normalizeComparableHex(loaded.hex) === hex
+    )
+    if (loadedIndex === -1) {
+      return
+    }
+
+    usedLoadedIndexes.add(loadedIndex)
+    assigned[parsedIndex] = {
+      ...assigned[parsedIndex],
+      id: loadedColors[loadedIndex].id,
+      label: loadedColors[loadedIndex].label,
+    }
+  })
+
+  return assigned
+}
+
+function countColorsByHex(colors: PaletteColor[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  colors.forEach((color) => {
+    const hex = normalizeComparableHex(color.hex)
+    counts.set(hex, (counts.get(hex) || 0) + 1)
+  })
+  return counts
+}
+
+function normalizeComparableHex(hex: string): string {
+  return (hex.startsWith('#') ? hex : `#${hex}`).toUpperCase()
 }

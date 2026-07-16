@@ -281,7 +281,7 @@
 import { ref, computed, onMounted } from 'vue'
 import type { Palette } from '@/types/palette'
 import type { ProjectPalette } from '@/types/project'
-import { getAllPalettes, paletteToSearchText } from '@/lib/palette'
+import { loadPalettes, paletteToSearchText } from '@/lib/palette'
 import { useFavorites } from '@/composables/useFavorites'
 import { getToken } from '@/api/auth'
 
@@ -422,14 +422,11 @@ const filteredPalettes = computed(() => {
   return result
 })
 
-// Fetch all palettes from local palettes.json
-function loadAvailablePalettes() {
+async function loadAvailablePalettes() {
   loading.value = true
   try {
-    // TODO: When backend /api/palettes is available, replace with API call
-    // For now, load from local palettes.json
-    allPalettes.value = getAllPalettes()
-    console.log('[AddPaletteModal] Loaded palettes from local data:', allPalettes.value.length)
+    allPalettes.value = await loadPalettes()
+    console.log('[AddPaletteModal] Loaded palettes:', allPalettes.value.length)
   } catch (e) {
     console.error('[AddPaletteModal] Failed to load palettes:', e)
     allPalettes.value = []
@@ -555,10 +552,12 @@ async function addCustomPalette() {
   emit('close')
 }
 
-onMounted(() => {
+onMounted(async () => {
   console.log('[AddPaletteModal] Mounted, loading available palettes...')
-  loadAvailablePalettes()
-  loadFavorites()
+  await Promise.all([
+    loadAvailablePalettes(),
+    loadFavorites(),
+  ])
 })
 </script>
 

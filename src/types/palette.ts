@@ -1,45 +1,59 @@
-// Re-export from schema.ts
-export type { ChartFamily, ExportedCoreColor, PreviewTemplate, CopyBlocks } from '@/lib/palette/schema'
-
-// Re-export functional role types for convenience
-export type { 
-  HeatmapAnnotatedRoles, 
-  BarErrorRoles, 
-  BoxplotJitterRoles, 
-  LineMultiseriesRoles,
+export type {
+  Accessibility,
+  BasePalettePreviewCase,
+  BasePaletteSchema,
+  BarErrorRoles,
+  BoxplotJitterRoles,
+  CanonicalPalette,
+  CanonicalPaletteType,
+  ChartApplicabilitySource,
+  ChartFamily,
+  ChartSuitability,
+  ChartType,
+  ChartTypeApplicability,
+  CopyBlocks,
+  ExportedCoreColor,
   FigColorPalette,
-  BasePaletteSchema
+  HeatmapAnnotatedRoles,
+  LegacyCopyBlocks,
+  LegacyExperimentalChartFamily,
+  LegacyExportedCoreColor,
+  LegacyPaletteCompatibility,
+  LegacyPaletteType,
+  LegacyPreviewFields,
+  LegacyPreviewTemplate,
+  LineMultiseriesRoles,
+  NamedColorRole,
+  Palette,
+  PaletteColor,
+  PalettePreviewCase,
+  PaletteColorReference,
+  PaletteStatus,
+  PaletteType,
+  PreviewCaseSeedStrategy,
+  PreviewCaseStatus,
+  PreviewTemplate,
+  RawPaletteColorDTO,
+  RawPaletteDTO,
+  RawPalettePreviewCase,
+  RawStringArrayDTO,
+  ThemeColorReference,
+  ValidationIssue,
+  ValidationResult,
+  VisualColorReference
 } from '@/lib/palette/schema'
 
-export type PaletteColor = {
-  hex: string
-  rgb: [number, number, number]
-}
-
-// Phase 1 extension interface
-export interface PalettePhase1Fields {
-  chart_family?: import('@/lib/palette/schema').ChartFamily
-  exported_core_colors?: import('@/lib/palette/schema').ExportedCoreColor[]
-  preview_template?: import('@/lib/palette/schema').PreviewTemplate
-  copy_blocks?: import('@/lib/palette/schema').CopyBlocks
-  functional_roles?: Record<string, unknown>
-}
-
-export type Palette = {
-  id: string
-  name: string
-  slug: string
-  colors: PaletteColor[]  // existing legacy color list; fallback when exported_core_colors is missing
-  journal_style: string[]
-  chart_type: string[]   // existing user filter field; NOT replaced by chart_family
-  color_count: number
-  use_case: string[]
-  avoid_case?: string[]
-  discipline: string[]
-  tags: string[]
-  created_at: string
-  updated_at: string
-} & PalettePhase1Fields
+export {
+  getLegacyAvoidCase,
+  getLegacyChartType,
+  getLegacyDiscipline,
+  getLegacyUseCase,
+  isBarError,
+  isBoxplotJitter,
+  isHeatmapAnnotated,
+  isLineMultiseries,
+  toLegacyPaletteCompatibility
+} from '@/lib/palette/schema'
 
 export const JOURNAL_STYLES = [
   'nature',
@@ -50,6 +64,11 @@ export const JOURNAL_STYLES = [
   'general'
 ] as const
 
+/**
+ * Legacy broad chart type filters used by the current public UI and Paper
+ * Project. Scientific preview cases use the canonical `ChartType` union from
+ * `src/lib/palette/schema.ts`.
+ */
 export const CHART_TYPES = [
   'line',
   'bar',
@@ -124,7 +143,7 @@ export const TAGS = [
 ] as const
 
 export type JournalStyle = typeof JOURNAL_STYLES[number]
-export type ChartType = typeof CHART_TYPES[number]
+export type LegacyChartType = typeof CHART_TYPES[number]
 export type UseCase = typeof USE_CASES[number]
 export type AvoidCase = typeof AVOID_CASES[number]
 export type Discipline = typeof DISCIPLINES[number]
