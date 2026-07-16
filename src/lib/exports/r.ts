@@ -19,4 +19,3 @@ function toRNamedEntries(model: PaletteExportModel, indent: string): string {
 function rString(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 }
-

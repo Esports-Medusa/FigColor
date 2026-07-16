@@ -13,14 +13,7 @@
           <p class="palette-summary">{{ paletteSummary }}</p>
         </div>
         <div class="hero-chart-preview">
-          <PaletteChartPreview 
-            :colors="paletteColors" 
-            :chart-types="palette.chart_type"
-            :chart-family="palette.chart_family"
-            :seed="palette.id"
-            variant="hero"
-            :height="200"
-          />
+          <PaletteChartPreview :palette="palette" size="hero" />
           <PalettePreview :colors="palette.colors" size="sm" class="small-strip" />
         </div>
         <button 
@@ -137,10 +130,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getPaletteBySlug } from '@/lib/palette'
-import { toHexArray, toPythonList, toMatplotlibPalette, toSeabornPalette, toRVector, toGgplotScale, toCssVariables } from '@/lib/codegen'
+import {
+  resolvePaletteExportModel,
+  toCssCustomProperties,
+  toExportHexArray,
+  toExportRgbTuples,
+  toGgplotFillScale,
+  toMatplotlibSnippet,
+  toPythonList,
+  toSeabornSnippet,
+  toRNamedVector
+} from '@/lib/exports'
 import PalettePreview from '@/components/PalettePreview.vue'
 import PaletteChartPreview from '@/components/palettes/PaletteChartPreview.vue'
 import ColorSwatch from '@/components/ColorSwatch.vue'
@@ -149,7 +152,7 @@ import { useFavorites } from '@/composables/useFavorites'
 
 const route = useRoute()
 const router = useRouter()
-const { isFavorited, addFavorite, removeFavorite, loadFavorites, favoritePaletteIds } = useFavorites()
+const { addFavorite, removeFavorite, loadFavorites, favoritePaletteIds } = useFavorites()
 
 const palette = computed(() => {
   const slug = route.params.slug as string
@@ -177,19 +180,6 @@ onMounted(() => {
   loadFavorites()
 })
 
-// Colors as string array for new PaletteChartPreview
-// Priority: exported_core_colors (new) > colors (legacy fallback)
-const paletteColors = computed<string[]>(() => {
-  if (!palette.value) return []
-  
-  // Try new exported_core_colors first
-  if (palette.value.exported_core_colors && palette.value.exported_core_colors.length > 0) {
-    return palette.value.exported_core_colors.map((c) => c.hex)
-  }
-  // Fallback to legacy colors
-  return palette.value.colors.map((c) => (typeof c === 'string' ? c : c.hex))
-})
-
 // Palette summary text
 const paletteSummary = computed(() => {
   if (!palette.value) return ''
@@ -209,49 +199,20 @@ const versionLabel = computed(() => {
   return versionTag || 'v1.0.0'
 })
 
-const hexArrayCode = computed(() => {
-  if (!palette.value) return ''
-  return toHexArray(palette.value.colors)
-})
-
-const pythonCode = computed(() => {
-  if (!palette.value) return ''
-  return toPythonList(palette.value.colors)
-})
-
-const matplotlibCode = computed(() => {
-  if (!palette.value) return ''
-  return toMatplotlibPalette(palette.value.colors)
-})
-
-const seabornCode = computed(() => {
-  if (!palette.value) return ''
-  return toSeabornPalette(palette.value.colors)
-})
-
-const rCode = computed(() => {
-  if (!palette.value) return ''
-  return toRVector(palette.value.colors)
-})
-
-const ggplotCode = computed(() => {
-  if (!palette.value) return ''
-  return toGgplotScale(palette.value.colors)
-})
-
-const cssCode = computed(() => {
-  if (!palette.value) return ''
-  return toCssVariables(palette.value.colors)
+const exportModel = computed(() => {
+  if (!palette.value) return null
+  return resolvePaletteExportModel(palette.value)
 })
 
 const codeTabsItems = computed(() => [
-  { label: 'HEX', code: hexArrayCode.value },
-  { label: 'Python', code: pythonCode.value },
-  { label: 'Matplotlib', code: matplotlibCode.value },
-  { label: 'Seaborn', code: seabornCode.value },
-  { label: 'R', code: rCode.value },
-  { label: 'ggplot2', code: ggplotCode.value },
-  { label: 'CSS', code: cssCode.value }
+  { label: 'HEX', code: exportModel.value ? toExportHexArray(exportModel.value) : '' },
+  { label: 'RGB', code: exportModel.value ? toExportRgbTuples(exportModel.value) : '' },
+  { label: 'Python', code: exportModel.value ? toPythonList(exportModel.value) : '' },
+  { label: 'Matplotlib', code: exportModel.value ? toMatplotlibSnippet(exportModel.value) : '' },
+  { label: 'Seaborn', code: exportModel.value ? toSeabornSnippet(exportModel.value) : '' },
+  { label: 'R', code: exportModel.value ? toRNamedVector(exportModel.value) : '' },
+  { label: 'ggplot2', code: exportModel.value ? toGgplotFillScale(exportModel.value) : '' },
+  { label: 'CSS', code: exportModel.value ? toCssCustomProperties(exportModel.value) : '' }
 ])
 
 function formatDate(dateStr: string): string {

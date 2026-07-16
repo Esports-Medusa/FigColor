@@ -78,4 +78,3 @@ function sanitizeCssIdentifier(value: string): string {
 
   return sanitized
 }
-

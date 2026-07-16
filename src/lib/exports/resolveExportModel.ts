@@ -103,4 +103,3 @@ function createPaletteOrderFallback(
     warnings
   }
 }
-
