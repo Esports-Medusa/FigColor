@@ -1,134 +1,164 @@
 <template>
-  <div 
-    class="chart-preview-container"
-    :class="[`variant-${variant}`, `chart-type-${resolvedChartType}`]"
-    :style="containerStyle"
+  <div
+    class="palette-chart-preview"
+    :class="`size-${size}`"
+    :data-preview-state="previewState"
+    :role="previewAccessibleLabel ? 'img' : undefined"
+    :aria-label="previewAccessibleLabel || undefined"
   >
-    <component 
-      :is="previewComponent" 
-      :colors="colors"
-      :seed="seed"
-    />
+    <div v-if="svgMarkup" class="svg-frame" v-html="svgMarkup"></div>
+    <div v-else class="fallback-frame" aria-hidden="true">
+      <div class="fallback-plot">
+        <span
+          v-for="(color, index) in fallbackColors"
+          :key="`${color}-${index}`"
+          class="fallback-swatch"
+          :style="{ backgroundColor: color }"
+        ></span>
+      </div>
+      <div class="fallback-strip">
+        <span
+          v-for="(color, index) in fallbackColors"
+          :key="`strip-${color}-${index}`"
+          :style="{ backgroundColor: color }"
+        ></span>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
-import LinePreview from './previews/LinePreview.vue'
-import BarPreview from './previews/BarPreview.vue'
-import ScatterPreview from './previews/ScatterPreview.vue'
-import HeatmapPreview from './previews/HeatmapPreview.vue'
-import SurvivalPreview from './previews/SurvivalPreview.vue'
-import AreaPreview from './previews/AreaPreview.vue'
-import HeatmapAnnotatedPreview from './previews/HeatmapAnnotatedPreview.vue'
-import BarErrorPreview from './previews/BarErrorPreview.vue'
-import BoxplotJitterPreview from './previews/BoxplotJitterPreview.vue'
-import LineMultiseriesPreview from './previews/LineMultiseriesPreview.vue'
+import { computed } from 'vue'
+import {
+  createPaletteChartPreviewModel,
+  selectPalettePreviewCase
+} from './PaletteChartPreview.logic'
+import type { CanonicalPalette, PalettePreviewCase } from '@/types/palette'
 
 interface Props {
-  /** Array of hex color strings */
-  colors: string[]
-  /** Array of chart types to choose from (fallback) */
-  chartTypes?: string[]
-  /** chart_family for Phase 1 preview selection (takes priority) */
-  chartFamily?: string
-  /** Height in pixels */
-  height?: number
-  /** Visual variant */
-  variant?: 'card' | 'hero'
-  /** Seed string for stable random generation */
-  seed?: string
+  palette: CanonicalPalette
+  previewCase?: PalettePreviewCase | null
+  size?: 'card' | 'hero'
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  colors: () => [],
-  chartTypes: () => [],
-  chartFamily: undefined,
-  height: 160,
-  variant: 'card',
-  seed: 'default'
+  previewCase: undefined,
+  size: 'card'
 })
 
-// Map chartType strings to preview components
-const CHART_TYPE_COMPONENT_MAP: Record<string, Component> = {
-  heatmap: HeatmapPreview,
-  heatmap_annotated: HeatmapAnnotatedPreview,
-  bar_error: BarErrorPreview,
-  boxplot_jitter: BoxplotJitterPreview,
-  line_multiseries: LineMultiseriesPreview,
-  scatter: ScatterPreview,
-  pca: ScatterPreview,
-  umap: ScatterPreview,
-  survival_curve: SurvivalPreview,
-  line: LinePreview,
-  boxplot: BarPreview,
-  bar: BarPreview,
-  area: AreaPreview
-}
+const selectedPreviewCase = computed(() =>
+  selectPalettePreviewCase(props.palette, props.previewCase, props.previewCase !== undefined)
+)
 
-// Default fallback
-const DEFAULT_COMPONENT = LinePreview
+const previewModel = computed(() =>
+  createPaletteChartPreviewModel(props.palette, selectedPreviewCase.value)
+)
 
-// Normalize chart type string
-function normalizeChartType(type: string): string {
-  return type.toLowerCase().replace(/[-_]/g, '_').trim()
-}
-
-// Determine which chart type to display
-// Priority: chartFamily (Phase 1) > chartTypes (legacy fallback)
-const resolvedChartType = computed<string>(() => {
-  // First try chartFamily (Phase 1 - takes priority)
-  if (props.chartFamily) {
-    const normalized = normalizeChartType(props.chartFamily)
-    if (CHART_TYPE_COMPONENT_MAP[normalized]) {
-      return normalized
-    }
-  }
-  
-  // Fallback to chartTypes array
-  if (props.chartTypes.length > 0) {
-    // Try to find a matching chart type
-    for (const ct of props.chartTypes) {
-      const normalized = normalizeChartType(ct)
-      if (CHART_TYPE_COMPONENT_MAP[normalized]) {
-        return normalized
-      }
-    }
-    // If no exact match, try partial match for scatter-related types
-    for (const ct of props.chartTypes) {
-      const normalized = normalizeChartType(ct)
-      if (normalized.includes('scatter') || normalized.includes('pca') || normalized.includes('umap')) {
-        return 'scatter'
-      }
-    }
-  }
-  return 'line'
+const svgMarkup = computed(() => {
+  // This markup is produced only by internal deterministic SVG renderers.
+  // Arbitrary SVG/HTML is never accepted through component props.
+  return previewModel.value.svgMarkup
 })
 
-// Get the preview component
-const previewComponent = computed(() => {
-  return CHART_TYPE_COMPONENT_MAP[resolvedChartType.value] || DEFAULT_COMPONENT
-})
-
-// Container style
-const containerStyle = computed(() => ({
-  height: `${props.height}px`,
-  borderRadius: props.variant === 'hero' ? '16px' : '14px'
-}))
+const previewState = computed(() => previewModel.value.state)
+const fallbackColors = computed(() => previewModel.value.fallbackColors)
+const previewAccessibleLabel = computed(() => previewModel.value.accessibleLabel)
 </script>
 
 <style scoped>
-.chart-preview-container {
+.palette-chart-preview {
   width: 100%;
-  background: #FAFAFB;
-  border: 1px solid #EEF0F4;
   overflow: hidden;
   box-sizing: border-box;
+  background: #fafafb;
+  border: 1px solid #eef0f4;
 }
 
-.chart-preview-container :deep(svg) {
+.size-card {
+  height: 160px;
+  border-radius: var(--radius-md);
+}
+
+.size-hero {
+  min-height: 240px;
+  aspect-ratio: 16 / 7;
+  border-radius: 16px;
+}
+
+.svg-frame,
+.fallback-frame {
+  width: 100%;
+  height: 100%;
+}
+
+.svg-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.svg-frame :deep(svg) {
   display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.fallback-frame {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.fallback-plot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22px, 1fr));
+  align-items: end;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+.fallback-swatch {
+  display: block;
+  min-height: 42%;
+  border-radius: 6px 6px 3px 3px;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.fallback-swatch:nth-child(2n) {
+  min-height: 68%;
+}
+
+.fallback-swatch:nth-child(3n) {
+  min-height: 54%;
+}
+
+.fallback-swatch:nth-child(4n) {
+  min-height: 82%;
+}
+
+.fallback-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.fallback-strip span {
+  min-width: 0;
+}
+
+.size-hero .fallback-frame {
+  padding: 1.5rem;
+}
+
+.size-hero .fallback-plot {
+  gap: 0.75rem;
 }
 </style>

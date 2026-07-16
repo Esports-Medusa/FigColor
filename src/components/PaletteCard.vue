@@ -3,12 +3,7 @@
     <router-link :to="`/palettes/${palette.slug}`" class="palette-card">
       <h3 class="palette-name">{{ palette.name }}</h3>
       <div class="chart-preview-wrapper">
-        <PaletteChartPreview 
-          :colors="colors"
-          :chart-types="previewChartType ? [previewChartType] : palette.chart_type"
-          :seed="seed"
-        />
-        <span class="preview-badge">{{ previewBadgeText }}</span>
+        <PaletteChartPreview :palette="palette" size="card" />
       </div>
       <div class="palette-strip-wrapper">
         <PalettePreview :colors="palette.colors" size="sm" />
@@ -38,15 +33,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Palette } from '@/types/palette'
-import { normalizeChartType } from '@/lib/chartPreview'
+import type { CanonicalPalette, Palette } from '@/types/palette'
 import PalettePreview from './PalettePreview.vue'
 import PaletteChartPreview from './palettes/PaletteChartPreview.vue'
 
+type PaletteCardPalette = CanonicalPalette & Pick<Palette, 'chart_type'>
+
 interface Props {
-  palette: Palette
-  previewChartType?: string
+  palette: PaletteCardPalette
   isFavorited?: boolean
 }
 
@@ -56,27 +50,6 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
-
-const previewBadgeText = computed(() => {
-  if (props.previewChartType) {
-    return `${normalizeChartType(props.previewChartType)} preview`
-  }
-  return `${normalizeChartType(props.palette.chart_type?.[0] || 'line')} recommended`
-})
-
-// Extract colors as string array
-// Priority: exported_core_colors (new) > colors (legacy fallback)
-const colors = computed<string[]>(() => {
-  // Try new exported_core_colors first
-  if (props.palette.exported_core_colors && props.palette.exported_core_colors.length > 0) {
-    return props.palette.exported_core_colors.map((c) => c.hex)
-  }
-  // Fallback to legacy colors
-  return props.palette.colors.map((c) => (typeof c === 'string' ? c : c.hex))
-})
-
-// Generate stable seed from palette id
-const seed = computed(() => props.palette.id)
 
 function toggleFavorite() {
   emit('toggleFavorite', props.palette.id)
@@ -176,23 +149,6 @@ function toggleFavorite() {
   border-radius: var(--radius-md);
   overflow: hidden;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-}
-
-.preview-badge {
-  position: absolute;
-  top: 0.625rem;
-  left: 0.625rem;
-  padding: 0.25rem 0.75rem;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
-  color: var(--color-primary);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: lowercase;
-  border-radius: 20px;
-  letter-spacing: 0.02em;
-  pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .palette-strip-wrapper {

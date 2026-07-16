@@ -12,8 +12,27 @@
       v-model:selectedTag="selectedTag"
     />
 
-    <div v-if="isLoading" class="loading-state">
-      <p>Loading palettes...</p>
+    <div v-if="isLoading" class="loading-state" aria-label="Loading palettes">
+      <div class="results-info">
+        <span class="results-count skeleton-line short"></span>
+      </div>
+      <div class="palettes-grid" aria-hidden="true">
+        <div
+          v-for="index in loadingSkeletonCount"
+          :key="index"
+          class="palette-card-skeleton"
+        >
+          <div class="skeleton-line title"></div>
+          <div class="skeleton-preview"></div>
+          <div class="skeleton-strip"></div>
+          <div class="skeleton-line meta"></div>
+          <div class="skeleton-tags">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-else>
@@ -26,7 +45,6 @@
           v-for="palette in filteredPalettes"
           :key="palette.id"
           :palette="palette"
-          :preview-chart-type="getPrimaryChartType(palette, selectedChartType)"
           :is-favorited="isFavorited(palette.id)"
           @toggle-favorite="handleToggleFavorite"
         />
@@ -42,7 +60,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { loadPalettes, getAllPalettes, normalizeText, paletteToSearchText } from '@/lib/palette'
-import { getPrimaryChartType } from '@/lib/chartPreview'
 import type { Palette } from '@/types/palette'
 import PaletteCard from '@/components/PaletteCard.vue'
 import PaletteFilterPanel from '@/components/PaletteFilterPanel.vue'
@@ -59,6 +76,7 @@ const selectedUseCase = ref('')
 const selectedDiscipline = ref('')
 const selectedTag = ref('')
 const isLoading = ref(true)
+const loadingSkeletonCount = 6
 
 const filteredPalettes = computed(() => {
   const allPalettes = getAllPalettes()
@@ -186,5 +204,68 @@ function matchesSearch(palette: Palette, keyword: string): boolean {
 
 .empty-state p {
   color: #666;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.palette-card-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  min-height: 306px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.skeleton-preview {
+  height: 160px;
+  margin-top: 0.5rem;
+  border-radius: var(--radius-md);
+  background: #eef2f7;
+}
+
+.skeleton-strip {
+  height: 12px;
+  margin-top: 0.75rem;
+  border-radius: 999px;
+  background: #e5eaf1;
+}
+
+.skeleton-line,
+.skeleton-tags span {
+  display: block;
+  border-radius: 999px;
+  background: #e5eaf1;
+}
+
+.skeleton-line.title {
+  width: 68%;
+  height: 1rem;
+}
+
+.skeleton-line.meta {
+  width: 58%;
+  height: 0.8125rem;
+}
+
+.skeleton-line.short {
+  width: 9rem;
+  height: 0.875rem;
+}
+
+.skeleton-tags {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.skeleton-tags span {
+  width: 3.5rem;
+  height: 1.25rem;
 }
 </style>
