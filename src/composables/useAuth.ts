@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { User, login as apiLogin, register as apiRegister, logout as apiLogout, getCurrentUser, setToken, removeToken, getToken } from '@/api/auth'
+import { User, login as apiLogin, register as apiRegister, logout as apiLogout, getCurrentUser, removeToken, getToken } from '@/api/auth'
 
 // Global auth state
 const user = ref<User | null>(null)
