@@ -37,7 +37,10 @@
     <!-- Featured Palettes Section -->
     <section class="featured-section">
       <h2 class="section-title">Featured Palettes</h2>
-      <div v-if="featuredPalettes.length > 0" class="palettes-grid">
+      <div v-if="isLoading" class="empty-state">
+        <p>Loading palettes...</p>
+      </div>
+      <div v-else-if="featuredPalettes.length > 0" class="palettes-grid">
         <PaletteCard
           v-for="palette in featuredPalettes"
           :key="palette.id"
@@ -52,12 +55,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { getAllPalettes } from '@/lib/palette'
+import { computed, onMounted, ref } from 'vue'
+import { loadPalettes } from '@/lib/palette'
+import type { Palette } from '@/types/palette'
 import PaletteCard from '@/components/PaletteCard.vue'
 
+const palettes = ref<Palette[]>([])
+const isLoading = ref(true)
+
 const featuredPalettes = computed(() => {
-  return getAllPalettes().slice(0, 3)
+  return palettes.value.slice(0, 3)
+})
+
+onMounted(async () => {
+  try {
+    palettes.value = await loadPalettes()
+  } finally {
+    isLoading.value = false
+  }
 })
 </script>
 
