@@ -28,6 +28,7 @@
         <div class="nav-links">
           <router-link to="/palettes" class="nav-link">Palettes</router-link>
           <template v-if="isAuthenticated">
+            <router-link v-if="isAdmin" to="/admin/palettes" class="nav-link nav-link-admin">Review</router-link>
             <router-link to="/projects" class="nav-link">My Projects</router-link>
             <router-link to="/favorites" class="nav-link">Favorites</router-link>
             <router-link to="/profile" class="nav-link">{{ currentUser?.name || currentUser?.email }}</router-link>
@@ -54,11 +55,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const { isAuthenticated, currentUser, logout } = useAuth()
+const isAdmin = computed(() => currentUser.value?.role === 'admin')
 
 async function handleLogout() {
   await logout()
@@ -190,6 +193,11 @@ async function handleLogout() {
 
 .nav-link.router-link-active {
   color: #0066cc;
+}
+
+.nav-link-admin {
+  color: #1d4ed8;
+  font-weight: 700;
 }
 
 .user-menu {

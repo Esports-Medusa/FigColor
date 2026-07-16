@@ -51,11 +51,9 @@
             <label for="type">Type *</label>
             <select id="type" v-model="form.type">
               <option value="">Select type...</option>
-              <option value="categorical">Categorical</option>
-              <option value="sequential">Sequential</option>
-              <option value="diverging">Diverging</option>
-              <option value="qualitative">Qualitative</option>
-              <option value="heatmap">Heatmap</option>
+              <option v-for="option in paletteTypeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
             </select>
           </div>
 
@@ -67,11 +65,79 @@
 
         <div class="form-group">
           <label for="chart_types">Chart Types</label>
+          <p v-if="chartApplicabilityMode === 'authored'" class="helper-text">
+            Derived from chart applicability while authored applicability is active.
+          </p>
           <div class="checkbox-group">
             <label v-for="ct in availableChartTypes" :key="ct">
-              <input type="checkbox" :value="ct" v-model="form.chart_types" />
+              <input type="checkbox" :value="ct" v-model="form.chart_types" :disabled="chartApplicabilityMode === 'authored'" />
               {{ ct }}
             </label>
+          </div>
+        </div>
+
+        <div class="form-group applicability-editor">
+          <div class="section-header">
+            <div>
+              <h3>Chart Applicability</h3>
+              <p v-if="chartApplicabilityMode === 'legacy'" class="helper-text">
+                Legacy chart_types are currently in use.
+              </p>
+            </div>
+            <div class="section-actions">
+              <button
+                v-if="chartApplicabilityMode === 'legacy'"
+                type="button"
+                class="btn btn-secondary btn-small"
+                @click="migrateToChartApplicability"
+              >
+                Migrate to chart applicability
+              </button>
+              <button
+                v-else
+                type="button"
+                class="btn btn-secondary btn-small"
+                @click="useLegacyChartTypes"
+              >
+                Use legacy chart types
+              </button>
+            </div>
+          </div>
+
+          <div v-if="chartApplicabilityMode === 'authored'" class="applicability-rows">
+            <div
+              v-for="(item, index) in form.chart_applicability"
+              :key="index"
+              class="applicability-row"
+            >
+              <select v-model="item.chart_type">
+                <option value="">Chart type...</option>
+                <option
+                  v-for="ct in phase1ChartTypes"
+                  :key="ct"
+                  :value="ct"
+                  :disabled="isDuplicateChartTypeOption(ct, index)"
+                >
+                  {{ chartTypeLabels[ct] }}
+                </option>
+              </select>
+              <select v-model="item.suitability">
+                <option v-for="option in suitabilityOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+              <input v-model="item.notes" type="text" placeholder="Optional notes" />
+              <button type="button" class="btn btn-danger btn-small" @click="removeApplicabilityRow(index)">
+                Remove
+              </button>
+            </div>
+            <button type="button" class="btn btn-secondary btn-small" @click="addApplicabilityRow">
+              Add applicability
+            </button>
+            <p v-if="form.chart_applicability.length === 0" class="helper-text">
+              Saving now will persist an explicit empty applicability array.
+            </p>
+            <p v-if="applicabilityError" class="error-text">{{ applicabilityError }}</p>
           </div>
         </div>
 
@@ -160,6 +226,20 @@
           </div>
         </div>
 
+        <BarErrorPreviewEditor
+          v-if="isEditing"
+          :palette="canonicalPaletteForPreview"
+          :preview-cases="previewCases"
+          :request-in-progress="previewRequestInProgress"
+          :backend-issues="previewBackendIssues"
+          @save-draft="handlePreviewDraftSave"
+          @publish="handlePreviewPublish"
+          @replace-published="requestPreviewReplacement"
+          @set-primary="handlePreviewSetPrimary"
+          @archive="handlePreviewArchive"
+        />
+        <p v-if="previewWorkflowMessage" class="helper-text">{{ previewWorkflowMessage }}</p>
+
         <div class="form-actions">
           <button class="btn btn-primary" @click="savePalette" :disabled="saving || !isValid">
             {{ saving ? 'Saving...' : 'Save Palette' }}
@@ -217,6 +297,15 @@
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      v-if="replacementConfirmDraft"
+      title="Archive Published Preview"
+      :message="replacementConfirmMessage"
+      confirm-text="Archive and create draft"
+      @confirm="confirmPreviewReplacement"
+      @cancel="cancelPreviewReplacement"
+    />
   </div>
 </template>
 
@@ -230,11 +319,40 @@ import {
   publishPalette,
   unpublishPalette,
   parseColorsInput, 
+  preservePaletteColorIds,
   isValidHex,
   generateSlug,
-  AdminPalette,
-  CreatePaletteRequest
+  CreatePaletteRequest,
+  PaletteColor
 } from '@/api/admin'
+import type {
+  CanonicalPalette,
+  ChartSuitability,
+  ChartType,
+  ChartTypeApplicability,
+  PalettePreviewCase,
+  ValidationIssue
+} from '@/types/palette'
+import { PHASE_1_CHART_TYPES, normalizeLegacyChartTypesToApplicability } from '@/lib/palette/applicability'
+import BarErrorPreviewEditor from '@/components/admin/previews/BarErrorPreviewEditor.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import {
+  type EditableBarErrorDraft
+} from '@/lib/chart-types/bar-error/admin'
+import {
+  publishBarErrorSavedDraft,
+  replacePublishedBarErrorWithDraft,
+  saveBarErrorDraftRevision
+} from '@/lib/chart-types/bar-error/lifecycle'
+import {
+  archiveAdminPreviewCase,
+  createAdminPreviewCase,
+  listAdminPreviewCases,
+  publishAdminPreviewCase,
+  setPrimaryAdminPreviewCase,
+  updateAdminPreviewCase,
+  type AdminPreviewMutationResult
+} from '@/lib/api/adminPreviewCases'
 
 const router = useRouter()
 const route = useRoute()
@@ -244,10 +362,30 @@ const paletteId = computed(() => route.params.id as string)
 
 const saving = ref(false)
 const colorsError = ref('')
+const previewCases = ref<PalettePreviewCase[]>([])
+const previewRequestInProgress = ref(false)
+const previewBackendIssues = ref<ValidationIssue[]>([])
+const previewWorkflowMessage = ref('')
+const replacementConfirmDraft = ref<EditableBarErrorDraft | null>(null)
+const replacementConfirmPreviewCaseId = ref<string | null>(null)
 
 const availableChartTypes = [
   'line', 'bar', 'scatter', 'boxplot', 'violin', 
   'heatmap', 'area', 'stacked_bar', 'survival_curve', 'volcano_plot'
+]
+
+const phase1ChartTypes = PHASE_1_CHART_TYPES
+const chartTypeLabels: Record<ChartType, string> = {
+  bar_error: 'Bar with error bars',
+  boxplot_jitter: 'Boxplot with jitter',
+  line_multiseries: 'Multi-series line',
+  heatmap_annotated: 'Annotated heatmap'
+}
+const suitabilityOptions: Array<{ value: ChartSuitability; label: string }> = [
+  { value: 'best_fit', label: 'Best fit' },
+  { value: 'recommended', label: 'Recommended' },
+  { value: 'compatible', label: 'Compatible' },
+  { value: 'limited', label: 'Limited' }
 ]
 
 const availableJournalStyles = [
@@ -257,10 +395,11 @@ const availableJournalStyles = [
 const form = reactive({
   name: '',
   slug: '',
-  colors: [] as { hex: string; rgb: [number, number, number] }[],
+  colors: [] as PaletteColor[],
   color_count: 0,
   type: '',
   chart_types: [] as string[],
+  chart_applicability: [] as ChartTypeApplicability[],
   journal_style: [] as string[],
   discipline: [] as string[],
   use_case: [] as string[],
@@ -279,6 +418,10 @@ const form = reactive({
 })
 
 const colorsInput = ref('')
+const loadedColors = ref<PaletteColor[]>([])
+const loadedPaletteType = ref('')
+const chartApplicabilityMode = ref<'legacy' | 'authored'>('legacy')
+const clearApplicabilityOnSave = ref(false)
 const disciplineInput = ref('')
 const useCaseInput = ref('')
 const avoidCaseInput = ref('')
@@ -287,7 +430,7 @@ const tagsInput = ref('')
 const parsedColors = computed(() => {
   if (!colorsInput.value.trim()) return []
   try {
-    return parseColorsInput(colorsInput.value)
+    return preservePaletteColorIds(loadedColors.value, parseColorsInput(colorsInput.value))
   } catch {
     return []
   }
@@ -305,7 +448,91 @@ const isValid = computed(() => {
   return form.name.trim() !== '' &&
     form.type !== '' &&
     parsedColors.value.length > 0 &&
-    parsedColors.value.every(c => isValidHex(c.hex))
+    parsedColors.value.every(c => isValidHex(c.hex)) &&
+    !applicabilityError.value
+})
+
+const applicabilityError = computed(() => {
+  if (chartApplicabilityMode.value !== 'authored') return ''
+
+  const seen = new Set<string>()
+  let bestFitCount = 0
+  for (const item of form.chart_applicability) {
+    if (!item.chart_type) return 'Every applicability row needs a chart type.'
+    if (seen.has(item.chart_type)) return 'Each chart type can appear only once.'
+    seen.add(item.chart_type)
+    if (item.suitability === 'best_fit') {
+      bestFitCount += 1
+    }
+  }
+  return bestFitCount > 1 ? 'Only one chart type can be best fit.' : ''
+})
+
+const paletteTypeOptions = computed(() => {
+  const options = [
+    { value: 'categorical', label: 'Categorical' },
+    { value: 'sequential', label: 'Sequential' },
+    { value: 'diverging', label: 'Diverging' },
+    { value: 'mixed', label: 'Mixed' },
+  ]
+
+  if (isEditing.value && ['qualitative', 'heatmap'].includes(loadedPaletteType.value)) {
+    options.push({
+      value: loadedPaletteType.value,
+      label: `${loadedPaletteType.value} (legacy, preserve current)`,
+    })
+  }
+
+  return options
+})
+
+const canonicalPaletteForPreview = computed<CanonicalPalette>(() => ({
+  id: paletteId.value,
+  slug: form.slug || generateSlug(form.name),
+  name: form.name || 'Palette',
+  status: form.status as 'draft' | 'candidate' | 'published' | 'archived',
+  colors: form.colors
+    .filter((color): color is PaletteColor & { id: string } => typeof color.id === 'string' && color.id.trim() !== '')
+    .map((color, index) => ({
+      id: color.id,
+      hex: color.hex,
+      rgb: color.rgb,
+      label: color.label,
+      order: color.order ?? index
+    })),
+  color_count: form.colors.length,
+  type: (form.type || 'categorical') as 'categorical' | 'sequential' | 'diverging' | 'mixed' | 'qualitative' | 'heatmap',
+  chart_types: form.chart_types,
+  chart_applicability: chartApplicabilityMode.value === 'authored'
+    ? form.chart_applicability.map((item) => ({ ...item }))
+    : undefined,
+  journal_style: [...form.journal_style],
+  disciplines: parseCommaSeparated(disciplineInput.value),
+  use_cases: parseCommaSeparated(useCaseInput.value),
+  avoid_cases: parseCommaSeparated(avoidCaseInput.value),
+  tags: parseCommaSeparated(tagsInput.value),
+  accessibility: { ...form.accessibility },
+  source_type: toCanonicalSourceType(form.source_type),
+  source_image: form.source_image || undefined,
+  source_note: form.source_note || undefined,
+  version: form.version || undefined,
+  created_at: '',
+  updated_at: '',
+  primary_preview_case: null,
+  preview_cases: []
+}))
+
+const replacementConfirmPreviewCase = computed(() =>
+  replacementConfirmPreviewCaseId.value
+    ? previewCases.value.find((previewCase) => previewCase.id === replacementConfirmPreviewCaseId.value) ?? null
+    : null
+)
+
+const replacementConfirmMessage = computed(() => {
+  const primaryWarning = replacementConfirmPreviewCase.value?.is_primary
+    ? ' This preview is currently primary, so the public chart preview may temporarily fall back until the replacement draft is published and set primary.'
+    : ''
+  return `Archive the published bar error preview and create a new draft from your current local edits?${primaryWarning}`
 })
 
 watch(parsedColors, (newColors) => {
@@ -316,6 +543,12 @@ watch(parsedColors, (newColors) => {
   const invalidColors = newColors.filter(c => !isValidHex(c.hex))
   if (invalidColors.length > 0) {
     colorsError.value = `Invalid HEX: ${invalidColors.map(c => c.hex).join(', ')}`
+  }
+}, { deep: true })
+
+watch(() => form.chart_applicability, (items) => {
+  if (chartApplicabilityMode.value === 'authored') {
+    form.chart_types = items.map((item) => item.chart_type).filter(Boolean)
   }
 }, { deep: true })
 
@@ -337,7 +570,18 @@ async function loadPalette() {
     form.name = palette.name
     form.slug = palette.slug
     form.type = palette.type
+    loadedPaletteType.value = palette.type
     form.chart_types = palette.chart_types || []
+    if (palette.chart_applicability !== undefined && palette.chart_applicability !== null) {
+      chartApplicabilityMode.value = 'authored'
+      clearApplicabilityOnSave.value = false
+      form.chart_applicability = palette.chart_applicability.map(toEditableApplicability)
+      form.chart_types = form.chart_applicability.map((item) => item.chart_type)
+    } else {
+      chartApplicabilityMode.value = 'legacy'
+      clearApplicabilityOnSave.value = false
+      form.chart_applicability = []
+    }
     form.journal_style = palette.journal_style || []
     form.discipline = palette.discipline || []
     form.use_case = palette.use_case || []
@@ -354,6 +598,7 @@ async function loadPalette() {
     form.version = palette.version || ''
     form.status = palette.status || 'draft'
     form.color_count = palette.color_count
+    loadedColors.value = palette.colors || []
 
     // Parse colors back to input format
     if (palette.colors && palette.colors.length > 0) {
@@ -365,6 +610,7 @@ async function loadPalette() {
     useCaseInput.value = palette.use_case?.join(', ') || ''
     avoidCaseInput.value = palette.avoid_case?.join(', ') || ''
     tagsInput.value = palette.tags?.join(', ') || ''
+    await loadPreviewCases()
   } catch (e: any) {
     alert('Failed to load palette: ' + e.message)
     router.push('/admin/palettes')
@@ -375,6 +621,99 @@ function parseCommaSeparated(value: string): string[] {
   return value.split(',').map(s => s.trim()).filter(s => s.length > 0)
 }
 
+function toCanonicalSourceType(value: string): CanonicalPalette['source_type'] | undefined {
+  return value === 'manual' || value === 'figure_extracted' || value === 'curated'
+    ? value
+    : undefined
+}
+
+function toEditableApplicability(item: ChartTypeApplicability): ChartTypeApplicability {
+  return {
+    chart_type: item.chart_type,
+    suitability: item.suitability,
+    notes: item.notes || '',
+    source: 'curated'
+  }
+}
+
+function migrateToChartApplicability() {
+  form.chart_applicability = normalizeLegacyChartTypesToApplicability(form.chart_types)
+    .map((item) => ({ ...item, source: 'curated' }))
+  chartApplicabilityMode.value = 'authored'
+  clearApplicabilityOnSave.value = false
+  form.chart_types = form.chart_applicability.map((item) => item.chart_type)
+}
+
+function useLegacyChartTypes() {
+  chartApplicabilityMode.value = 'legacy'
+  clearApplicabilityOnSave.value = true
+  form.chart_types = form.chart_applicability.map((item) => item.chart_type)
+}
+
+function addApplicabilityRow() {
+  const nextChartType = phase1ChartTypes.find((chartType) => (
+    !form.chart_applicability.some((item) => item.chart_type === chartType)
+  ))
+  if (!nextChartType) return
+
+  form.chart_applicability.push({
+    chart_type: nextChartType,
+    suitability: form.chart_applicability.some((item) => item.suitability === 'best_fit')
+      ? 'compatible'
+      : 'best_fit',
+    notes: '',
+    source: 'curated'
+  })
+  form.chart_types = form.chart_applicability.map((item) => item.chart_type)
+}
+
+function removeApplicabilityRow(index: number) {
+  form.chart_applicability.splice(index, 1)
+  form.chart_types = form.chart_applicability.map((item) => item.chart_type)
+}
+
+function isDuplicateChartTypeOption(chartType: ChartType, index: number): boolean {
+  return form.chart_applicability.some((item, itemIndex) => (
+    itemIndex !== index && item.chart_type === chartType
+  ))
+}
+
+function buildPalettePayload(): CreatePaletteRequest {
+  const data: CreatePaletteRequest = {
+    name: form.name,
+    slug: form.slug || generateSlug(form.name),
+    colors: form.colors,
+    color_count: form.color_count,
+    type: form.type,
+    chart_types: form.chart_types,
+    journal_style: form.journal_style,
+    discipline: parseCommaSeparated(disciplineInput.value),
+    use_case: parseCommaSeparated(useCaseInput.value),
+    avoid_case: parseCommaSeparated(avoidCaseInput.value),
+    tags: parseCommaSeparated(tagsInput.value),
+    accessibility: form.accessibility,
+    source_type: form.source_type || undefined,
+    source_image: form.source_image || undefined,
+    source_note: form.source_note || undefined,
+    version: form.version || undefined,
+    status: form.status
+  }
+
+  if (chartApplicabilityMode.value === 'authored') {
+    data.chart_applicability = form.chart_applicability.map((item) => ({
+      chart_type: item.chart_type,
+      suitability: item.suitability,
+      notes: item.notes?.trim() || undefined,
+      source: 'curated'
+    }))
+    data.chart_types = data.chart_applicability.map((item) => item.chart_type)
+  } else if (clearApplicabilityOnSave.value) {
+    data.chart_applicability = null
+  }
+
+  return data
+}
+
 async function savePalette() {
   if (!isValid.value) {
     alert('Please fill in all required fields')
@@ -383,25 +722,7 @@ async function savePalette() {
 
   saving.value = true
   try {
-    const data: CreatePaletteRequest = {
-      name: form.name,
-      slug: form.slug || generateSlug(form.name),
-      colors: form.colors,
-      color_count: form.color_count,
-      type: form.type,
-      chart_types: form.chart_types,
-      journal_style: form.journal_style,
-      discipline: parseCommaSeparated(disciplineInput.value),
-      use_case: parseCommaSeparated(useCaseInput.value),
-      avoid_case: parseCommaSeparated(avoidCaseInput.value),
-      tags: parseCommaSeparated(tagsInput.value),
-      accessibility: form.accessibility,
-      source_type: form.source_type || undefined,
-      source_image: form.source_image || undefined,
-      source_note: form.source_note || undefined,
-      version: form.version || undefined,
-      status: form.status
-    }
+    const data = buildPalettePayload()
 
     if (isEditing.value) {
       await updatePalette(paletteId.value, data)
@@ -432,25 +753,7 @@ async function handlePublish() {
   saving.value = true
   try {
     // First save current form
-    const data: CreatePaletteRequest = {
-      name: form.name,
-      slug: form.slug || generateSlug(form.name),
-      colors: form.colors,
-      color_count: form.color_count,
-      type: form.type,
-      chart_types: form.chart_types,
-      journal_style: form.journal_style,
-      discipline: parseCommaSeparated(disciplineInput.value),
-      use_case: parseCommaSeparated(useCaseInput.value),
-      avoid_case: parseCommaSeparated(avoidCaseInput.value),
-      tags: parseCommaSeparated(tagsInput.value),
-      accessibility: form.accessibility,
-      source_type: form.source_type || undefined,
-      source_image: form.source_image || undefined,
-      source_note: form.source_note || undefined,
-      version: form.version || undefined,
-      status: form.status
-    }
+    const data = buildPalettePayload()
     await updatePalette(paletteId.value, data)
     // Then publish
     await publishPalette(paletteId.value)
@@ -474,6 +777,135 @@ async function handleUnpublish() {
     alert(e.message || 'Failed to unpublish palette')
   } finally {
     saving.value = false
+  }
+}
+
+async function loadPreviewCases(clearMessage = true) {
+  if (!isEditing.value) return
+
+  const result = await listAdminPreviewCases(paletteId.value, { includeArchived: true })
+  if (result.ok) {
+    previewCases.value = result.value.items
+    if (clearMessage) {
+      previewWorkflowMessage.value = ''
+    }
+    return
+  }
+
+  previewCases.value = []
+  previewWorkflowMessage.value = result.message
+}
+
+async function handlePreviewDraftSave(draft: EditableBarErrorDraft) {
+  await runPreviewMutation(
+    () => saveBarErrorDraftRevision(paletteId.value, previewCases.value, draft, {
+      create: createAdminPreviewCase,
+      update: updateAdminPreviewCase
+    }),
+    'Draft saved.'
+  )
+}
+
+async function handlePreviewPublish(draft: EditableBarErrorDraft) {
+  await runPreviewMutation(
+    () => publishBarErrorSavedDraft(previewCases.value, draft, {
+      update: updateAdminPreviewCase,
+      publish: publishAdminPreviewCase
+    }),
+    'Preview published.'
+  )
+}
+
+function requestPreviewReplacement(previewCaseId: string, draft: EditableBarErrorDraft) {
+  replacementConfirmPreviewCaseId.value = previewCaseId
+  replacementConfirmDraft.value = draft
+}
+
+async function confirmPreviewReplacement() {
+  if (!replacementConfirmPreviewCaseId.value || !replacementConfirmDraft.value) return
+
+  const previewCaseId = replacementConfirmPreviewCaseId.value
+  const draft = replacementConfirmDraft.value
+  replacementConfirmPreviewCaseId.value = null
+  replacementConfirmDraft.value = null
+  await runPreviewReplacement(previewCaseId, draft)
+}
+
+function cancelPreviewReplacement() {
+  replacementConfirmPreviewCaseId.value = null
+  replacementConfirmDraft.value = null
+}
+
+async function runPreviewReplacement(previewCaseId: string, draft: EditableBarErrorDraft) {
+  previewRequestInProgress.value = true
+  previewBackendIssues.value = []
+  previewWorkflowMessage.value = ''
+
+  try {
+    const result = await replacePublishedBarErrorWithDraft(
+      paletteId.value,
+      previewCaseId,
+      draft,
+      {
+        archive: archiveAdminPreviewCase,
+        create: createAdminPreviewCase
+      }
+    )
+
+    if (!result.ok) {
+      if (result.stage === 'archive_failed') {
+        previewBackendIssues.value = result.archiveResult.ok ? [] : result.archiveResult.issues ?? []
+        previewWorkflowMessage.value = result.archiveResult.ok ? '' : result.archiveResult.message
+        return
+      }
+
+      previewBackendIssues.value = result.createResult.ok ? [] : result.createResult.issues ?? []
+      previewWorkflowMessage.value = result.createResult.ok ? '' : result.createResult.message
+      await loadPreviewCases(false)
+      return
+    }
+
+    previewWorkflowMessage.value = 'Published preview archived and replacement draft created.'
+    await loadPreviewCases(false)
+  } finally {
+    previewRequestInProgress.value = false
+  }
+}
+
+async function handlePreviewSetPrimary(previewCaseId: string) {
+  await runPreviewMutation(
+    () => setPrimaryAdminPreviewCase(previewCaseId),
+    'Preview set as primary.'
+  )
+}
+
+async function handlePreviewArchive(previewCaseId: string) {
+  await runPreviewMutation(
+    () => archiveAdminPreviewCase(previewCaseId),
+    'Preview archived.'
+  )
+}
+
+async function runPreviewMutation(
+  mutate: () => Promise<AdminPreviewMutationResult<PalettePreviewCase>>,
+  successMessage: string
+) {
+  previewRequestInProgress.value = true
+  previewBackendIssues.value = []
+  previewWorkflowMessage.value = ''
+
+  try {
+    const result = await mutate()
+    if (!result.ok) {
+      previewBackendIssues.value = result.issues ?? []
+      previewWorkflowMessage.value = result.message
+      return
+    }
+
+    previewWorkflowMessage.value = successMessage
+    await loadPreviewCases(false)
+  } finally {
+    previewRequestInProgress.value = false
   }
 }
 
@@ -667,6 +1099,36 @@ onMounted(() => {
   margin-top: 0.25rem;
 }
 
+.helper-text {
+  color: #6b7280;
+  font-size: 0.75rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.section-actions {
+  flex: 0 0 auto;
+}
+
+.applicability-rows {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.applicability-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(130px, 0.8fr) minmax(180px, 1.2fr) auto;
+  gap: 0.5rem;
+  align-items: start;
+}
+
 .form-actions {
   display: flex;
   gap: 0.75rem;
@@ -682,6 +1144,11 @@ onMounted(() => {
   font-weight: 500;
   cursor: pointer;
   border: none;
+}
+
+.btn-small {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.75rem;
 }
 
 .btn-primary {
@@ -732,5 +1199,38 @@ onMounted(() => {
 
 .btn-warning:hover:not(:disabled) {
   background: #d97706;
+}
+
+.btn-danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.btn-danger:hover {
+  background: #fecaca;
+}
+
+@media (max-width: 900px) {
+  .form-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-section {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .section-header,
+  .applicability-row,
+  .form-row,
+  .form-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .section-header,
+  .form-actions {
+    flex-direction: column;
+  }
 }
 </style>
