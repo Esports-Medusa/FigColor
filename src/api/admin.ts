@@ -219,8 +219,7 @@ export async function publishPalette(id: string): Promise<AdminPalette> {
   })
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to publish palette')
+    throw await adminPaletteError(response, 'Failed to publish candidate')
   }
 
   return response.json()

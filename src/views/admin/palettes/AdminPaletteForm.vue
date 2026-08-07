@@ -263,21 +263,23 @@
             Save as Candidate
           </button>
           <button
-            v-if="isEditing && !isCandidate"
+            v-if="isCandidate"
             class="btn btn-success"
-            @click="handlePublish"
-            :disabled="saving || form.status === 'published'"
+            @click="publishCandidate"
+            :disabled="saving || publishing || hasUnsavedChanges"
           >
-            Publish
+            {{ publishing ? 'Publishing...' : 'Publish to public catalog' }}
           </button>
-          <button
-            v-if="isEditing && !isCandidate && form.status === 'published'"
-            class="btn btn-warning"
-            @click="handleUnpublish"
-            :disabled="saving"
-          >
-            Unpublish
-          </button>
+        </div>
+        <p v-if="isCandidate && hasUnsavedChanges" class="helper-text">Save your changes before publishing.</p>
+        <p v-if="publicationMessage" class="helper-text">{{ publicationMessage }}</p>
+        <div v-if="publicationError" class="error" role="alert">
+          <p>{{ publicationError }}</p>
+          <ul v-if="publicationIssues.length">
+            <li v-for="issue in publicationIssues" :key="`${issue.path}:${issue.code}`">
+              {{ issue.path }}: {{ issue.message }}
+            </li>
+          </ul>
         </div>
       </div>
 
@@ -321,7 +323,6 @@ import {
   createPalette, 
   updatePalette, 
   publishPalette,
-  unpublishPalette,
   parseColorsInput, 
   preservePaletteColorIds,
   isValidHex,
@@ -362,6 +363,11 @@ const isEditing = computed(() => !!route.params.id)
 const paletteId = computed(() => route.params.id as string)
 
 const saving = ref(false)
+const publishing = ref(false)
+const publicationMessage = ref('')
+const publicationError = ref('')
+const publicationIssues = ref<ValidationIssue[]>([])
+const savedPayload = ref('')
 const loading = ref(false)
 const formError = ref('')
 const formValidationIssues = ref<ValidationIssue[]>([])
@@ -449,6 +455,7 @@ const isValid = computed(() => {
     parsedColors.value.every(c => isValidHex(c.hex)) &&
     !applicabilityError.value
 })
+const hasUnsavedChanges = computed(() => Boolean(savedPayload.value) && JSON.stringify(buildPalettePayload()) !== savedPayload.value)
 
 const applicabilityError = computed(() => {
   if (chartApplicabilityMode.value !== 'authored') return ''
@@ -598,6 +605,7 @@ async function loadPalette() {
     avoidCaseInput.value = palette.avoid_case?.join(', ') || ''
     tagsInput.value = palette.tags?.join(', ') || ''
     await loadPreviewCases()
+    savedPayload.value = JSON.stringify(buildPalettePayload())
   } catch (e: any) {
     formError.value = e.message || 'Failed to load palette'
   } finally {
@@ -726,6 +734,7 @@ async function savePalette() {
       }
       form.status = saved.status
       loadedStatus.value = saved.status
+      savedPayload.value = JSON.stringify(buildPalettePayload())
     } else {
       await createPalette(data)
     }
@@ -749,35 +758,37 @@ async function saveAsCandidate() {
   await savePalette()
 }
 
-async function handlePublish() {
-  if (!isEditing.value) return
-  saving.value = true
+async function publishCandidate() {
+  if (!isCandidate.value || publishing.value || hasUnsavedChanges.value) return
+  if (!window.confirm('Publish this candidate to the public catalog?')) return
+  publishing.value = true
+  publicationMessage.value = ''
+  publicationError.value = ''
+  publicationIssues.value = []
   try {
-    // First save current form
-    const data = buildPalettePayload()
-    await updatePalette(paletteId.value, data)
-    // Then publish
-    await publishPalette(paletteId.value)
-    form.status = 'published'
-    alert('Palette published successfully!')
+    const published = await publishPalette(paletteId.value)
+    if (published.id !== paletteId.value || published.status !== 'published' || published.visibility !== 'public' || published.owner_user_id != null) {
+      throw new Error('The server returned an invalid publication response.')
+    }
+    form.status = published.status
+    loadedStatus.value = published.status
+    publicationMessage.value = 'Published to the public catalog.'
   } catch (e: any) {
-    alert(e.message || 'Failed to publish palette')
+    try {
+      const canonical = await getPalette(paletteId.value)
+      if (canonical.status === 'published' && canonical.visibility === 'public' && canonical.owner_user_id == null) {
+        form.status = canonical.status
+        loadedStatus.value = canonical.status
+        publicationMessage.value = 'Published to the public catalog.'
+        return
+      }
+    } catch {
+      // Preserve the original publication error when reconciliation also fails.
+    }
+    publicationError.value = e.message || 'Failed to publish candidate'
+    publicationIssues.value = e instanceof AdminPaletteApiError ? e.issues : []
   } finally {
-    saving.value = false
-  }
-}
-
-async function handleUnpublish() {
-  if (!isEditing.value) return
-  saving.value = true
-  try {
-    await unpublishPalette(paletteId.value)
-    form.status = 'draft'
-    alert('Palette unpublished successfully!')
-  } catch (e: any) {
-    alert(e.message || 'Failed to unpublish palette')
-  } finally {
-    saving.value = false
+    publishing.value = false
   }
 }
 

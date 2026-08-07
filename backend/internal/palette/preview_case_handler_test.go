@@ -38,6 +38,36 @@ func TestPreviewCaseMalformedCreateBody(t *testing.T) {
 	}
 }
 
+func TestCandidatePublicationHTTPFailures(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{name: "validation", err: NewValidationError([]ValidationIssue{validationIssue("colors", "COLORS_INVALID", "Colors invalid.")}), status: http.StatusUnprocessableEntity},
+		{name: "conflict", err: ErrPalettePublicationConflict, status: http.StatusConflict, code: "PUBLICATION_CONFLICT"},
+		{name: "private", err: ErrPaletteNotAdminManageable, status: http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &fakePaletteHandlerService{publish: func(string) (*Palette, error) { return nil, tt.err }}
+			rec := performPreviewCaseRequest(fake, http.MethodPost, "/api/admin/palettes/palette-1/publish", nil)
+			if rec.Code != tt.status {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+			if tt.code != "" {
+				var body struct {
+					Code string `json:"code"`
+				}
+				if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Code != tt.code {
+					t.Fatalf("body=%s", rec.Body.String())
+				}
+			}
+		})
+	}
+}
+
 func TestPreviewCaseCreateValidationFailure(t *testing.T) {
 	fake := &fakePaletteHandlerService{
 		createPreviewCase: func(paletteID string, req *CreatePreviewCaseRequest) (*PalettePreviewCase, error) {
@@ -477,6 +507,7 @@ func handlerPreviewCase(id string, status string, isPrimary bool) *PalettePrevie
 }
 
 type fakePaletteHandlerService struct {
+	publish                   func(id string) (*Palette, error)
 	listPreviewCasesByPalette func(paletteID string, includeArchived bool) ([]*PalettePreviewCase, error)
 	getPreviewCaseByID        func(id string) (*PalettePreviewCase, error)
 	createPreviewCase         func(paletteID string, req *CreatePreviewCaseRequest) (*PalettePreviewCase, error)
@@ -508,6 +539,9 @@ func (f *fakePaletteHandlerService) Update(id string, req *UpdatePaletteRequest)
 	return nil, errors.New("unused")
 }
 func (f *fakePaletteHandlerService) Publish(id string) (*Palette, error) {
+	if f.publish != nil {
+		return f.publish(id)
+	}
 	return nil, errors.New("unused")
 }
 func (f *fakePaletteHandlerService) Unpublish(id string) (*Palette, error) {

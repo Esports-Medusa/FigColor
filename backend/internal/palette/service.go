@@ -1,6 +1,7 @@
 package palette
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ type Service struct {
 var (
 	ErrPaletteNotFound                       = errors.New("palette not found")
 	ErrPaletteNotAdminManageable             = errors.New("palette is not admin manageable")
+	ErrPalettePublicationConflict            = errors.New("palette publication conflict")
 	ErrInvalidPreviewCaseLifecycleTransition = errors.New("invalid preview case lifecycle transition")
 	ErrPreviewCaseValidationFailure          = errors.New("preview case validation failure")
 )
@@ -772,7 +774,12 @@ func previewCaseServiceError(operation string, err error) error {
 
 // Publish publishes a palette (sets status to 'published')
 func (s *Service) Publish(id string) (*Palette, error) {
-	existing, err := s.repo.GetByID(id)
+	tx, err := database.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin publication transaction: %w", err)
+	}
+	defer tx.Rollback()
+	existing, err := s.repo.getByID(tx, id, true)
 	if err != nil {
 		return nil, err
 	}
@@ -783,7 +790,100 @@ func (s *Service) Publish(id string) (*Palette, error) {
 		return nil, err
 	}
 
-	return s.repo.Publish(id)
+	if existing.Status != "candidate" {
+		return nil, ErrPalettePublicationConflict
+	}
+	previewCases, err := s.repo.ListPreviewCasesByPaletteTx(tx, id, true)
+	if err != nil {
+		return nil, previewCaseServiceError("load publication preview cases", err)
+	}
+	if err := s.validatePublicationReadiness(tx, existing, previewCases); err != nil {
+		return nil, err
+	}
+	result, err := tx.Exec(`UPDATE palettes SET status='published', published_at=clock_timestamp(), updated_at=clock_timestamp()
+		WHERE id=$1 AND status='candidate' AND visibility='public' AND owner_user_id IS NULL`, id)
+	if err != nil {
+		return nil, fmt.Errorf("publish candidate: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil || rows != 1 {
+		return nil, ErrPalettePublicationConflict
+	}
+	published, err := s.repo.getByID(tx, id, false)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit publication transaction: %w", err)
+	}
+	return published, nil
+}
+
+func (s *Service) validatePublicationReadiness(tx *sql.Tx, palette *Palette, previewCases []*PalettePreviewCase) error {
+	issues := make([]ValidationIssue, 0)
+	if strings.TrimSpace(palette.Name) == "" {
+		issues = append(issues, validationIssue("name", "NAME_REQUIRED", "Palette name is required."))
+	}
+	if strings.TrimSpace(palette.Slug) == "" {
+		issues = append(issues, validationIssue("slug", "SLUG_REQUIRED", "Palette slug is required."))
+	}
+	if _, _, err := normalizeUpdateColors(palette.Colors, &palette.ColorCount); err != nil {
+		if validationErr, ok := IsValidationError(err); ok {
+			issues = append(issues, validationErr.Issues...)
+		}
+	}
+	if err := validatePaletteTypeForUpdate(palette.Type, &palette.Type); err != nil {
+		if validationErr, ok := IsValidationError(err); ok {
+			issues = append(issues, validationErr.Issues...)
+		}
+	}
+	if palette.ChartApplicability != nil {
+		raw, _ := json.Marshal(*palette.ChartApplicability)
+		optional := OptionalChartApplicability{Present: true, Raw: raw}
+		if _, err := normalizeChartApplicability(&optional); err != nil {
+			if validationErr, ok := IsValidationError(err); ok {
+				issues = append(issues, validationErr.Issues...)
+			}
+		}
+	}
+	for index, previewCase := range previewCases {
+		if previewCase.Status == PreviewCaseStatusArchived {
+			continue
+		}
+		if err := s.validatePreviewCaseCandidate(palette, previewCaseCandidateFromExisting(previewCase)); err != nil {
+			if validationErr, ok := IsValidationError(err); ok {
+				for _, issue := range validationErr.Issues {
+					issue.Path = fmt.Sprintf("preview_cases[%d].%s", index, strings.TrimPrefix(issue.Path, "preview_case."))
+					issues = append(issues, issue)
+				}
+			}
+		}
+	}
+	var raw []byte
+	err := tx.QueryRow(`SELECT validation_issues FROM palette_ingestion_records WHERE palette_id=$1`, palette.ID).Scan(&raw)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("load ingestion validation issues: %w", err)
+	}
+	if len(raw) > 0 {
+		var stored []struct {
+			Path     string `json:"path"`
+			Code     string `json:"code"`
+			Message  string `json:"message"`
+			Severity string `json:"severity"`
+			Blocking bool   `json:"blocking"`
+		}
+		if json.Unmarshal(raw, &stored) == nil {
+			for _, issue := range stored {
+				if issue.Blocking || issue.Severity == "error" {
+					issues = append(issues, validationIssue(issue.Path, issue.Code, issue.Message))
+				}
+			}
+		}
+	}
+	if len(issues) > 0 {
+		return NewValidationError(issues)
+	}
+	return nil
 }
 
 // Unpublish unpublishes a palette (sets status to 'candidate')

@@ -1,4 +1,4 @@
-import { getPalettes } from '@/api/admin'
+import { AdminPaletteApiError, getPalettes, publishPalette } from '@/api/admin'
 import listSource from './AdminPalettesList.vue?raw'
 import formSource from './AdminPaletteForm.vue?raw'
 
@@ -51,9 +51,61 @@ function testCandidateReviewPresentationAndSafety(): void {
   expect(formSource.includes('getPalette(paletteId.value)'), 'candidate details must load from the admin detail endpoint')
   expect(formSource.includes("loadedStatus.value === 'candidate'"), 'candidate forms must retain loaded canonical status')
   expect(formSource.includes('status: isCandidate.value ? undefined : form.status'), 'candidate save payload must omit publication status')
-  expect(formSource.includes('v-if="isEditing && !isCandidate"'), 'candidate form must not expose palette publish')
+  expect(formSource.includes('Publish to public catalog'), 'candidate form must expose an explicit publication action')
+  expect(formSource.includes('hasUnsavedChanges'), 'publication must be guarded against unsaved form edits')
+  expect(formSource.includes('window.confirm'), 'publication must require explicit confirmation')
+  expect(formSource.includes('publishing.value'), 'duplicate publication clicks must be guarded')
+  expect(formSource.includes("canonical.status === 'published'"), 'lost responses must reconcile against canonical admin detail')
+  expect(formSource.includes('invalid publication response'), 'malformed success responses must not be reported as success')
+  expect(formSource.includes('publicationError'), 'publication failures must remain inline without replacing the edit form')
+  expect(!formSource.includes('handleUnpublish'), 'candidate workflow must not add an unpublish action')
   expect(formSource.includes(':public-only="false"'), 'admin form must continue using the shared preview renderer')
 }
 
+async function testCandidatePublicationRequestAndStructuredFailure(): Promise<void> {
+  const previousFetch = globalThis.fetch
+  const previousStorage = globalThis.localStorage
+  let request: { url: string; init?: RequestInit } | undefined
+  let responseStatus = 422
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: () => 'admin-token' }
+  })
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    request = { url: String(input), init }
+    return new Response(JSON.stringify({
+      error: 'publication validation failed',
+      issues: [{ path: 'colors', code: 'COLORS_INVALID', message: 'Colors are invalid.' }]
+    }), { status: responseStatus, headers: { 'Content-Type': 'application/json' } })
+  }) as typeof fetch
+
+  try {
+    let failure: unknown
+    try {
+      await publishPalette('candidate-1')
+    } catch (error) {
+      failure = error
+    }
+    expect(request?.url === '/api/admin/palettes/candidate-1/publish', 'publication must use the dedicated endpoint')
+    expect(request?.init?.method === 'POST' && request?.init?.body === undefined, 'publication must be a payload-free POST')
+    expect(failure instanceof AdminPaletteApiError, 'publication failures must retain structured API error data')
+    expect((failure as AdminPaletteApiError).status === 422, 'publication validation status must be retained')
+    expect((failure as AdminPaletteApiError).issues[0]?.code === 'COLORS_INVALID', 'publication validation issues must be retained')
+    for (const status of [401, 403, 409]) {
+      responseStatus = status
+      try {
+        await publishPalette('candidate-1')
+        throw new Error(`publication status ${status} unexpectedly succeeded`)
+      } catch (error) {
+        expect(error instanceof AdminPaletteApiError && error.status === status, `publication status ${status} must be retained`)
+      }
+    }
+  } finally {
+    globalThis.fetch = previousFetch
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: previousStorage })
+  }
+}
+
 await testCandidateFilterSearchAndPaginationSerialization()
+await testCandidatePublicationRequestAndStructuredFailure()
 testCandidateReviewPresentationAndSafety()

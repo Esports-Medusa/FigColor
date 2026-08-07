@@ -105,6 +105,14 @@ func (r *Repository) getPreviewCaseByID(q previewCaseQueryer, id string, forUpda
 }
 
 func (r *Repository) ListPreviewCasesByPalette(paletteID string, includeArchived bool) ([]*PalettePreviewCase, error) {
+	return r.listPreviewCasesByPalette(database.DB, paletteID, includeArchived)
+}
+
+func (r *Repository) ListPreviewCasesByPaletteTx(tx *sql.Tx, paletteID string, includeArchived bool) ([]*PalettePreviewCase, error) {
+	return r.listPreviewCasesByPalette(tx, paletteID, includeArchived)
+}
+
+func (r *Repository) listPreviewCasesByPalette(q previewCaseQueryer, paletteID string, includeArchived bool) ([]*PalettePreviewCase, error) {
 	query := `
 		SELECT ` + previewCaseSelectColumns + `
 		FROM palette_preview_cases
@@ -116,7 +124,7 @@ func (r *Repository) ListPreviewCasesByPalette(paletteID string, includeArchived
 	}
 	query += previewCaseOrderClause()
 
-	return queryPreviewCases(database.DB, query, args...)
+	return queryPreviewCases(q, query, args...)
 }
 
 func (r *Repository) UpdatePreviewCase(id string, req *UpdatePreviewCaseRequest) (*PalettePreviewCase, error) {

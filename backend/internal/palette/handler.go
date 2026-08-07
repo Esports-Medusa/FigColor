@@ -187,6 +187,14 @@ func (h *Handler) Publish(c *gin.Context) {
 
 	palette, err := h.service.Publish(id)
 	if err != nil {
+		if validationErr, ok := IsValidationError(err); ok {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": validationErr.Error(), "issues": validationErr.Issues})
+			return
+		}
+		if errors.Is(err, ErrPalettePublicationConflict) {
+			c.JSON(http.StatusConflict, gin.H{"error": "palette is no longer an unpublished candidate", "code": "PUBLICATION_CONFLICT"})
+			return
+		}
 		if errors.Is(err, ErrPaletteNotFound) || errors.Is(err, ErrPaletteNotAdminManageable) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "palette not found"})
 			return
