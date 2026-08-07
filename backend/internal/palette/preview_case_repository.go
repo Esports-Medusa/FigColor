@@ -34,6 +34,12 @@ func (r *Repository) CreatePreviewCase(paletteID string, req *CreatePreviewCaseR
 	return r.createPreviewCase(database.DB, paletteID, req)
 }
 
+// CreatePreviewCaseTx is the caller-owned transaction adapter used by the
+// ingestion aggregate. It performs the same validation and never commits.
+func (r *Repository) CreatePreviewCaseTx(tx *sql.Tx, paletteID string, req *CreatePreviewCaseRequest) (*PalettePreviewCase, error) {
+	return r.createPreviewCase(tx, paletteID, req)
+}
+
 func (r *Repository) createPreviewCase(q previewCaseQueryer, paletteID string, req *CreatePreviewCaseRequest) (*PalettePreviewCase, error) {
 	if err := validateCreatePreviewCaseRequest(req); err != nil {
 		return nil, err

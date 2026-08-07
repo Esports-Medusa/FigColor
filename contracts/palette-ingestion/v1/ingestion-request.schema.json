@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://figcolor.local/contracts/palette-ingestion/v1/ingestion-request.schema.json",
+  "title": "FigColor Candidate Ingestion Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ingestion_metadata", "palette", "preview_cases"],
+  "properties": {
+    "ingestion_metadata": {"$ref": "#/$defs/ingestionMetadata"},
+    "palette": {"$ref": "#/$defs/paletteInput"},
+    "preview_cases": {"type": "array", "items": {"$ref": "#/$defs/previewCase"}}
+  },
+  "$defs": {
+    "ingestionMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proposal_id", "source_key", "source_hash", "normalized_content_hash", "pipeline_version", "schema_version", "validation_issues", "duplicate_evidence"],
+      "properties": {
+        "proposal_id": {"type": "string", "minLength": 1},
+        "source_key": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$"},
+        "source_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "normalized_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "pipeline_version": {"enum": ["palette-ingest-wp5-reporting.1"]},
+        "schema_version": {"const": 1},
+        "validation_issues": {"type": "array", "items": {"$ref": "validation-report.schema.json#/properties/issues/items"}},
+        "duplicate_evidence": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {"$ref": "validation-report.schema.json#/$defs/duplicateFinding"},
+              {"$ref": "validation-report.schema.json#/$defs/perceptualFinding"}
+            ]
+          }
+        },
+        "source_reference": {"type": "string", "minLength": 1, "maxLength": 2000}
+      }
+    },
+    "color": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "hex", "rgb", "order"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$"},
+        "hex": {"type": "string", "pattern": "^#[0-9A-F]{6}$"},
+        "rgb": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": {"type": "integer", "minimum": 0, "maximum": 255}
+        },
+        "order": {"type": "integer", "minimum": 0}
+      }
+    },
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chart_type", "suitability", "source"],
+      "properties": {
+        "chart_type": {"type": "string"},
+        "suitability": {"enum": ["best_fit", "recommended", "compatible", "limited"]},
+        "notes": {"type": "string", "maxLength": 1000},
+        "source": {"const": "curated"}
+      }
+    },
+    "paletteInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "colors", "color_count", "disciplines", "use_cases", "avoid_cases", "tags", "chart_applicability"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "type": {"enum": ["categorical", "sequential", "diverging", "mixed"]},
+        "colors": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/$defs/color"}},
+        "color_count": {"type": "integer", "minimum": 1, "maximum": 64},
+        "disciplines": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "use_cases": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "avoid_cases": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "tags": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "chart_applicability": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/applicability"}}
+      }
+    },
+    "previewCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chart_type", "template_id", "template_version", "schema_version", "color_roles", "preview_config", "seed_strategy"],
+      "properties": {
+        "chart_type": {"type": "string"},
+        "template_id": {"type": "string", "minLength": 1},
+        "template_version": {"type": "integer", "minimum": 1},
+        "schema_version": {"type": "integer", "minimum": 1},
+        "color_roles": {"type": "object"},
+        "preview_config": {"type": "object"},
+        "seed_strategy": {"enum": ["stable_id", "fixed"]},
+        "seed_value": {"type": "integer"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"seed_strategy": {"const": "fixed"}}, "required": ["seed_strategy"]},
+          "then": {"properties": {"seed_value": {"type": "integer"}}, "required": ["seed_value"]},
+          "else": {"not": {"required": ["seed_value"]}}
+        }
+      ]
+    }
+  }
+}

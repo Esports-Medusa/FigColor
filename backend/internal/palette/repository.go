@@ -464,6 +464,42 @@ func (r *Repository) Create(req *CreatePaletteRequest, createdBy string) (*Palet
 	return r.GetByID(paletteID)
 }
 
+// CreateCandidateTx is the narrow caller-owned transaction adapter for the
+// ingestion aggregate. The caller must provide an already validated,
+// server-owned candidate request. This method never commits.
+func (r *Repository) CreateCandidateTx(tx *sql.Tx, req *CreatePaletteRequest, createdBy string) (*Palette, error) {
+	accessibilityJSON, err := json.Marshal(req.Accessibility)
+	if err != nil {
+		return nil, err
+	}
+	if req.Accessibility == nil {
+		accessibilityJSON = []byte(`{"colorblind_safe": false, "print_friendly": false, "dark_background": false}`)
+	}
+	chartApplicabilityJSON, err := chartApplicabilityJSONValue(req.ChartApplicability)
+	if err != nil {
+		return nil, err
+	}
+	var createdByPtr *string
+	if createdBy != "" {
+		createdByPtr = &createdBy
+	}
+	var id string
+	err = tx.QueryRow(`
+		INSERT INTO palettes (
+			slug,name,owner_user_id,visibility,origin,source_palette_id,colors,color_count,type,
+			chart_types,chart_applicability,journal_style,discipline,use_case,avoid_case,tags,
+			accessibility,source_type,source_image,source_note,status,version,created_by
+		) VALUES ($1,$2,NULL,'public','curated',NULL,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'candidate',$17,$18)
+		RETURNING id`, req.Slug, req.Name, req.Colors, req.ColorCount, req.Type,
+		pq.Array(req.ChartTypes), chartApplicabilityJSON, pq.Array(req.JournalStyle), pq.Array(req.Discipline),
+		pq.Array(req.UseCase), pq.Array(req.AvoidCase), pq.Array(req.Tags), accessibilityJSON,
+		req.SourceType, req.SourceImage, req.SourceNote, req.Version, createdByPtr).Scan(&id)
+	if err != nil {
+		return nil, fmt.Errorf("create ingestion candidate: %w", err)
+	}
+	return r.GetPaletteByIDTx(tx, id)
+}
+
 // Update modifies an existing palette
 func (r *Repository) Update(id string, req *UpdatePaletteRequest) (*Palette, error) {
 	now := time.Now()

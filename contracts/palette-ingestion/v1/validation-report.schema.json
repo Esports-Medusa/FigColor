@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://figcolor.local/contracts/palette-ingestion/v1/validation-report.schema.json",
+  "title": "FigColor Palette Ingestion Validation Report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["valid", "issues"],
+  "properties": {
+    "valid": {"type": "boolean"},
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "code", "message", "severity", "source"],
+        "properties": {
+          "path": {"type": "string"},
+          "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+          "message": {"type": "string"},
+          "severity": {"enum": ["error", "warning", "info"]},
+          "source": {"enum": ["input", "extraction", "normalization", "domain", "duplicate", "import"]}
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {"$ref": "#/$defs/duplicateFinding"},
+          {"$ref": "#/$defs/perceptualFinding"}
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "duplicateFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "fingerprint_type", "fingerprint_version", "fingerprint", "current_identity", "matched_identity", "scope", "path", "code", "message", "severity", "source"],
+      "properties": {
+        "kind": {"enum": ["source_identity", "canonical_content"]},
+        "fingerprint_type": {"enum": ["source_key", "source_hash", "normalized_content_hash"]},
+        "fingerprint_version": {"const": 1},
+        "fingerprint": {"type": "string", "minLength": 1},
+        "current_identity": {"type": "string", "minLength": 1},
+        "matched_identity": {"type": "string", "minLength": 1},
+        "scope": {"enum": ["current_batch", "catalog_snapshot"]},
+        "path": {"type": "string"},
+        "code": {"enum": ["DUPLICATE_SOURCE_KEY", "EXACT_SOURCE_HASH_DUPLICATE", "EXACT_CONTENT_DUPLICATE", "EXACT_CATALOG_CONTENT_MATCH"]},
+        "message": {"type": "string"},
+        "severity": {"enum": ["error", "warning", "info"]},
+        "source": {"const": "duplicate"}
+      }
+    },
+    "perceptualFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "perceptual_policy_version", "color_conversion_version", "current_identity", "matched_identity", "scope", "current_color_count", "matched_color_count", "mean_distance", "maximum_pair_distance", "matched_pairs", "mean_threshold", "max_threshold", "path", "code", "message", "severity", "source"],
+      "properties": {
+        "kind": {"const": "perceptual_similarity"},
+        "perceptual_policy_version": {"const": 1},
+        "color_conversion_version": {"const": 1},
+        "current_identity": {"type": "string", "minLength": 1},
+        "matched_identity": {"type": "string", "minLength": 1},
+        "scope": {"enum": ["current_batch", "catalog_snapshot"]},
+        "current_color_count": {"type": "integer", "minimum": 1, "maximum": 64},
+        "matched_color_count": {"type": "integer", "minimum": 1, "maximum": 64},
+        "mean_distance": {"type": "number", "minimum": 0},
+        "maximum_pair_distance": {"type": "number", "minimum": 0},
+        "matched_pairs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["current_index", "matched_index", "current_hex", "matched_hex", "distance"],
+            "properties": {
+              "current_index": {"type": "integer", "minimum": 0},
+              "matched_index": {"type": "integer", "minimum": 0},
+              "current_hex": {"type": "string", "pattern": "^#[0-9A-F]{6}$"},
+              "matched_hex": {"type": "string", "pattern": "^#[0-9A-F]{6}$"},
+              "distance": {"type": "number", "minimum": 0}
+            }
+          }
+        },
+        "mean_threshold": {"const": 0.035},
+        "max_threshold": {"const": 0.06},
+        "path": {"const": "$.colors"},
+        "code": {"enum": ["NEAR_DUPLICATE_CONTENT", "NEAR_CATALOG_CONTENT_MATCH"]},
+        "message": {"type": "string"},
+        "severity": {"const": "warning"},
+        "source": {"const": "duplicate"}
+      }
+    }
+  }
+}

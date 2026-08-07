@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://figcolor.local/contracts/palette-ingestion/v1/catalog-comparison-snapshot.schema.json",
+  "title": "FigColor Exact Catalog Comparison Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["snapshot_version", "fingerprint_version", "records"],
+  "properties": {
+    "snapshot_version": {"const": 1},
+    "fingerprint_version": {"const": 1},
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["record_id", "normalized_content_hash", "visibility", "status", "origin", "owner_user_id"],
+        "properties": {
+          "record_id": {"type": "string", "minLength": 1},
+          "normalized_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "source_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "colors": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {"type": "string", "pattern": "^#[0-9A-F]{6}$"}
+          },
+          "visibility": {"const": "public"},
+          "status": {"enum": ["draft", "candidate", "published"]},
+          "origin": {"const": "curated"},
+          "owner_user_id": {"type": "null"}
+        }
+      }
+    }
+  }
+}

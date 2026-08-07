@@ -48,6 +48,10 @@ func main() {
 	favoriteRepo := favorite.NewRepository()
 	favoriteService := favorite.NewService(favoriteRepo)
 	paletteService := palette.NewService(paletteRepo)
+	ingestionService, err := palette.NewIngestionService()
+	if err != nil {
+		log.Fatalf("Failed to initialize Palette ingestion service: %v", err)
+	}
 
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)
@@ -55,6 +59,10 @@ func main() {
 	projectHandler := project.NewHandler(projectService)
 	favoriteHandler := favorite.NewHandler(favoriteService)
 	paletteHandler := palette.NewHandler(paletteService)
+	ingestionHandler, err := palette.NewIngestionHandler(ingestionService)
+	if err != nil {
+		log.Fatalf("Failed to initialize Palette ingestion HTTP handler: %v", err)
+	}
 
 	// Create middleware
 	authMiddleware := middleware.Auth(cfg.JWTSecret, userRepo)
@@ -77,6 +85,7 @@ func main() {
 
 	// Palette routes (admin and public)
 	paletteHandler.RegisterRoutes(api, cfg.JWTSecret, authMiddleware, adminMiddleware)
+	ingestionHandler.RegisterRoutes(api, authMiddleware, adminMiddleware)
 
 	// Start server
 	addr := fmt.Sprintf(":%s", cfg.ServerPort)

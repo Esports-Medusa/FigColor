@@ -7,9 +7,11 @@
     "dev": "vite",
     "test": "node scripts/run-tests.mjs",
     "build": "vue-tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:palette-ingest": "node --test scripts/palette-ingest/test/*.test.mjs"
   },
   "dependencies": {
+    "ajv": "^8.17.1",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"
   },

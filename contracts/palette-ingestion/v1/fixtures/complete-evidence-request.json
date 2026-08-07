@@ -1,0 +1,37 @@
+{
+  "request": {
+    "ingestion_metadata": {
+      "proposal_id": "wp6-cross-language/manual-basic",
+      "source_key": "manual-basic",
+      "source_hash": "5ee9c48fded5dbeb08e47c2f9fb9edb89fec0abab0955a78aa388e597fd5503c",
+      "normalized_content_hash": "fe72c11ea997d056bf4108aacf56dcf51c8ab193531fb42854126fc1a41adc30",
+      "pipeline_version": "palette-ingest-wp5-reporting.1",
+      "schema_version": 1,
+      "validation_issues": [
+        {"path": "$.palette.tags", "code": "REVIEW_TAGS", "message": "Review tags.", "severity": "warning", "source": "domain"}
+      ],
+      "duplicate_evidence": [],
+      "source_reference": "protected://figure/1"
+    },
+    "palette": {
+      "name": "Manual Palette E64FC511",
+      "type": "categorical",
+      "colors": [
+        {"id": "color-1", "hex": "#4E79A7", "rgb": [78, 121, 167], "order": 0},
+        {"id": "color-2", "hex": "#F28E2B", "rgb": [242, 142, 43], "order": 1},
+        {"id": "color-3", "hex": "#59A14F", "rgb": [89, 161, 79], "order": 2}
+      ],
+      "color_count": 3,
+      "disciplines": ["general"],
+      "use_cases": ["publication"],
+      "avoid_cases": [],
+      "tags": ["clean", "professional"],
+      "chart_applicability": [
+        {"chart_type": "bar_error", "suitability": "best_fit", "source": "curated"}
+      ]
+    },
+    "preview_cases": []
+  },
+  "request_fingerprint": "44520c90d1d55ab81aab66c57bb5946e758907561db94539ee184724254138df",
+  "source_changed_fingerprint": "9ab45d9a48776969656731a732252bf0b00aee5e7b263b47f6e9a963c53e0c04"
+}

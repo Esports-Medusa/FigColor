@@ -23,12 +23,12 @@ WHERE user_id IS NULL;
 -- Update all projects with empty/invalid user_id to use the anonymous user
 UPDATE paper_projects 
 SET user_id = (SELECT id FROM users WHERE email = 'anonymous@system.local' LIMIT 1)
-WHERE user_id IN (
-    SELECT id::uuid 
-    FROM generate_series(0, 0) AS id
-    WHERE NOT EXISTS (SELECT 1 FROM users WHERE users.id = paper_projects.user_id)
-)
-AND user_id IS NOT NULL;
+WHERE user_id IS NOT NULL
+AND NOT EXISTS (
+    SELECT 1
+    FROM users
+    WHERE users.id = paper_projects.user_id
+);
 
 -- Add NOT NULL constraint now that all projects have valid user_id
 ALTER TABLE paper_projects ALTER COLUMN user_id SET NOT NULL;

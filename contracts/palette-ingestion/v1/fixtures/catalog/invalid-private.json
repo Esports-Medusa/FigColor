@@ -1,0 +1,14 @@
+{
+  "snapshot_version": 1,
+  "fingerprint_version": 1,
+  "records": [
+    {
+      "record_id": "private-record",
+      "normalized_content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "visibility": "private",
+      "status": "published",
+      "origin": "custom",
+      "owner_user_id": "user-1"
+    }
+  ]
+}
