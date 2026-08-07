@@ -41,7 +41,7 @@ function expectIssue(previewCase: PreviewCaseRegistryInput, code: string): void 
 }
 
 function testRegistryOrderAndLookup(): void {
-  expect(CHART_TYPE_DEFINITIONS.map((definition) => definition.chartType).join(',') === 'bar_error,boxplot_jitter,line_multiseries,heatmap_annotated', 'registry order should be deterministic')
+  expect(CHART_TYPE_DEFINITIONS.map((definition) => definition.chartType).join(',') === 'bar_error,boxplot_jitter,line_multiseries,heatmap_annotated,scatter_grouped,violin_distribution', 'registry order should be deterministic')
   expect(getChartTypeDefinition('bar_error')?.chartType === 'bar_error', 'chart type lookup should return definition')
   expect(getChartTemplateDefinition('bar_error', 'bar_error_v1')?.id === 'bar_error_v1', 'template lookup should return matching template')
 }

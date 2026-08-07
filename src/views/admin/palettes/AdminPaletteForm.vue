@@ -379,7 +379,9 @@ const chartTypeLabels: Record<ChartType, string> = {
   bar_error: 'Bar with error bars',
   boxplot_jitter: 'Boxplot with jitter',
   line_multiseries: 'Multi-series line',
-  heatmap_annotated: 'Annotated heatmap'
+  heatmap_annotated: 'Annotated heatmap',
+  scatter_grouped: 'Grouped scatter',
+  violin_distribution: 'Violin distribution'
 }
 const suitabilityOptions: Array<{ value: ChartSuitability; label: string }> = [
   { value: 'best_fit', label: 'Best fit' },

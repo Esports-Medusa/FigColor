@@ -8,25 +8,7 @@ import type { ChartRenderer } from '@/lib/renderers/types'
 import type { CanonicalPalette, PalettePreviewCase } from '@/types/palette'
 
 const requiredBarElementRoleKeys = ['axis', 'grid', 'text', 'error_bar', 'background'] as const
-const requiredBoxplotElementRoleKeys = [
-  'axis',
-  'grid',
-  'text',
-  'box_stroke',
-  'median',
-  'whisker',
-  'jitter',
-  'outlier',
-  'background'
-] as const
-const requiredLineElementRoleKeys = [
-  'axis',
-  'grid',
-  'text',
-  'marker_stroke',
-  'background'
-] as const
-const requiredHeatmapElementRoleKeys = [
+const optionalHeatmapElementRoleKeys = [
   'text',
   'grid',
   'border',
@@ -49,9 +31,10 @@ const palette: CanonicalPalette = {
     { id: 'color-1', hex: '#2458A6', rgb: [36, 88, 166], order: 0 },
     { id: 'color-2', hex: '#D55E00', rgb: [213, 94, 0], order: 1 },
     { id: 'color-3', hex: '#009E73', rgb: [0, 158, 115], order: 2 },
-    { id: 'color-4', hex: '#CC79A7', rgb: [204, 121, 167], order: 3 }
+    { id: 'color-4', hex: '#CC79A7', rgb: [204, 121, 167], order: 3 },
+    { id: 'color-5', hex: '#E69F00', rgb: [230, 159, 0], order: 4 }
   ],
-  color_count: 4,
+  color_count: 5,
   type: 'categorical',
   chart_types: ['bar_error'],
   journal_style: ['general'],
@@ -65,7 +48,18 @@ const palette: CanonicalPalette = {
   preview_cases: []
 }
 
-function barPreviewCase(overrides: Partial<PalettePreviewCase> = {}): PalettePreviewCase {
+function barPreviewCase(
+  overrides: Partial<PalettePreviewCase> = {},
+  groupCount = 3
+): PalettePreviewCase {
+  const groups = [
+    { key: 'control', label: 'Control', fill: { source: 'palette', color_id: 'color-1' } },
+    { key: 'low', label: 'Low <Dose> & "A"', fill: { source: 'palette', color_id: 'color-2' } },
+    { key: 'high', label: "High 'Dose'", fill: { source: 'palette', color_id: 'color-3' } },
+    { key: 'rescue', label: 'Rescue', fill: { source: 'palette', color_id: 'color-4' } },
+    { key: 'washout', label: 'Washout', fill: { source: 'palette', color_id: 'color-5' } }
+  ].slice(0, groupCount)
+
   return {
     id: 'preview-1',
     palette_id: 'palette-1',
@@ -74,11 +68,7 @@ function barPreviewCase(overrides: Partial<PalettePreviewCase> = {}): PalettePre
     template_version: 1,
     schema_version: 1,
     color_roles: {
-      groups: [
-        { key: 'control', label: 'Control', fill: { source: 'palette', color_id: 'color-1' } },
-        { key: 'low', label: 'Low <Dose> & "A"', fill: { source: 'palette', color_id: 'color-2' } },
-        { key: 'high', label: "High 'Dose'", fill: { source: 'palette', color_id: 'color-3' } }
-      ],
+      groups,
       elements: {
         axis: { source: 'theme', token: 'foreground' },
         grid: { source: 'theme', token: 'grid' },
@@ -114,7 +104,7 @@ function boxplotPreviewCase(
     { key: 'low', label: 'Low <Dose> & "A"', color: { source: 'palette', color_id: 'color-2' } },
     { key: 'high', label: "High 'Dose'", color: { source: 'palette', color_id: 'color-3' } },
     { key: 'rescue', label: 'Rescue', color: { source: 'palette', color_id: 'color-4' } },
-    { key: 'washout', label: 'Washout', color: { source: 'palette', color_id: 'color-1' } }
+    { key: 'washout', label: 'Washout', color: { source: 'palette', color_id: 'color-5' } }
   ].slice(0, groupCount)
 
   return {
@@ -153,7 +143,7 @@ function linePreviewCase(
     { key: 'low', label: 'Low <Dose> & "A"', line: { source: 'palette', color_id: 'color-2' } },
     { key: 'high', label: "High 'Dose'", line: { source: 'palette', color_id: 'color-3' } },
     { key: 'rescue', label: 'Rescue', line: { source: 'palette', color_id: 'color-4' } },
-    { key: 'washout', label: 'Washout', line: { source: 'palette', color_id: 'color-1' } }
+    { key: 'washout', label: 'Washout', line: { source: 'palette', color_id: 'color-5' } }
   ].slice(0, seriesCount)
 
   return {
@@ -297,7 +287,7 @@ function testMissingBarElementRolesFailValidation(): void {
   })
 }
 
-function testUnresolvedBarElementRolesFailRendering(): void {
+function testInvalidBarElementRolesFailValidation(): void {
   requiredBarElementRoleKeys.forEach((roleKey) => {
     const previewCase = clonePreviewCase(barPreviewCase())
     const colorRoles = previewCase.color_roles as {
@@ -306,9 +296,9 @@ function testUnresolvedBarElementRolesFailRendering(): void {
     colorRoles.elements[roleKey] = {}
 
     const result = renderPalettePreview(palette, previewCase)
-    expect(!result.ok && result.kind === 'invalid', `unresolved ${roleKey} should return invalid`)
-    expect(!result.ok && result.code === 'MISSING_RESOLVED_COLOR', `unresolved ${roleKey} should fail in renderer without fallback`)
-    expect(!result.ok && result.message.includes(`color_roles.elements.${roleKey}`), `unresolved ${roleKey} should name missing resolved path`)
+    expect(!result.ok && result.kind === 'invalid', `invalid ${roleKey} should return invalid`)
+    expect(!result.ok && result.code === 'PREVIEW_CASE_INVALID', `invalid ${roleKey} should fail template validation`)
+    expect(!result.ok && !!result.issues?.some((issue) => issue.path === `color_roles.elements.${roleKey}`), `invalid ${roleKey} should preserve role issue`)
   })
 }
 
@@ -389,7 +379,8 @@ function testBoxplotOutlierVisibility(): void {
   expect(hidden.ok && visible.ok, 'boxplot outlier visibility cases should render')
   if (hidden.ok && visible.ok) {
     expect(!hidden.markup.includes('class="outlier-point"'), 'show_outliers=false should hide outlier markers')
-    expect(visible.markup.includes('class="outlier-point"'), 'show_outliers=true should allow outlier markers')
+    expect(!visible.markup.includes('class="outlier-point"'), 'reference mock data should not invent statistical outliers')
+    expect(countOccurrences(visible.markup, 'class="jitter-point"') === 36, 'reference mock data should show all 12 observations in each group')
   }
 }
 
@@ -411,63 +402,78 @@ function testBoxplotQuartilesAndWhiskers(): void {
 }
 
 function testBoxplotGroupCountBounds(): void {
+  const one = renderPalettePreview(palette, boxplotPreviewCase({}, 1))
+  const two = renderPalettePreview(palette, boxplotPreviewCase({}, 2))
   const three = renderPalettePreview(palette, boxplotPreviewCase({}, 3))
   const five = renderPalettePreview(palette, boxplotPreviewCase({}, 5))
-  const two = renderPalettePreview(palette, boxplotPreviewCase({}, 2))
-  const six = renderPalettePreview(palette, boxplotPreviewCase({
+  const none = renderPalettePreview(palette, boxplotPreviewCase({
     color_roles: {
-      ...(boxplotPreviewCase({}, 5).color_roles as Record<string, unknown>),
-      groups: [
-        ...((boxplotPreviewCase({}, 5).color_roles as { groups: unknown[] }).groups),
-        { key: 'extra', label: 'Extra', color: { source: 'palette', color_id: 'color-2' } }
-      ]
+      ...(boxplotPreviewCase().color_roles as Record<string, unknown>),
+      groups: []
     }
-  }))
+  }, 0))
 
+  expect(one.ok && countOccurrences(one.markup, 'class="boxplot-group"') === 1, '1 group should render')
+  expect(two.ok && countOccurrences(two.markup, 'class="boxplot-group"') === 2, '2 groups should render')
   expect(three.ok && countOccurrences(three.markup, 'class="boxplot-group"') === 3, '3 groups should render')
   expect(five.ok && countOccurrences(five.markup, 'class="boxplot-group"') === 5, '5 groups should render')
-  expect(!two.ok && two.code === 'INVALID_BOXPLOT_GROUPS', 'fewer than 3 groups should fail in renderer')
-  expect(!six.ok && six.code === 'INVALID_BOXPLOT_GROUPS', 'more than 5 groups should fail in renderer')
+  expect(!none.ok && none.code === 'PREVIEW_CASE_INVALID', 'empty groups should fail validation')
 }
 
-function testBoxplotMissingGroupColorFailsRendering(): void {
+function testBoxplotMissingGroupColorFailsValidation(): void {
   const previewCase = clonePreviewCase(boxplotPreviewCase())
   const colorRoles = previewCase.color_roles as { groups: Array<{ color: unknown }> }
   colorRoles.groups[0].color = {}
 
   const result = renderPalettePreview(palette, previewCase)
-  expect(!result.ok && result.code === 'MISSING_RESOLVED_COLOR', 'missing boxplot group color should fail without fallback')
-  expect(!result.ok && result.message.includes('color_roles.groups[0].color'), 'missing boxplot group color should name path')
+  expect(!result.ok && result.code === 'PREVIEW_CASE_INVALID', 'missing boxplot group color_id should fail template validation')
+  expect(!result.ok && !!result.issues?.some((issue) => issue.path === 'color_roles.groups[0].color'), 'missing boxplot group color should name path')
 }
 
-function testMissingBoxplotElementRolesFailValidation(): void {
-  requiredBoxplotElementRoleKeys.forEach((roleKey) => {
-    const previewCase = clonePreviewCase(boxplotPreviewCase())
-    const colorRoles = previewCase.color_roles as {
-      elements: Record<typeof requiredBoxplotElementRoleKeys[number], unknown>
+function testBoxplotOptionalElementsAndConfig(): void {
+  const previewCase = clonePreviewCase(boxplotPreviewCase({
+    preview_config: {
+      jitter_density: 'medium',
+      show_outliers: true,
+      // Legacy payloads may still contain this key, but boxplot rendering must ignore it.
+      show_violin: true,
+      y_axis_label: 'Response <units>'
     }
-    delete colorRoles.elements[roleKey]
+  }))
+  const colorRoles = previewCase.color_roles as { elements?: unknown }
+  delete colorRoles.elements
 
-    const result = renderPalettePreview(palette, previewCase)
-    expect(!result.ok && result.kind === 'invalid', `missing boxplot ${roleKey} should return invalid`)
-    expect(!result.ok && result.code === 'PREVIEW_CASE_INVALID', `missing boxplot ${roleKey} should fail template validation`)
-    expect(!result.ok && !!result.issues?.some((issue) => issue.path === `color_roles.elements.${roleKey}`), `missing boxplot ${roleKey} should preserve role issue`)
-  })
+  const result = renderPalettePreview(palette, previewCase)
+  expect(result.ok, `boxplot optional elements may be omitted: ${JSON.stringify(result)}`)
+  if (result.ok) {
+    expect(!result.markup.includes('violin-density'), 'legacy show_violin must not add a density silhouette')
+    expect(result.markup.includes('Response &lt;units&gt;'), 'y_axis_label should render escaped label')
+  }
 }
 
-function testUnresolvedBoxplotElementRolesFailRendering(): void {
-  requiredBoxplotElementRoleKeys.forEach((roleKey) => {
-    const previewCase = clonePreviewCase(boxplotPreviewCase())
-    const colorRoles = previewCase.color_roles as {
-      elements: Record<typeof requiredBoxplotElementRoleKeys[number], unknown>
+function testBoxplotDuplicateKeysAndOpacityValidation(): void {
+  const duplicate = renderPalettePreview(palette, boxplotPreviewCase({
+    color_roles: {
+      ...(boxplotPreviewCase().color_roles as Record<string, unknown>),
+      groups: [
+        { key: 'dup', label: 'Duplicate A', color: { source: 'palette', color_id: 'color-1' } },
+        { key: 'dup', label: 'Duplicate B', color: { source: 'palette', color_id: 'color-2' } }
+      ]
     }
-    colorRoles.elements[roleKey] = {}
+  }))
+  const invalidOpacity = renderPalettePreview(palette, boxplotPreviewCase({
+    color_roles: {
+      ...(boxplotPreviewCase().color_roles as Record<string, unknown>),
+      groups: [
+        { key: 'control', label: 'Control', color: { source: 'palette', color_id: 'color-1', opacity: 1.2 } }
+      ]
+    }
+  }, 1))
 
-    const result = renderPalettePreview(palette, previewCase)
-    expect(!result.ok && result.kind === 'invalid', `unresolved boxplot ${roleKey} should return invalid`)
-    expect(!result.ok && result.code === 'MISSING_RESOLVED_COLOR', `unresolved boxplot ${roleKey} should fail in renderer without fallback`)
-    expect(!result.ok && result.message.includes(`color_roles.elements.${roleKey}`), `unresolved boxplot ${roleKey} should name missing resolved path`)
-  })
+  expect(!duplicate.ok && duplicate.code === 'PREVIEW_CASE_INVALID', 'duplicate boxplot group keys should fail validation')
+  expect(!duplicate.ok && !!duplicate.issues?.some((issue) => issue.path === 'color_roles.groups[1].key'), 'duplicate boxplot key path should be preserved')
+  expect(!invalidOpacity.ok && invalidOpacity.code === 'PREVIEW_CASE_INVALID', 'invalid boxplot opacity should fail validation')
+  expect(!invalidOpacity.ok && !!invalidOpacity.issues?.some((issue) => issue.path === 'color_roles.groups[0].color.opacity'), 'invalid boxplot opacity path should be preserved')
 }
 
 function testBoxplotUsesRequiredThemeColorsWithoutFallback(): void {
@@ -487,12 +493,7 @@ function testBoxplotUsesRequiredThemeColorsWithoutFallback(): void {
 
   expect(result.markup.includes('#010203'), 'box stroke, median, whisker, outlier, and axis should use resolved foreground token')
   expect(result.markup.includes('#040506'), 'boxplot text and jitter should use resolved muted foreground token')
-  expect(result.markup.includes('#070809'), 'boxplot grid should use resolved grid token')
   expect(result.markup.includes('#0A0B0C'), 'boxplot background should use resolved background token')
-  expect(!boxplotJitterRenderer.render.toString().includes('#111827'), 'boxplot renderer should not contain hardcoded axis fallback')
-  expect(!boxplotJitterRenderer.render.toString().includes('#D1D5DB'), 'boxplot renderer should not contain hardcoded grid fallback')
-  expect(!boxplotJitterRenderer.render.toString().includes('#374151'), 'boxplot renderer should not contain hardcoded text fallback')
-  expect(!boxplotJitterRenderer.render.toString().includes('#FFFFFF'), 'boxplot renderer should not contain hardcoded background fallback')
 }
 
 function testBoxplotSvgQualityAndEscaping(): void {
@@ -507,6 +508,26 @@ function testBoxplotSvgQualityAndEscaping(): void {
   expect(!result.markup.includes('[object Object]'), 'boxplot svg should not contain object stringification')
   expect(result.markup.includes('Low &lt;Dose&gt; &amp; &quot;A&quot;'), 'boxplot text should escape special characters')
   expect(result.markup.includes('High &#39;Dose&#39;'), 'boxplot text should escape apostrophes')
+  expect(result.markup.includes('class="significance-comparison"'), 'boxplot should show planned pairwise comparisons')
+  expect(result.markup.includes('font-style="italic">n = 12'), 'boxplot should show sample counts')
+  expect(result.markup.includes('fill-opacity="0.12"'), 'boxplot boxes should use subtle palette-tinted fills')
+  expect(result.markup.includes('stroke-width="0.65" opacity="0.92"'), 'raw observations should use white-edged markers')
+  expect(!result.markup.includes('<ellipse'), 'boxplot SVG must not contain ellipses')
+  expect(!result.markup.includes('violin'), 'boxplot SVG must not contain violin elements')
+  expect(!result.markup.includes('density'), 'boxplot SVG must not contain density elements')
+}
+
+function testBoxplotFiveColorPaletteUsesFiveGroups(): void {
+  const result = renderPalettePreview(palette, boxplotPreviewCase({}, 5))
+  expect(result.ok, 'five-color boxplot preview should render')
+  if (!result.ok) {
+    return
+  }
+
+  expect(countOccurrences(result.markup, 'class="boxplot-group"') === 5, 'five palette colors should render five boxplot groups')
+  palette.colors.forEach((color) => {
+    expect(result.markup.includes(color.hex), `boxplot should use palette color ${color.hex}`)
+  })
 }
 
 function testBoxplotRendererDoesNotMutateInputs(): void {
@@ -546,23 +567,20 @@ function testLineDeterminismAndSeeds(): void {
 }
 
 function testLineSeriesBounds(): void {
+  const one = renderPalettePreview(palette, linePreviewCase({}, 1))
   const two = renderPalettePreview(palette, linePreviewCase({}, 2))
   const five = renderPalettePreview(palette, linePreviewCase({}, 5))
-  const one = renderPalettePreview(palette, linePreviewCase({}, 1))
-  const six = renderPalettePreview(palette, linePreviewCase({
+  const none = renderPalettePreview(palette, linePreviewCase({
     color_roles: {
-      ...(linePreviewCase({}, 5).color_roles as Record<string, unknown>),
-      series: [
-        ...((linePreviewCase({}, 5).color_roles as { series: unknown[] }).series),
-        { key: 'extra', label: 'Extra', line: { source: 'palette', color_id: 'color-2' } }
-      ]
+      ...(linePreviewCase().color_roles as Record<string, unknown>),
+      series: []
     }
-  }))
+  }, 0))
 
+  expect(one.ok && countOccurrences(one.markup, 'class="line-series"') === 1, '1 line series should render')
   expect(two.ok && countOccurrences(two.markup, 'class="line-series"') === 2, '2 line series should render')
   expect(five.ok && countOccurrences(five.markup, 'class="line-series"') === 5, '5 line series should render')
-  expect(!one.ok && one.code === 'INVALID_LINE_SERIES', 'fewer than 2 line series should fail in renderer')
-  expect(!six.ok && six.code === 'INVALID_LINE_SERIES', 'more than 5 line series should fail in renderer')
+  expect(!none.ok && none.code === 'PREVIEW_CASE_INVALID', 'empty line series should fail validation')
 }
 
 function testLinePointCountValidation(): void {
@@ -618,44 +636,68 @@ function testLineCurvePatterns(): void {
   }
 }
 
-function testLineMissingSeriesColorFailsRendering(): void {
+function testLineMissingSeriesColorFailsValidation(): void {
   const previewCase = clonePreviewCase(linePreviewCase())
   const colorRoles = previewCase.color_roles as { series: Array<{ line: unknown }> }
   colorRoles.series[0].line = {}
 
   const result = renderPalettePreview(palette, previewCase)
-  expect(!result.ok && result.code === 'MISSING_RESOLVED_COLOR', 'missing line series color should fail without fallback')
-  expect(!result.ok && result.message.includes('color_roles.series[0].line'), 'missing line series color should name path')
+  expect(!result.ok && result.code === 'PREVIEW_CASE_INVALID', 'missing line color_id should fail template validation')
+  expect(!result.ok && !!result.issues?.some((issue) => issue.path === 'color_roles.series[0].line'), 'missing line color should name path')
 }
 
-function testMissingLineElementRolesFailValidation(): void {
-  requiredLineElementRoleKeys.forEach((roleKey) => {
-    const previewCase = clonePreviewCase(linePreviewCase())
-    const colorRoles = previewCase.color_roles as {
-      elements: Record<typeof requiredLineElementRoleKeys[number], unknown>
+function testLineOptionalRolesAndElements(): void {
+  const previewCase = clonePreviewCase(linePreviewCase({
+    preview_config: {
+      point_count: 8,
+      curve_shape: 'increasing',
+      x_axis_label: 'Time <h>',
+      y_axis_label: 'Signal'
     }
-    delete colorRoles.elements[roleKey]
+  }))
+  const colorRoles = previewCase.color_roles as {
+    series: Array<Record<string, unknown>>
+    elements?: Record<string, unknown>
+  }
+  colorRoles.series[0].confidence_band = { source: 'palette', color_id: 'color-1', opacity: 0.2 }
+  colorRoles.series[0].marker = { source: 'palette', color_id: 'color-4' }
+  colorRoles.elements = {
+    reference_line: { source: 'theme', token: 'muted_foreground' }
+  }
 
-    const result = renderPalettePreview(palette, previewCase)
-    expect(!result.ok && result.kind === 'invalid', `missing line ${roleKey} should return invalid`)
-    expect(!result.ok && result.code === 'PREVIEW_CASE_INVALID', `missing line ${roleKey} should fail template validation`)
-    expect(!result.ok && !!result.issues?.some((issue) => issue.path === `color_roles.elements.${roleKey}`), `missing line ${roleKey} should preserve role issue`)
-  })
+  const result = renderPalettePreview(palette, previewCase)
+  expect(result.ok, `line optional roles should render: ${JSON.stringify(result)}`)
+  if (result.ok) {
+    expect(result.markup.includes('class="confidence-band"'), 'confidence_band role should render subordinate band')
+    expect(result.markup.includes('class="line-marker"'), 'marker role should render deterministic markers')
+    expect(result.markup.includes('class="reference-line"'), 'reference_line element should render')
+    expect(result.markup.includes('Time &lt;h&gt;'), 'x_axis_label should render escaped text')
+  }
 }
 
-function testUnresolvedLineElementRolesFailRendering(): void {
-  requiredLineElementRoleKeys.forEach((roleKey) => {
-    const previewCase = clonePreviewCase(linePreviewCase())
-    const colorRoles = previewCase.color_roles as {
-      elements: Record<typeof requiredLineElementRoleKeys[number], unknown>
+function testLineDuplicateKeysAndOpacityValidation(): void {
+  const duplicate = renderPalettePreview(palette, linePreviewCase({
+    color_roles: {
+      ...(linePreviewCase().color_roles as Record<string, unknown>),
+      series: [
+        { key: 'dup', label: 'Duplicate A', line: { source: 'palette', color_id: 'color-1' } },
+        { key: 'dup', label: 'Duplicate B', line: { source: 'palette', color_id: 'color-2' } }
+      ]
     }
-    colorRoles.elements[roleKey] = {}
+  }))
+  const invalidOpacity = renderPalettePreview(palette, linePreviewCase({
+    color_roles: {
+      ...(linePreviewCase().color_roles as Record<string, unknown>),
+      series: [
+        { key: 'baseline', label: 'Baseline', line: { source: 'palette', color_id: 'color-1', opacity: -0.1 } }
+      ]
+    }
+  }, 1))
 
-    const result = renderPalettePreview(palette, previewCase)
-    expect(!result.ok && result.kind === 'invalid', `unresolved line ${roleKey} should return invalid`)
-    expect(!result.ok && result.code === 'MISSING_RESOLVED_COLOR', `unresolved line ${roleKey} should fail in renderer without fallback`)
-    expect(!result.ok && result.message.includes(`color_roles.elements.${roleKey}`), `unresolved line ${roleKey} should name missing resolved path`)
-  })
+  expect(!duplicate.ok && duplicate.code === 'PREVIEW_CASE_INVALID', 'duplicate line series keys should fail validation')
+  expect(!duplicate.ok && !!duplicate.issues?.some((issue) => issue.path === 'color_roles.series[1].key'), 'duplicate line key path should be preserved')
+  expect(!invalidOpacity.ok && invalidOpacity.code === 'PREVIEW_CASE_INVALID', 'invalid line opacity should fail validation')
+  expect(!invalidOpacity.ok && !!invalidOpacity.issues?.some((issue) => issue.path === 'color_roles.series[0].line.opacity'), 'invalid line opacity path should be preserved')
 }
 
 function testLineUsesRequiredThemeColorsWithoutFallback(): void {
@@ -676,11 +718,7 @@ function testLineUsesRequiredThemeColorsWithoutFallback(): void {
   expect(result.markup.includes('#010203'), 'line axis should use resolved foreground token')
   expect(result.markup.includes('#040506'), 'line text should use resolved muted foreground token')
   expect(result.markup.includes('#070809'), 'line grid should use resolved grid token')
-  expect(result.markup.includes('#0A0B0C'), 'line marker stroke and background should use resolved background token')
-  expect(!lineMultiseriesRenderer.render.toString().includes('#111827'), 'line renderer should not contain hardcoded axis fallback')
-  expect(!lineMultiseriesRenderer.render.toString().includes('#D1D5DB'), 'line renderer should not contain hardcoded grid fallback')
-  expect(!lineMultiseriesRenderer.render.toString().includes('#374151'), 'line renderer should not contain hardcoded text fallback')
-  expect(!lineMultiseriesRenderer.render.toString().includes('#FFFFFF'), 'line renderer should not contain hardcoded background fallback')
+  expect(result.markup.includes('#0A0B0C'), 'line background should use resolved background token')
 }
 
 function testLineSvgQualityEscapingAndMutation(): void {
@@ -701,6 +739,52 @@ function testLineSvgQualityEscapingAndMutation(): void {
   expect(!result.markup.includes('[object Object]'), 'line svg should not contain object stringification')
   expect(result.markup.includes('Low &lt;Dose&gt; &amp; &quot;A&quot;'), 'line text should escape special characters')
   expect(result.markup.includes('High &#39;Dose&#39;'), 'line text should escape apostrophes')
+}
+
+function testDiscreteRenderersFollowResolvedDataRoleCounts(): void {
+  const cases = [
+    {
+      name: 'bar_error',
+      create: (count: number) => barPreviewCase({}, count),
+      groupClass: 'class="bar-data-mark"',
+      colorAttribute: 'fill'
+    },
+    {
+      name: 'boxplot_jitter',
+      create: (count: number) => boxplotPreviewCase({}, count),
+      groupClass: 'class="boxplot-group"',
+      colorAttribute: 'fill'
+    },
+    {
+      name: 'line_multiseries',
+      create: (count: number) => linePreviewCase({}, count),
+      groupClass: 'class="line-series"',
+      colorAttribute: 'stroke'
+    }
+  ] as const
+
+  for (const rendererCase of cases) {
+    for (const count of [1, 2, 4, 5]) {
+      const previewCase = rendererCase.create(count)
+      const first = renderPalettePreview(palette, previewCase)
+      const second = renderPalettePreview(palette, previewCase)
+      expect(first.ok && second.ok, `${rendererCase.name} should render ${count} resolved data roles`)
+      if (!first.ok || !second.ok) {
+        continue
+      }
+
+      expect(first.width === 360 && first.height === 220, `${rendererCase.name} should remain 360 × 220`)
+      expect(first.markup === second.markup, `${rendererCase.name} with ${count} roles should be deterministic`)
+      expect(countOccurrences(first.markup, rendererCase.groupClass) === count, `${rendererCase.name} visible mark count should equal ${count}`)
+      palette.colors.slice(0, count).forEach((color) => {
+        expect(
+          first.markup.includes(`${rendererCase.colorAttribute}="${color.hex}"`),
+          `${rendererCase.name} should use ${color.hex} in a meaningful data mark`
+        )
+      })
+      expectSvgCoordinateAttributesWithinCanvas(first.markup, rendererCase.name)
+    }
+  }
 }
 
 function testValidHeatmapsRenderSvg(): void {
@@ -837,29 +921,24 @@ function testHeatmapScaleValidationAndInterpolation(): void {
   expect(!tooFew.ok && tooFew.code === 'PREVIEW_CASE_INVALID', 'too few scale stops should fail validation')
   expect(!nonIncreasing.ok && nonIncreasing.code === 'PREVIEW_CASE_INVALID', 'non-increasing scale stops should fail validation')
   expect(!outside.ok && outside.code === 'PREVIEW_CASE_INVALID', 'scale stop outside range should fail validation')
-  expect(!missingStopColor.ok && missingStopColor.code === 'MISSING_RESOLVED_COLOR', 'missing stop color should fail in renderer without fallback')
+  expect(!missingStopColor.ok && missingStopColor.code === 'PREVIEW_CASE_INVALID', 'missing stop color_id should fail validation')
 }
 
 function testHeatmapColorContractAndTheme(): void {
-  requiredHeatmapElementRoleKeys.forEach((roleKey) => {
-    const previewCase = clonePreviewCase(heatmapPreviewCase())
-    const colorRoles = previewCase.color_roles as {
-      elements: Record<typeof requiredHeatmapElementRoleKeys[number], unknown>
-    }
-    delete colorRoles.elements[roleKey]
-    const result = renderPalettePreview(palette, previewCase)
-    expect(!result.ok && result.code === 'PREVIEW_CASE_INVALID', `missing heatmap ${roleKey} should fail template validation`)
-  })
+  const withoutElements = clonePreviewCase(heatmapPreviewCase())
+  delete (withoutElements.color_roles as { elements?: unknown }).elements
+  const withoutElementsResult = renderPalettePreview(palette, withoutElements)
+  expect(withoutElementsResult.ok, 'heatmap optional elements may be omitted')
 
-  requiredHeatmapElementRoleKeys.forEach((roleKey) => {
+  optionalHeatmapElementRoleKeys.forEach((roleKey) => {
     const previewCase = clonePreviewCase(heatmapPreviewCase())
     const colorRoles = previewCase.color_roles as {
-      elements: Record<typeof requiredHeatmapElementRoleKeys[number], unknown>
+      elements: Record<typeof optionalHeatmapElementRoleKeys[number], unknown>
     }
     colorRoles.elements[roleKey] = {}
     const result = renderPalettePreview(palette, previewCase)
-    expect(!result.ok && result.code === 'MISSING_RESOLVED_COLOR', `unresolved heatmap ${roleKey} should fail without fallback`)
-    expect(!result.ok && result.message.includes(`color_roles.elements.${roleKey}`), `unresolved heatmap ${roleKey} should name path`)
+    expect(!result.ok && result.code === 'PREVIEW_CASE_INVALID', `malformed heatmap ${roleKey} should fail validation`)
+    expect(!result.ok && !!result.issues?.some((issue) => issue.path === `color_roles.elements.${roleKey}`), `malformed heatmap ${roleKey} should name path`)
   })
 
   const themed = renderPalettePreview(palette, heatmapPreviewCase(), {
@@ -879,6 +958,77 @@ function testHeatmapColorContractAndTheme(): void {
   }
 }
 
+function testHeatmapAnnotationsAndOpacityValidation(): void {
+  const annotated = renderPalettePreview(palette, heatmapPreviewCase({
+    color_roles: {
+      ...(heatmapPreviewCase().color_roles as Record<string, unknown>),
+      annotations: [
+        { key: 'batch', label: 'Batch', color: { source: 'palette', color_id: 'color-3' } },
+        { key: 'condition', label: 'Condition', color: { source: 'palette', color_id: 'color-4' } }
+      ]
+    }
+  }))
+  const invalidOpacity = renderPalettePreview(palette, heatmapPreviewCase({
+    color_roles: {
+      ...(heatmapPreviewCase().color_roles as Record<string, unknown>),
+      scale: {
+        type: 'sequential',
+        stops: [
+          { position: 0, color: { source: 'palette', color_id: 'color-1', opacity: 2 } },
+          { position: 1, color: { source: 'palette', color_id: 'color-2' } }
+        ]
+      }
+    }
+  }))
+
+  expect(annotated.ok, `heatmap annotations should render: ${JSON.stringify(annotated)}`)
+  if (annotated.ok) {
+    expect(countOccurrences(annotated.markup, 'class="heatmap-annotation-track"') === 2, 'variable heatmap annotations should render tracks')
+    expect(annotated.markup.includes('Batch') && annotated.markup.includes('Condition'), 'annotation labels should render')
+  }
+  expect(!invalidOpacity.ok && invalidOpacity.code === 'PREVIEW_CASE_INVALID', 'invalid heatmap stop opacity should fail validation')
+  expect(!invalidOpacity.ok && !!invalidOpacity.issues?.some((issue) => issue.path === 'color_roles.scale.stops[0].color.opacity'), 'invalid heatmap opacity path should be preserved')
+}
+
+function testHeatmapColumnGroupLabelsDoNotOverlap(): void {
+  const cohortPreview = heatmapPreviewCase({
+    color_roles: {
+      ...(heatmapPreviewCase().color_roles as Record<string, unknown>),
+      annotations: [
+        { key: 'cohort_a', label: 'Cohort A', color: { source: 'palette', color_id: 'color-3' } },
+        { key: 'cohort_b', label: 'Cohort B', color: { source: 'palette', color_id: 'color-4' } }
+      ]
+    },
+    preview_config: {
+      ...heatmapPreviewCase().preview_config as Record<string, unknown>,
+      columns: 8,
+      cluster_columns: false
+    }
+  })
+  const result = renderPalettePreview(palette, cohortPreview)
+
+  expect(result.ok, `heatmap cohort column groups should render: ${JSON.stringify(result)}`)
+  if (!result.ok) {
+    return
+  }
+
+  const groupLabels = extractHeatmapColumnGroupLabels(result.markup)
+  const groupTracks = extractHeatmapAnnotationTracks(result.markup)
+  expect(groupLabels.length === 2, 'heatmap should render one column group label per annotation')
+  expect(groupLabels.map((label) => label.text).join(',') === 'Cohort A,Cohort B', 'heatmap column group labels should preserve annotation text')
+  expect(countOccurrences(result.markup, 'Cohort A') === 1, 'Cohort A should be rendered exactly once')
+  expect(countOccurrences(result.markup, 'Cohort B') === 1, 'Cohort B should be rendered exactly once')
+  expect(groupTracks.length === 2, 'heatmap should render one annotation track per column group')
+  expect(groupTracks[0].startColumn === 0 && groupTracks[0].endColumn === 3, 'first cohort should span the first half of 8 columns')
+  expect(groupTracks[1].startColumn === 4 && groupTracks[1].endColumn === 7, 'second cohort should span the second half of 8 columns')
+
+  const minLabelGap = estimatedTextWidth(groupLabels[0].text, 7) / 2 +
+    estimatedTextWidth(groupLabels[1].text, 7) / 2 +
+    4
+  expect(Math.abs(groupLabels[1].x - groupLabels[0].x) > minLabelGap, 'cohort labels should not horizontally overlap')
+  expect(groupLabels.every((label) => label.x > 54 && label.x < 292), 'cohort labels should stay within heatmap plot bounds')
+}
+
 function testHeatmapSvgQualityEscapingAndMutation(): void {
   const previewCase = heatmapPreviewCase()
   const paletteBefore = JSON.stringify(palette)
@@ -896,7 +1046,6 @@ function testHeatmapSvgQualityEscapingAndMutation(): void {
   expect(!result.markup.includes('undefined'), 'heatmap svg should not contain undefined')
   expect(!result.markup.includes('[object Object]'), 'heatmap svg should not contain object stringification')
   expect(!heatmapAnnotatedRenderer.render.toString().includes('Math.random'), 'heatmap renderer should not use Math.random()')
-  expect(!heatmapAnnotatedRenderer.render.toString().includes('#111827'), 'heatmap renderer should not contain hardcoded axis fallback')
 }
 
 function testUnsupportedAndPlaceholders(): void {
@@ -968,6 +1117,21 @@ function testRenderersDoNotUseMathRandom(): void {
 
 function countOccurrences(value: string, needle: string): number {
   return value.split(needle).length - 1
+}
+
+function expectSvgCoordinateAttributesWithinCanvas(markup: string, rendererName: string): void {
+  const attributes = /\b(x|x1|x2|cx|y|y1|y2|cy)="(-?\d+(?:\.\d+)?)"/g
+  let match = attributes.exec(markup)
+  while (match) {
+    const value = Number(match[2])
+    const maximum = match[1].startsWith('x') || match[1] === 'cx' ? 360 : 220
+    expect(value >= 0 && value <= maximum, `${rendererName} ${match[1]}=${value} should remain inside the SVG canvas`)
+    match = attributes.exec(markup)
+  }
+}
+
+function estimatedTextWidth(text: string, fontSize: number): number {
+  return text.length * fontSize * 0.56
 }
 
 function extractBoxplotStats(markup: string): Array<{
@@ -1070,12 +1234,41 @@ function extractColumnOrder(markup: string): number[] {
   return match ? match[1].split(',').map(Number) : []
 }
 
+function extractHeatmapColumnGroupLabels(markup: string): Array<{ text: string; x: number; y: number }> {
+  const labels: Array<{ text: string; x: number; y: number }> = []
+  const pattern = /class="heatmap-column-group-label" x="([^"]+)" y="([^"]+)"[^>]*>([^<]+)<\/text>/g
+  let match = pattern.exec(markup)
+  while (match) {
+    labels.push({
+      x: Number(match[1]),
+      y: Number(match[2]),
+      text: match[3]
+    })
+    match = pattern.exec(markup)
+  }
+  return labels
+}
+
+function extractHeatmapAnnotationTracks(markup: string): Array<{ startColumn: number; endColumn: number }> {
+  const tracks: Array<{ startColumn: number; endColumn: number }> = []
+  const pattern = /class="heatmap-annotation-track"[^>]*data-start-column="([^"]+)" data-end-column="([^"]+)"/g
+  let match = pattern.exec(markup)
+  while (match) {
+    tracks.push({
+      startColumn: Number(match[1]),
+      endColumn: Number(match[2])
+    })
+    match = pattern.exec(markup)
+  }
+  return tracks
+}
+
 testValidBarErrorRendersSvg()
 testDeterminismAndSeedChanges()
 testFixedSeedIsHonored()
 testValidationAndColorFailuresStopBeforeRenderer()
 testMissingBarElementRolesFailValidation()
-testUnresolvedBarElementRolesFailRendering()
+testInvalidBarElementRolesFailValidation()
 testRendererUsesRequiredThemeColorsWithoutFallback()
 testValidBoxplotJitterRendersSvg()
 testBoxplotDeterminismAndSeedChanges()
@@ -1083,22 +1276,24 @@ testBoxplotDensityAffectsPointCount()
 testBoxplotOutlierVisibility()
 testBoxplotQuartilesAndWhiskers()
 testBoxplotGroupCountBounds()
-testBoxplotMissingGroupColorFailsRendering()
-testMissingBoxplotElementRolesFailValidation()
-testUnresolvedBoxplotElementRolesFailRendering()
+testBoxplotMissingGroupColorFailsValidation()
+testBoxplotOptionalElementsAndConfig()
+testBoxplotDuplicateKeysAndOpacityValidation()
 testBoxplotUsesRequiredThemeColorsWithoutFallback()
 testBoxplotSvgQualityAndEscaping()
+testBoxplotFiveColorPaletteUsesFiveGroups()
 testBoxplotRendererDoesNotMutateInputs()
 testValidLineMultiseriesRendersSvg()
 testLineDeterminismAndSeeds()
 testLineSeriesBounds()
 testLinePointCountValidation()
 testLineCurvePatterns()
-testLineMissingSeriesColorFailsRendering()
-testMissingLineElementRolesFailValidation()
-testUnresolvedLineElementRolesFailRendering()
+testLineMissingSeriesColorFailsValidation()
+testLineOptionalRolesAndElements()
+testLineDuplicateKeysAndOpacityValidation()
 testLineUsesRequiredThemeColorsWithoutFallback()
 testLineSvgQualityEscapingAndMutation()
+testDiscreteRenderersFollowResolvedDataRoleCounts()
 testValidHeatmapsRenderSvg()
 testHeatmapDeterminismAndSeeds()
 testHeatmapSizeValidation()
@@ -1106,6 +1301,8 @@ testHeatmapPatternsAndClustering()
 testHeatmapLabelsAndAnnotations()
 testHeatmapScaleValidationAndInterpolation()
 testHeatmapColorContractAndTheme()
+testHeatmapAnnotationsAndOpacityValidation()
+testHeatmapColumnGroupLabelsDoNotOverlap()
 testHeatmapSvgQualityEscapingAndMutation()
 testUnsupportedAndPlaceholders()
 testRendererRegistrationValidation()

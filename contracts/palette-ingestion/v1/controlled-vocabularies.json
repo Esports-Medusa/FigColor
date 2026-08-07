@@ -1,0 +1,29 @@
+{
+  "contract_version": 1,
+  "palette_types": ["categorical", "sequential", "diverging", "mixed"],
+  "chart_types": ["bar_error", "boxplot_jitter", "line_multiseries", "heatmap_annotated", "scatter_grouped", "violin_distribution"],
+  "chart_suitabilities": ["best_fit", "recommended", "compatible", "limited"],
+  "disciplines": ["biomedical", "clinical", "genomics", "single_cell", "neuroscience", "immunology", "oncology", "AI", "machine_learning", "statistics", "engineering", "chemistry", "materials_science", "environmental_science", "general"],
+  "use_cases": ["publication", "presentation", "thesis", "poster", "multi_group_comparison", "control_vs_treatment", "time_series", "omics", "clinical"],
+  "avoid_cases": ["too_many_groups", "small_print", "grayscale_print", "colorblind_sensitive", "heatmap", "continuous_variable", "dark_background", "low_contrast_required"],
+  "tags": ["muted", "pastel", "high_contrast", "low_saturation", "publication_ready", "presentation_friendly", "colorblind_friendly", "clean", "soft", "vivid", "minimal", "professional", "warm", "cool"],
+  "preview_templates": {
+    "bar_error": "bar_error_v1",
+    "boxplot_jitter": "boxplot_jitter_v1",
+    "line_multiseries": "line_multiseries_v1",
+    "heatmap_annotated": "heatmap_annotated_v1",
+    "scatter_grouped": "scatter_grouped_v1",
+    "violin_distribution": "violin_distribution_v1"
+  },
+  "runtime_sources": {
+    "frontend_metadata": "src/types/palette.ts",
+    "frontend_chart_registry": "src/lib/chart-types/registry.ts",
+    "backend_palette_and_chart_validation": "backend/internal/palette/validation.go",
+    "backend_preview_validation": "backend/internal/palette/preview_case_validation.go"
+  },
+  "known_differences": [
+    "The backend does not currently enforce disciplines, use_cases, avoid_cases, or tags against the frontend lists.",
+    "Legacy broad chart filter values are not ingestion chart types.",
+    "Legacy palette types qualitative and heatmap remain readable but are forbidden for ingestion writes."
+  ]
+}

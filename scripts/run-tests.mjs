@@ -10,7 +10,10 @@ const testModules = [
   '/src/lib/deterministic.test.ts',
   '/src/lib/exports/exports.test.ts',
   '/src/lib/palette.resolve-colors.test.ts',
+  '/src/lib/preview-vocabulary-consistency.test.ts',
+  '/src/lib/renderers/dataRoles.test.ts',
   '/src/lib/renderers.test.ts',
+  '/src/lib/scatter-violin.test.ts',
   '/src/components/palettes/PaletteChartPreview.test.ts',
   '/src/components/palettes/PalettePreviewIntegration.test.ts'
 ]

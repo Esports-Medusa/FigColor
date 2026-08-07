@@ -6,6 +6,8 @@ import { barErrorRenderer } from './bar-error/renderer'
 import { boxplotJitterRenderer } from './boxplot-jitter/renderer'
 import { heatmapAnnotatedRenderer } from './heatmap-annotated/renderer'
 import { lineMultiseriesRenderer } from './line-multiseries/renderer'
+import { scatterGroupedRenderer } from './scatter-grouped/renderer'
+import { violinDistributionRenderer } from './violin-distribution/renderer'
 import { getPreviewRenderer, registerPreviewRenderers } from './registry'
 import type { ChartRenderer, PreviewRenderResult } from './types'
 
@@ -13,7 +15,9 @@ export const PREVIEW_RENDERERS: readonly ChartRenderer[] = registerPreviewRender
   barErrorRenderer,
   boxplotJitterRenderer,
   lineMultiseriesRenderer,
-  heatmapAnnotatedRenderer
+  heatmapAnnotatedRenderer,
+  scatterGroupedRenderer,
+  violinDistributionRenderer
 ])
 
 export interface RenderPalettePreviewOptions {

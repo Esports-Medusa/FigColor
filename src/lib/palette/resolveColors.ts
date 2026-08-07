@@ -75,6 +75,18 @@ export function resolveColorReference(
   path = 'color'
 ): ResolveColorReferenceResult {
   if (isPaletteColorReference(reference)) {
+    if (!isValidOpacity(reference.opacity)) {
+      return {
+        ok: false,
+        errors: [{
+          path: `${path}.opacity`,
+          code: 'INVALID_OPACITY',
+          message: 'Opacity must be between 0 and 1.',
+          color_id: reference.color_id
+        }]
+      }
+    }
+
     const color = paletteColors.find((candidate) => candidate.id === reference.color_id)
     return color
       ? { ok: true, hex: color.hex }
@@ -90,6 +102,17 @@ export function resolveColorReference(
   }
 
   if (isThemeColorReference(reference)) {
+    if (!isValidOpacity(reference.opacity)) {
+      return {
+        ok: false,
+        errors: [{
+          path: `${path}.opacity`,
+          code: 'INVALID_OPACITY',
+          message: 'Opacity must be between 0 and 1.'
+        }]
+      }
+    }
+
     const hex = themeTokens[reference.token]
     return hex
       ? { ok: true, hex }
@@ -283,4 +306,9 @@ function visitRoleValue(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function isValidOpacity(value: unknown): boolean {
+  return value === undefined ||
+    (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1)
 }

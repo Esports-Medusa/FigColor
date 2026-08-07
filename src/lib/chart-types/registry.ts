@@ -3,6 +3,8 @@ import { barErrorTemplate } from './bar-error/definition'
 import { boxplotJitterTemplate } from './boxplot-jitter/definition'
 import { heatmapAnnotatedTemplate } from './heatmap-annotated/definition'
 import { lineMultiseriesTemplate } from './line-multiseries/definition'
+import { scatterGroupedTemplate } from './scatter-grouped/definition'
+import { violinDistributionTemplate } from './violin-distribution/definition'
 import {
   invalidResult,
   registryIssue,
@@ -31,6 +33,14 @@ export const CHART_TYPE_DEFINITIONS: readonly ChartTypeDefinition[] = registerCh
   {
     chartType: 'heatmap_annotated',
     templates: [heatmapAnnotatedTemplate]
+  },
+  {
+    chartType: 'scatter_grouped',
+    templates: [scatterGroupedTemplate]
+  },
+  {
+    chartType: 'violin_distribution',
+    templates: [violinDistributionTemplate]
   }
 ])
 

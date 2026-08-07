@@ -6,13 +6,13 @@ const HEIGHT = 220
 const MARGIN = { top: 24, right: 68, bottom: 38, left: 54 }
 const PLOT_WIDTH = WIDTH - MARGIN.left - MARGIN.right
 const PLOT_HEIGHT = HEIGHT - MARGIN.top - MARGIN.bottom
-const requiredElementColorPaths = [
-  'color_roles.elements.text',
-  'color_roles.elements.grid',
-  'color_roles.elements.border',
-  'color_roles.elements.background',
-  'color_roles.elements.annotation_text'
-] as const
+const DEFAULT_COLORS = {
+  text: '#6B7280',
+  grid: '#D1D5DB',
+  border: '#111827',
+  background: '#FFFFFF',
+  annotationText: '#111827'
+} as const
 
 type HeatmapPattern = 'two_clusters' | 'three_clusters' | 'gradient' | 'mixed'
 type HeatmapScaleType = 'sequential' | 'diverging'
@@ -31,6 +31,20 @@ interface HeatmapConfig {
 interface ScaleStop {
   position: number
   hex: string
+}
+
+interface HeatmapAnnotation {
+  key: string
+  label: string
+  hex: string
+}
+
+interface ColumnAnnotationGroup extends HeatmapAnnotation {
+  startColumn: number
+  endColumn: number
+  x: number
+  width: number
+  labelX: number
 }
 
 export const heatmapAnnotatedRenderer: ChartRenderer = {
@@ -52,24 +66,23 @@ export const heatmapAnnotatedRenderer: ChartRenderer = {
       return scale.result
     }
 
-    const elementColors = readRequiredElementColors(input.resolvedColors)
-    if (!elementColors.ok) {
-      return elementColors.result
-    }
-
-    const textColor = elementColors.colors['color_roles.elements.text']
-    const gridColor = elementColors.colors['color_roles.elements.grid']
-    const borderColor = elementColors.colors['color_roles.elements.border']
-    const backgroundColor = elementColors.colors['color_roles.elements.background']
-    const annotationTextColor = elementColors.colors['color_roles.elements.annotation_text']
+    const textColor = readElementColor(input.resolvedColors, ['text'], DEFAULT_COLORS.text)
+    const gridColor = readElementColor(input.resolvedColors, ['grid'], DEFAULT_COLORS.grid)
+    const borderColor = readElementColor(input.resolvedColors, ['border'], DEFAULT_COLORS.border)
+    const backgroundColor = readElementColor(input.resolvedColors, ['background'], DEFAULT_COLORS.background)
+    const annotationTextColor = readElementColor(input.resolvedColors, ['annotation_text', 'text'], DEFAULT_COLORS.annotationText)
+    const annotations = readAnnotations(input.colorRoles, input.resolvedColors)
 
     const random = createDeterministicRandom(input.seed)
     const matrix = generateMatrix(config, random)
     const rowOrder = config.cluster_rows ? sortedIndicesByMean(matrix, 'row') : matrix.map((_, index) => index)
     const columnOrder = config.cluster_columns ? sortedIndicesByMean(matrix, 'column') : matrix[0].map((_, index) => index)
+    const annotationAreaWidth = 0
     const cellSize = Math.min(PLOT_WIDTH / config.columns, PLOT_HEIGHT / config.rows)
     const plotWidth = cellSize * config.columns
     const plotHeight = cellSize * config.rows
+    const matrixX = MARGIN.left + annotationAreaWidth
+    const annotationGroups = createColumnAnnotationGroups(annotations, matrixX, cellSize, config.columns)
     const labelRows = rowOrder.map((rowIndex) => `R${rowIndex + 1}`)
     const labelColumns = columnOrder.map((columnIndex) => `C${columnIndex + 1}`)
     const legendId = `heatmap-scale-${input.seed}`
@@ -79,7 +92,7 @@ export const heatmapAnnotatedRenderer: ChartRenderer = {
         const value = matrix[rowIndex][columnIndex]
         const normalized = normalizeValue(value)
         const fill = interpolateColorScale(normalized, scale.stops)
-        const x = MARGIN.left + visibleColumn * cellSize
+        const x = matrixX + visibleColumn * cellSize
         const y = MARGIN.top + visibleRow * cellSize
         const annotation = config.show_values
           ? `<text class="heatmap-annotation" x="${round(x + cellSize / 2)}" y="${round(y + cellSize / 2 + 3)}" text-anchor="middle" fill="${annotationTextColor}" font-size="8">${formatValue(value)}</text>`
@@ -95,7 +108,12 @@ export const heatmapAnnotatedRenderer: ChartRenderer = {
       : ''
     const columnLabels = config.show_column_labels
       ? labelColumns.map((label, index) =>
-          `<text class="heatmap-column-label" x="${round(MARGIN.left + index * cellSize + cellSize / 2)}" y="${MARGIN.top + plotHeight + 14}" text-anchor="middle" fill="${textColor}" font-size="9">${escapeSvg(label)}</text>`
+          `<text class="heatmap-column-label" x="${round(MARGIN.left + annotationAreaWidth + index * cellSize + cellSize / 2)}" y="${MARGIN.top + plotHeight + 14}" text-anchor="middle" fill="${textColor}" font-size="9">${escapeSvg(label)}</text>`
+        ).join('')
+      : ''
+    const annotationMarkup = annotations.length > 0
+      ? annotationGroups.map((annotation) =>
+          `<g class="heatmap-annotation-track" data-key="${escapeSvg(annotation.key)}" data-start-column="${annotation.startColumn}" data-end-column="${annotation.endColumn}"><rect x="${round(annotation.x)}" y="${MARGIN.top - 9}" width="${round(annotation.width)}" height="5" fill="${annotation.hex}" opacity="0.9"/><text class="heatmap-column-group-label" x="${round(annotation.labelX)}" y="${MARGIN.top - 12}" text-anchor="middle" fill="${textColor}" font-size="7">${escapeSvg(annotation.label)}</text></g>`
         ).join('')
       : ''
     const legendMarkup = renderLegend(legendId, scale.stops, textColor, borderColor)
@@ -105,9 +123,44 @@ export const heatmapAnnotatedRenderer: ChartRenderer = {
       kind: 'svg',
       width: WIDTH,
       height: HEIGHT,
-      markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Annotated heatmap preview"><defs><linearGradient id="${legendId}" x1="0%" y1="100%" x2="0%" y2="0%">${scale.stops.map((stop) => `<stop offset="${round(stop.position * 100)}%" stop-color="${stop.hex}"/>`).join('')}</linearGradient></defs><rect width="${WIDTH}" height="${HEIGHT}" fill="${backgroundColor}"/><g class="heatmap-matrix" data-pattern="${config.data_pattern}" data-row-order="${rowOrder.join(',')}" data-column-order="${columnOrder.join(',')}">${cellsMarkup}<rect x="${MARGIN.left}" y="${MARGIN.top}" width="${round(plotWidth)}" height="${round(plotHeight)}" fill="none" stroke="${borderColor}" stroke-width="1.2"/></g>${rowLabels}${columnLabels}${legendMarkup}</svg>`
+      markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Annotated heatmap preview"><defs><linearGradient id="${legendId}" x1="0%" y1="100%" x2="0%" y2="0%">${scale.stops.map((stop) => `<stop offset="${round(stop.position * 100)}%" stop-color="${stop.hex}"/>`).join('')}</linearGradient></defs><rect width="${WIDTH}" height="${HEIGHT}" fill="${backgroundColor}"/>${annotationMarkup}<g class="heatmap-matrix" data-pattern="${config.data_pattern}" data-row-order="${rowOrder.join(',')}" data-column-order="${columnOrder.join(',')}">${cellsMarkup}<rect x="${MARGIN.left + annotationAreaWidth}" y="${MARGIN.top}" width="${round(plotWidth)}" height="${round(plotHeight)}" fill="none" stroke="${borderColor}" stroke-width="1.2"/></g>${rowLabels}${columnLabels}${legendMarkup}</svg>`
     }
   }
+}
+
+function createColumnAnnotationGroups(
+  annotations: readonly HeatmapAnnotation[],
+  matrixX: number,
+  cellSize: number,
+  columnCount: number
+): ColumnAnnotationGroup[] {
+  if (annotations.length === 0 || columnCount < 1) {
+    return []
+  }
+
+  const matrixWidth = cellSize * columnCount
+  const labelEdgePadding = 8
+  return annotations.map((annotation, index) => {
+    const startColumn = Math.floor(index * columnCount / annotations.length)
+    const rawEndColumn = Math.floor((index + 1) * columnCount / annotations.length) - 1
+    const endColumn = Math.max(startColumn, rawEndColumn)
+    const x = matrixX + startColumn * cellSize
+    const width = (endColumn - startColumn + 1) * cellSize
+    const labelX = clamp(
+      x + width / 2,
+      matrixX + labelEdgePadding,
+      matrixX + matrixWidth - labelEdgePadding
+    )
+
+    return {
+      ...annotation,
+      startColumn,
+      endColumn,
+      x,
+      width,
+      labelX
+    }
+  })
 }
 
 export function interpolateColorScale(value: number, stops: readonly ScaleStop[]): string {
@@ -246,23 +299,22 @@ function readScale(colorRoles: unknown, resolvedColors: Record<string, string>):
   return { ok: true, stops, scaleType: scale.type }
 }
 
-function readRequiredElementColors(resolvedColors: Record<string, string>):
-  | { ok: true; colors: Record<typeof requiredElementColorPaths[number], string> }
-  | { ok: false; result: PreviewRenderResult } {
-  const missingPath = requiredElementColorPaths.find((path) => !resolvedColors[path])
-  if (missingPath) {
-    return {
-      ok: false,
-      result: invalidResult('MISSING_RESOLVED_COLOR', `Missing resolved color for ${missingPath}.`)
-    }
+function readElementColor(resolvedColors: Record<string, string>, keys: readonly string[], fallback: string): string {
+  return keys.map((key) => resolvedColors[`color_roles.elements.${key}`]).find(Boolean) ?? fallback
+}
+
+function readAnnotations(colorRoles: unknown, resolvedColors: Record<string, string>): HeatmapAnnotation[] {
+  if (!isRecord(colorRoles) || !Array.isArray(colorRoles.annotations)) {
+    return []
   }
 
-  return {
-    ok: true,
-    colors: Object.fromEntries(
-      requiredElementColorPaths.map((path) => [path, resolvedColors[path]])
-    ) as Record<typeof requiredElementColorPaths[number], string>
-  }
+  return colorRoles.annotations.flatMap((annotation, index) => {
+    if (!isRecord(annotation) || typeof annotation.key !== 'string' || typeof annotation.label !== 'string') {
+      return []
+    }
+    const hex = resolvedColors[`color_roles.annotations[${index}].color`]
+    return hex ? [{ key: annotation.key, label: annotation.label, hex }] : []
+  })
 }
 
 function sortedIndicesByMean(matrix: number[][], axis: 'row' | 'column'): number[] {

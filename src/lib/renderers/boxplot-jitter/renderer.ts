@@ -1,39 +1,40 @@
 import { createDeterministicRandom, type DeterministicRandom } from '@/lib/deterministic/random'
+import { fnv1a32 } from '@/lib/deterministic/seed'
+import { extractResolvedDataRoles } from '../dataRoles'
 import type { ChartRenderer, PreviewRendererInput, PreviewRenderResult } from '../types'
 
 const WIDTH = 360
 const HEIGHT = 220
-const MARGIN = { top: 20, right: 24, bottom: 42, left: 46 }
+const MARGIN = { top: 16, right: 12, bottom: 42, left: 55 }
 const PLOT_WIDTH = WIDTH - MARGIN.left - MARGIN.right
 const PLOT_HEIGHT = HEIGHT - MARGIN.top - MARGIN.bottom
-const BOXPLOT_DENSITY_COUNTS = {
-  low: 18,
-  medium: 26,
-  high: 34
+const JITTER_SAMPLE_COUNTS = {
+  low: 8,
+  medium: 12,
+  high: 16
 } as const
-const requiredElementColorPaths = [
-  'color_roles.elements.axis',
-  'color_roles.elements.grid',
-  'color_roles.elements.text',
-  'color_roles.elements.box_stroke',
-  'color_roles.elements.median',
-  'color_roles.elements.whisker',
-  'color_roles.elements.jitter',
-  'color_roles.elements.outlier',
-  'color_roles.elements.background'
+const MOCK_VALUES = [
+  [0.82, 0.91, 0.95, 0.98, 1.01, 1.04, 1.07, 1.10, 1.13, 1.18, 1.22, 1.29],
+  [1.02, 1.11, 1.18, 1.22, 1.27, 1.31, 1.35, 1.39, 1.44, 1.49, 1.55, 1.62],
+  [1.28, 1.39, 1.47, 1.54, 1.60, 1.65, 1.71, 1.77, 1.83, 1.91, 1.98, 2.08]
 ] as const
+const DEFAULT_COLORS = {
+  axis: '#111827',
+  grid: '#D1D5DB',
+  text: '#6B7280',
+  outline: '#111827',
+  median: '#111827',
+  whisker: '#111827',
+  jitter: '#6B7280',
+  background: '#FFFFFF'
+} as const
 
-type JitterDensity = keyof typeof BOXPLOT_DENSITY_COUNTS
-
-interface BoxplotGroupRole {
-  key: string
-  label: string
-  color: unknown
-}
+type JitterDensity = keyof typeof JITTER_SAMPLE_COUNTS
 
 interface BoxplotConfig {
   jitter_density: JitterDensity
   show_outliers: boolean
+  y_axis_label?: string
 }
 
 interface BoxplotStats {
@@ -53,13 +54,17 @@ export const boxplotJitterRenderer: ChartRenderer = {
   templateVersion: 1,
   schemaVersion: 1,
   render(input: PreviewRendererInput): PreviewRenderResult {
-    const groups = readGroups(input.colorRoles)
-    if (groups.length < 3 || groups.length > 5) {
+    const dataRoles = extractResolvedDataRoles(input.colorRoles, input.resolvedColors, {
+      collection: 'groups',
+      colorField: 'color'
+    })
+    if (!dataRoles.ok) {
       return invalidResult(
-        'INVALID_BOXPLOT_GROUPS',
-        'boxplot_jitter renderer requires 3 to 5 group color roles.'
+        dataRoles.code,
+        dataRoles.message
       )
     }
+    const groups = dataRoles.roles
 
     const config = readConfig(input.previewConfig)
     if (!config) {
@@ -69,52 +74,40 @@ export const boxplotJitterRenderer: ChartRenderer = {
       )
     }
 
-    const groupFills = groups.map((_, index) => input.resolvedColors[`color_roles.groups[${index}].color`])
-    const missingGroupColorIndex = groupFills.findIndex((fill) => !fill)
-    if (missingGroupColorIndex >= 0) {
-      return invalidResult(
-        'MISSING_RESOLVED_COLOR',
-        `Missing resolved color for color_roles.groups[${missingGroupColorIndex}].color.`
-      )
-    }
+    const axisColor = readElementColor(input.resolvedColors, ['axis'], DEFAULT_COLORS.axis)
+    const textColor = readElementColor(input.resolvedColors, ['text'], DEFAULT_COLORS.text)
+    const boxStrokeColor = readElementColor(input.resolvedColors, ['outline', 'box_stroke'], DEFAULT_COLORS.outline)
+    const medianColor = readElementColor(input.resolvedColors, ['median_line', 'median'], DEFAULT_COLORS.median)
+    const whiskerColor = readElementColor(input.resolvedColors, ['whisker'], DEFAULT_COLORS.whisker)
+    const backgroundColor = readElementColor(input.resolvedColors, ['background'], DEFAULT_COLORS.background)
 
-    const elementColors = readRequiredElementColors(input.resolvedColors)
-    if (!elementColors.ok) {
-      return elementColors.result
-    }
-
-    const axisColor = elementColors.colors['color_roles.elements.axis']
-    const gridColor = elementColors.colors['color_roles.elements.grid']
-    const textColor = elementColors.colors['color_roles.elements.text']
-    const boxStrokeColor = elementColors.colors['color_roles.elements.box_stroke']
-    const medianColor = elementColors.colors['color_roles.elements.median']
-    const whiskerColor = elementColors.colors['color_roles.elements.whisker']
-    const jitterColor = elementColors.colors['color_roles.elements.jitter']
-    const outlierColor = elementColors.colors['color_roles.elements.outlier']
-    const backgroundColor = elementColors.colors['color_roles.elements.background']
-
-    const random = createDeterministicRandom(input.seed)
-    const sampleCount = BOXPLOT_DENSITY_COUNTS[config.jitter_density]
-    const statsByGroup = groups.map((_, index) =>
-      computeStats(generateSamples(random, sampleCount, index, groups.length))
+    const sampleCount = JITTER_SAMPLE_COUNTS[config.jitter_density]
+    const statsByGroup = groups.map((group, index) =>
+      computeStats(generateSamples(
+        createDeterministicRandom(fnv1a32(`${input.seed}\u001fboxplot\u001f${group.key}`)),
+        sampleCount,
+        index
+      ))
     )
-    const minValue = Math.min(...statsByGroup.flatMap((stats) => stats.values), 0)
-    const maxValue = Math.max(...statsByGroup.flatMap((stats) => stats.values), 100)
-    const domainPadding = Math.max((maxValue - minValue) * 0.08, 6)
-    const domainMin = Math.floor(Math.max(0, minValue - domainPadding))
-    const domainMax = Math.ceil(Math.min(140, maxValue + domainPadding))
+    const minValue = Math.min(...statsByGroup.flatMap((stats) => stats.values))
+    const maxValue = Math.max(...statsByGroup.flatMap((stats) => stats.values))
+    const domainMin = Math.min(0.65, Math.floor((minValue - 0.12) * 20) / 20)
+    const domainMax = Math.max(2.72, Math.ceil((maxValue + 0.5) * 20) / 20)
     const yScale = (value: number) =>
       MARGIN.top + PLOT_HEIGHT - ((value - domainMin) / (domainMax - domainMin)) * PLOT_HEIGHT
     const xStep = PLOT_WIDTH / groups.length
-    const boxWidth = Math.min(42, xStep * 0.46)
-    const jitterWidth = Math.min(54, xStep * 0.64)
+    const boxWidth = Math.min(34, xStep * 0.34)
+    const jitterWidth = Math.min(58, xStep * 0.62)
     const zeroY = yScale(domainMin)
     const gridTicks = createTicks(domainMin, domainMax)
 
     const gridMarkup = gridTicks.map((tick) => {
       const y = round(yScale(tick))
-      return `<g><line x1="${MARGIN.left}" y1="${y}" x2="${WIDTH - MARGIN.right}" y2="${y}" stroke="${gridColor}" stroke-width="1" opacity="0.62"/><text x="${MARGIN.left - 10}" y="${y + 4}" text-anchor="end" fill="${textColor}" font-size="10">${tick}</text></g>`
+      return `<g><line x1="${MARGIN.left - 3}" y1="${y}" x2="${MARGIN.left}" y2="${y}" stroke="${axisColor}" stroke-width="0.8"/><text x="${MARGIN.left - 7}" y="${y + 3}" text-anchor="end" fill="${textColor}" font-size="8">${formatTick(tick)}</text></g>`
     }).join('')
+    const yAxisLabel = typeof config.y_axis_label === 'string' && config.y_axis_label.trim()
+      ? `<text x="12" y="${round(MARGIN.top + PLOT_HEIGHT / 2)}" text-anchor="middle" fill="${textColor}" font-size="8.5" transform="rotate(-90 12 ${round(MARGIN.top + PLOT_HEIGHT / 2)})">${escapeSvg(config.y_axis_label)}</text>`
+      : ''
 
     const groupMarkup = groups.map((group, groupIndex) => {
       const stats = statsByGroup[groupIndex]
@@ -126,30 +119,31 @@ export const boxplotJitterRenderer: ChartRenderer = {
       const upperY = yScale(stats.upperWhisker)
       const boxTop = Math.min(q1Y, q3Y)
       const boxHeight = Math.max(1, Math.abs(q3Y - q1Y))
-      const fill = groupFills[groupIndex]
-      const label = escapeSvg(group.label)
+      const fill = group.color
+      const label = escapeSvg(fitLabel(group.label, xStep))
       const inlierMarkup = stats.inliers.map((value, valueIndex) => {
         const x = centerX + deterministicJitter(input.seed, groupIndex, valueIndex, jitterWidth)
         const y = yScale(value)
-        return `<circle class="jitter-point" cx="${round(x)}" cy="${round(y)}" r="1.9" fill="${jitterColor}" opacity="0.58"/>`
+        return `<circle class="jitter-point" cx="${round(x)}" cy="${round(y)}" r="3.05" fill="${fill}" stroke="${backgroundColor}" stroke-width="0.65" opacity="0.92"/>`
       }).join('')
       const outlierMarkup = config.show_outliers
         ? stats.outliers.map((value, valueIndex) => {
             const x = centerX + deterministicJitter(input.seed + 101, groupIndex, valueIndex, jitterWidth)
             const y = yScale(value)
-            return `<circle class="outlier-point" cx="${round(x)}" cy="${round(y)}" r="2.8" fill="${outlierColor}" stroke="${boxStrokeColor}" stroke-width="1"/>`
+            return `<circle class="outlier-point" cx="${round(x)}" cy="${round(y)}" r="3.05" fill="${fill}" stroke="${backgroundColor}" stroke-width="0.65" opacity="0.92"/>`
           }).join('')
         : ''
 
-      return `<g class="boxplot-group" data-key="${escapeSvg(group.key)}" data-q1="${round(stats.q1)}" data-median="${round(stats.median)}" data-q3="${round(stats.q3)}" data-lower-whisker="${round(stats.lowerWhisker)}" data-upper-whisker="${round(stats.upperWhisker)}">${inlierMarkup}${outlierMarkup}<line x1="${round(centerX)}" y1="${round(upperY)}" x2="${round(centerX)}" y2="${round(lowerY)}" stroke="${whiskerColor}" stroke-width="1.5"/><line x1="${round(centerX - boxWidth * 0.32)}" y1="${round(upperY)}" x2="${round(centerX + boxWidth * 0.32)}" y2="${round(upperY)}" stroke="${whiskerColor}" stroke-width="1.5"/><line x1="${round(centerX - boxWidth * 0.32)}" y1="${round(lowerY)}" x2="${round(centerX + boxWidth * 0.32)}" y2="${round(lowerY)}" stroke="${whiskerColor}" stroke-width="1.5"/><rect x="${round(centerX - boxWidth / 2)}" y="${round(boxTop)}" width="${round(boxWidth)}" height="${round(boxHeight)}" fill="${fill}" fill-opacity="0.76" stroke="${boxStrokeColor}" stroke-width="1.5" rx="2"/><line x1="${round(centerX - boxWidth / 2)}" y1="${round(medianY)}" x2="${round(centerX + boxWidth / 2)}" y2="${round(medianY)}" stroke="${medianColor}" stroke-width="2"/><text x="${round(centerX)}" y="${HEIGHT - 18}" text-anchor="middle" fill="${textColor}" font-size="10">${label}</text></g>`
+      return `<g class="boxplot-group" data-key="${escapeSvg(group.key)}" data-q1="${round(stats.q1)}" data-median="${round(stats.median)}" data-q3="${round(stats.q3)}" data-lower-whisker="${round(stats.lowerWhisker)}" data-upper-whisker="${round(stats.upperWhisker)}"><line x1="${round(centerX)}" y1="${round(upperY)}" x2="${round(centerX)}" y2="${round(lowerY)}" stroke="${whiskerColor}" stroke-width="0.9"/><line x1="${round(centerX - boxWidth * 0.32)}" y1="${round(upperY)}" x2="${round(centerX + boxWidth * 0.32)}" y2="${round(upperY)}" stroke="${whiskerColor}" stroke-width="0.9"/><line x1="${round(centerX - boxWidth * 0.32)}" y1="${round(lowerY)}" x2="${round(centerX + boxWidth * 0.32)}" y2="${round(lowerY)}" stroke="${whiskerColor}" stroke-width="0.9"/><rect class="quartile-box" x="${round(centerX - boxWidth / 2)}" y="${round(boxTop)}" width="${round(boxWidth)}" height="${round(boxHeight)}" fill="${fill}" fill-opacity="0.12" stroke="${boxStrokeColor}" stroke-width="0.9"/>${inlierMarkup}${outlierMarkup}<line class="median-line" x1="${round(centerX - boxWidth / 2)}" y1="${round(medianY)}" x2="${round(centerX + boxWidth / 2)}" y2="${round(medianY)}" stroke="${medianColor}" stroke-width="1.25"/><text x="${round(centerX)}" y="${HEIGHT - 25}" text-anchor="middle" fill="${textColor}" font-size="8">${label}</text><text x="${round(centerX)}" y="${HEIGHT - 14}" text-anchor="middle" fill="${textColor}" font-size="7.5" font-style="italic">n = ${stats.values.length}</text></g>`
     }).join('')
+    const comparisonMarkup = renderComparisons(groups.length, statsByGroup, yScale, xStep, textColor)
 
     return {
       ok: true,
       kind: 'svg',
       width: WIDTH,
       height: HEIGHT,
-      markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Boxplot jitter preview"><rect width="${WIDTH}" height="${HEIGHT}" fill="${backgroundColor}"/>${gridMarkup}<line x1="${MARGIN.left}" y1="${MARGIN.top}" x2="${MARGIN.left}" y2="${zeroY}" stroke="${axisColor}" stroke-width="1.5"/><line x1="${MARGIN.left}" y1="${zeroY}" x2="${WIDTH - MARGIN.right}" y2="${zeroY}" stroke="${axisColor}" stroke-width="1.5"/>${groupMarkup}</svg>`
+      markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Publication-style boxplot with jittered observations"><rect width="${WIDTH}" height="${HEIGHT}" fill="${backgroundColor}"/>${gridMarkup}${yAxisLabel}<line x1="${MARGIN.left}" y1="${MARGIN.top}" x2="${MARGIN.left}" y2="${zeroY}" stroke="${axisColor}" stroke-width="0.8"/><line x1="${MARGIN.left}" y1="${zeroY}" x2="${WIDTH - MARGIN.right}" y2="${zeroY}" stroke="${axisColor}" stroke-width="0.8"/>${groupMarkup}${comparisonMarkup}</svg>`
     }
   }
 }
@@ -157,23 +151,19 @@ export const boxplotJitterRenderer: ChartRenderer = {
 function generateSamples(
   random: DeterministicRandom,
   sampleCount: number,
-  groupIndex: number,
-  groupCount: number
+  groupIndex: number
 ): number[] {
-  const center = 46 + groupIndex * (34 / Math.max(1, groupCount - 1)) + random.float(-3, 3)
-  const spread = random.float(5.5, 9.5)
-  const values: number[] = []
-
-  for (let index = 0; index < sampleCount; index += 1) {
-    const wave = Math.sin((index + 1) * (groupIndex + 1) * 0.73) * spread * 0.28
-    const noise = (random.next() + random.next() + random.next() - 1.5) * spread
-    values.push(round(clamp(center + wave + noise, 8, 122)))
+  const sourceIndex = Math.min(groupIndex, MOCK_VALUES.length - 1)
+  const source = MOCK_VALUES[sourceIndex]
+  if (sampleCount <= source.length) {
+    return source.filter((_, index) => index % Math.max(1, Math.floor(source.length / sampleCount)) === 0).slice(0, sampleCount)
   }
-
-  values.push(round(clamp(center + spread * random.float(3.3, 4.2), 8, 132)))
-  values.push(round(clamp(center - spread * random.float(2.9, 3.8), 4, 132)))
-
-  return values
+  const values: number[] = [...source]
+  while (values.length < sampleCount) {
+    const base = source[values.length % source.length]
+    values.push(round(clamp(base + random.float(-0.025, 0.025), 0.65, 2.2)))
+  }
+  return values.sort((left, right) => left - right)
 }
 
 function computeStats(values: number[]): BoxplotStats {
@@ -209,21 +199,6 @@ function quantile(sortedValues: readonly number[], probability: number): number 
   return lower + (upper - lower) * weight
 }
 
-function readGroups(colorRoles: unknown): BoxplotGroupRole[] {
-  if (!isRecord(colorRoles) || !Array.isArray(colorRoles.groups)) {
-    return []
-  }
-
-  return colorRoles.groups.filter(isGroupRole)
-}
-
-function isGroupRole(value: unknown): value is BoxplotGroupRole {
-  return isRecord(value) &&
-    typeof value.key === 'string' &&
-    typeof value.label === 'string' &&
-    Object.prototype.hasOwnProperty.call(value, 'color')
-}
-
 function readConfig(previewConfig: unknown): BoxplotConfig | null {
   if (!isRecord(previewConfig)) {
     return null
@@ -236,39 +211,100 @@ function readConfig(previewConfig: unknown): BoxplotConfig | null {
   ) {
     return {
       jitter_density: previewConfig.jitter_density,
-      show_outliers: previewConfig.show_outliers
+      show_outliers: previewConfig.show_outliers,
+      y_axis_label: typeof previewConfig.y_axis_label === 'string' ? previewConfig.y_axis_label : undefined
     }
   }
   return null
 }
 
-function readRequiredElementColors(resolvedColors: Record<string, string>):
-  | { ok: true; colors: Record<typeof requiredElementColorPaths[number], string> }
-  | { ok: false; result: PreviewRenderResult } {
-  const missingPath = requiredElementColorPaths.find((path) => !resolvedColors[path])
-  if (missingPath) {
-    return {
-      ok: false,
-      result: invalidResult('MISSING_RESOLVED_COLOR', `Missing resolved color for ${missingPath}.`)
-    }
-  }
-
-  return {
-    ok: true,
-    colors: Object.fromEntries(
-      requiredElementColorPaths.map((path) => [path, resolvedColors[path]])
-    ) as Record<typeof requiredElementColorPaths[number], string>
-  }
+function readElementColor(resolvedColors: Record<string, string>, keys: readonly string[], fallback: string): string {
+  return keys.map((key) => resolvedColors[`color_roles.elements.${key}`]).find(Boolean) ?? fallback
 }
 
 function createTicks(min: number, max: number): number[] {
-  const step = Math.max(10, Math.ceil((max - min) / 4 / 5) * 5)
+  const step = 0.25
   const start = Math.ceil(min / step) * step
   const ticks: number[] = []
   for (let value = start; value <= max; value += step) {
     ticks.push(value)
   }
   return ticks.length > 0 ? ticks : [min, max]
+}
+
+function formatTick(value: number): string {
+  return value.toFixed(2).replace(/0$/, '')
+}
+
+function fitLabel(label: string, xStep: number): string {
+  const maxCharacters = Math.max(5, Math.floor(xStep / 5.2))
+  return label.length <= maxCharacters ? label : `${label.slice(0, maxCharacters - 1)}…`
+}
+
+function renderComparisons(
+  groupCount: number,
+  stats: BoxplotStats[],
+  yScale: (value: number) => number,
+  xStep: number,
+  color: string
+): string {
+  if (groupCount < 2) {
+    return ''
+  }
+  const pairs = groupCount === 2
+    ? [[0, 1, 2.35] as const]
+    : [[0, groupCount - 1, 2.43] as const, [groupCount - 2, groupCount - 1, 2.22] as const]
+  return pairs.map(([leftIndex, rightIndex, value]) => {
+    const left = MARGIN.left + xStep * leftIndex + xStep / 2
+    const right = MARGIN.left + xStep * rightIndex + xStep / 2
+    const y = yScale(value)
+    const top = y - 3
+    const pValue = mannWhitneyPValue(stats[leftIndex].values, stats[rightIndex].values)
+    return `<g class="significance-comparison" data-left="${leftIndex}" data-right="${rightIndex}" data-p-value="${pValue.toFixed(6)}"><path d="M ${round(left)} ${round(y)} V ${round(top)} H ${round(right)} V ${round(y)}" fill="none" stroke="${color}" stroke-width="0.8"/><text x="${round((left + right) / 2)}" y="${round(top - 3)}" text-anchor="middle" fill="${color}" font-size="7.5">${formatPValue(pValue)}</text></g>`
+  }).join('')
+}
+
+function mannWhitneyPValue(left: number[], right: number[]): number {
+  const ranked = [
+    ...left.map((value) => ({ value, group: 0 })),
+    ...right.map((value) => ({ value, group: 1 }))
+  ].sort((a, b) => a.value - b.value)
+  let rankSum = 0
+  for (let index = 0; index < ranked.length;) {
+    let end = index + 1
+    while (end < ranked.length && ranked[end].value === ranked[index].value) end += 1
+    const averageRank = (index + 1 + end) / 2
+    for (let cursor = index; cursor < end; cursor += 1) {
+      if (ranked[cursor].group === 0) rankSum += averageRank
+    }
+    index = end
+  }
+  const u = rankSum - left.length * (left.length + 1) / 2
+  const mean = left.length * right.length / 2
+  const sigma = Math.sqrt(left.length * right.length * (left.length + right.length + 1) / 12)
+  const z = (Math.abs(u - mean) - 0.5) / sigma
+  return Math.min(1, erfc(z / Math.SQRT2))
+}
+
+function erfc(value: number): number {
+  const z = Math.abs(value)
+  const t = 1 / (1 + z / 2)
+  const approximation = t * Math.exp(
+    -z * z - 1.26551223 +
+    t * (1.00002368 +
+    t * (0.37409196 +
+    t * (0.09678418 +
+    t * (-0.18628806 +
+    t * (0.27886807 +
+    t * (-1.13520398 +
+    t * (1.48851587 +
+    t * (-0.82215223 +
+    t * 0.17087277)))))))))
+  return value >= 0 ? approximation : 2 - approximation
+}
+
+function formatPValue(value: number): string {
+  return value < 0.0001 ? 'P &lt; 0.0001' : `P = ${value.toFixed(4)}`
 }
 
 function deterministicJitter(seed: number, groupIndex: number, valueIndex: number, width: number): number {
