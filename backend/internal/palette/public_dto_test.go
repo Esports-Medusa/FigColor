@@ -13,12 +13,9 @@ func TestBuildPublicPaletteDTONoPreviewCases(t *testing.T) {
 	if dto.PrimaryPreviewCase != nil {
 		t.Fatalf("primary preview = %#v, want nil", dto.PrimaryPreviewCase)
 	}
-	if len(dto.PreviewCases) != 0 {
-		t.Fatalf("preview cases = %d, want 0", len(dto.PreviewCases))
-	}
 }
 
-func TestBuildPublicPaletteDTOIncludesPublishedPreviewCasesAndPrimary(t *testing.T) {
+func TestBuildPublicPaletteDTOIncludesOnlyPublishedPrimaryPreviewCase(t *testing.T) {
 	primary := testPublicPreviewCase("preview-primary", PreviewCaseStatusPublished, true)
 	secondary := testPublicPreviewCase("preview-secondary", PreviewCaseStatusPublished, false)
 
@@ -27,11 +24,12 @@ func TestBuildPublicPaletteDTOIncludesPublishedPreviewCasesAndPrimary(t *testing
 	if dto.PrimaryPreviewCase == nil || dto.PrimaryPreviewCase.ID != "preview-primary" {
 		t.Fatalf("primary preview = %#v, want preview-primary", dto.PrimaryPreviewCase)
 	}
-	if len(dto.PreviewCases) != 2 {
-		t.Fatalf("preview cases = %d, want 2", len(dto.PreviewCases))
+	encoded, err := json.Marshal(dto)
+	if err != nil {
+		t.Fatalf("marshal public dto: %v", err)
 	}
-	if dto.PreviewCases[0].ID != "preview-primary" || dto.PreviewCases[1].ID != "preview-secondary" {
-		t.Fatalf("preview case order = %#v, want repository order preserved", dto.PreviewCases)
+	if strings.Contains(string(encoded), "preview_cases") || strings.Contains(string(encoded), "preview-secondary") {
+		t.Fatalf("public dto exposed preview collection or secondary preview: %s", encoded)
 	}
 }
 
@@ -45,15 +43,14 @@ func TestBuildPublicPaletteDTOExcludesDraftAndArchivedPreviewCases(t *testing.T)
 	if dto.PrimaryPreviewCase != nil {
 		t.Fatalf("primary preview = %#v, want nil because no published primary exists", dto.PrimaryPreviewCase)
 	}
-	if len(dto.PreviewCases) != 1 || dto.PreviewCases[0].ID != "preview-published" {
-		t.Fatalf("preview cases = %#v, want only published preview", dto.PreviewCases)
-	}
 
 	encoded, err := json.Marshal(dto)
 	if err != nil {
 		t.Fatalf("marshal public dto: %v", err)
 	}
-	if strings.Contains(string(encoded), `"status":"draft"`) || strings.Contains(string(encoded), `"status":"archived"`) {
+	if strings.Contains(string(encoded), `"status":"draft"`) ||
+		strings.Contains(string(encoded), `"status":"archived"`) ||
+		strings.Contains(string(encoded), "preview-published") {
 		t.Fatalf("public dto exposed unpublished status: %s", encoded)
 	}
 }
@@ -66,9 +63,6 @@ func TestBuildPublicPaletteDTONoPrimaryReturnsNull(t *testing.T) {
 	if dto.PrimaryPreviewCase != nil {
 		t.Fatalf("primary preview = %#v, want nil", dto.PrimaryPreviewCase)
 	}
-	if len(dto.PreviewCases) != 1 {
-		t.Fatalf("preview cases = %d, want 1", len(dto.PreviewCases))
-	}
 }
 
 func testPublicPalette(id string) *Palette {
@@ -77,6 +71,8 @@ func testPublicPalette(id string) *Palette {
 		ID:         id,
 		Slug:       "test-palette",
 		Name:       "Test Palette",
+		Visibility: "public",
+		Origin:     "curated",
 		Colors:     json.RawMessage(`[{"id":"color-1","hex":"#112233","rgb":[17,34,51],"order":0}]`),
 		ColorCount: 1,
 		Type:       "categorical",

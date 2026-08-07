@@ -15,7 +15,10 @@ const testModules = [
   '/src/lib/renderers.test.ts',
   '/src/lib/scatter-violin.test.ts',
   '/src/components/palettes/PaletteChartPreview.test.ts',
-  '/src/components/palettes/PalettePreviewIntegration.test.ts'
+  '/src/components/palettes/PalettePreviewIntegration.test.ts',
+  '/src/views/admin/palettes/AdminPalettesList.test.ts',
+  '/src/views/admin/palettes/AdminCandidateReview.test.ts',
+  '/src/views/admin/palettes/AdminPreviewCaseEditor.test.ts'
 ]
 
 const server = await createServer({ logLevel: 'error' })

@@ -285,6 +285,9 @@ func TestPublicPaletteListReturnsPublicPreviewDTO(t *testing.T) {
 			if !params.PublishedOnly {
 				t.Fatal("public list did not request published-only palettes")
 			}
+			if params.Visibility != "public" {
+				t.Fatalf("visibility = %q, want public", params.Visibility)
+			}
 			return []*PublicPaletteDTO{publicDTO}, 1, nil
 		},
 	}
@@ -304,6 +307,44 @@ func TestPublicPaletteListReturnsPublicPreviewDTO(t *testing.T) {
 	}
 	if body.Palettes[0].PrimaryPreviewCase.Status != PreviewCaseStatusPublished {
 		t.Fatalf("primary status = %q, want published", body.Palettes[0].PrimaryPreviewCase.Status)
+	}
+}
+
+func TestPublicPaletteListParsesPagingAndFilters(t *testing.T) {
+	fake := &fakePaletteHandlerService{
+		listPublic: func(params ListParams) ([]*PublicPaletteDTO, int, error) {
+			if !params.PublishedOnly {
+				t.Fatal("public list did not request published-only palettes")
+			}
+			if params.Visibility != "public" {
+				t.Fatalf("visibility = %q, want public", params.Visibility)
+			}
+			if params.Page != 3 || params.PageSize != 12 {
+				t.Fatalf("paging = page %d page_size %d, want 3/12", params.Page, params.PageSize)
+			}
+			if params.Search != "mock" ||
+				params.ChartType != "line" ||
+				params.JournalStyle != "nature" ||
+				params.Discipline != "genomics" ||
+				params.UseCase != "omics" ||
+				params.Tag != "publication_ready" ||
+				params.ColorCount != 5 {
+				t.Fatalf("params = %#v, want parsed public filters", params)
+			}
+			return []*PublicPaletteDTO{}, 41, nil
+		},
+	}
+
+	rec := performPreviewCaseRequest(fake, http.MethodGet, "/api/palettes?page=3&page_size=12&search=mock&chart_type=line&journal_style=nature&discipline=genomics&use_case=omics&tag=publication_ready&color_count=5", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["total"] != float64(41) || body["page"] != float64(3) || body["page_size"] != float64(12) || body["total_pages"] != float64(4) {
+		t.Fatalf("response metadata = %#v", body)
 	}
 }
 
@@ -332,8 +373,12 @@ func TestPublicPaletteDetailReturnsPublicPreviewDTO(t *testing.T) {
 	if body.PrimaryPreviewCase == nil || body.PrimaryPreviewCase.ID != "preview-primary" {
 		t.Fatalf("primary = %#v, want preview-primary", body.PrimaryPreviewCase)
 	}
-	if len(body.PreviewCases) != 1 {
-		t.Fatalf("preview cases = %d, want draft excluded", len(body.PreviewCases))
+	var raw map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("decode raw body: %v", err)
+	}
+	if _, exists := raw["preview_cases"]; exists {
+		t.Fatalf("public detail exposed preview_cases collection: %s", rec.Body.String())
 	}
 }
 

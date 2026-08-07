@@ -37,7 +37,7 @@ func TestUpdatePreviewCaseUsesLockedStateBeforeMergeAndValidation(t *testing.T) 
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
-		"query SELECT id, slug, name, colors, color_count, type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"query UPDATE palette_preview_cases",
 		"commit",
 	)
@@ -62,7 +62,7 @@ func TestPublishPreviewCaseEvaluatesStatusInsideTransaction(t *testing.T) {
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
-		"query SELECT id, slug, name, colors, color_count, type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"query UPDATE palette_preview_cases",
 		"commit",
 	)
@@ -71,6 +71,7 @@ func TestPublishPreviewCaseEvaluatesStatusInsideTransaction(t *testing.T) {
 func TestPublishPreviewCaseRejectsArchivedAfterLocking(t *testing.T) {
 	restore := installScriptedDB(t, []scriptedDBOp{
 		queryOp("FROM palette_preview_cases", "FOR UPDATE", previewCaseRow(PreviewCaseStatusArchived, false)),
+		queryOp("FROM palettes", "", paletteRow(t)),
 	})
 	defer restore()
 
@@ -82,6 +83,7 @@ func TestPublishPreviewCaseRejectsArchivedAfterLocking(t *testing.T) {
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"rollback",
 	)
 }
@@ -89,6 +91,7 @@ func TestPublishPreviewCaseRejectsArchivedAfterLocking(t *testing.T) {
 func TestPublishPreviewCaseAlreadyPublishedIsIdempotentInsideTransaction(t *testing.T) {
 	restore := installScriptedDB(t, []scriptedDBOp{
 		queryOp("FROM palette_preview_cases", "FOR UPDATE", previewCaseRow(PreviewCaseStatusPublished, false)),
+		queryOp("FROM palettes", "", paletteRow(t)),
 	})
 	defer restore()
 
@@ -103,6 +106,7 @@ func TestPublishPreviewCaseAlreadyPublishedIsIdempotentInsideTransaction(t *test
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"commit",
 	)
 }
@@ -110,6 +114,7 @@ func TestPublishPreviewCaseAlreadyPublishedIsIdempotentInsideTransaction(t *test
 func TestArchivePreviewCaseEvaluatesStatusInsideTransactionAndClearsPrimary(t *testing.T) {
 	restore := installScriptedDB(t, []scriptedDBOp{
 		queryOp("FROM palette_preview_cases", "FOR UPDATE", previewCaseRow(PreviewCaseStatusPublished, true)),
+		queryOp("FROM palettes", "", paletteRow(t)),
 		queryOp("UPDATE palette_preview_cases", "", previewCaseRow(PreviewCaseStatusArchived, false)),
 	})
 	defer restore()
@@ -125,6 +130,7 @@ func TestArchivePreviewCaseEvaluatesStatusInsideTransactionAndClearsPrimary(t *t
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"query UPDATE palette_preview_cases",
 		"commit",
 	)
@@ -151,7 +157,7 @@ func TestSetPrimaryPreviewCaseUsesPaletteLockOrderingAndRequiresPublished(t *tes
 	assertScriptedEvents(t,
 		"query SELECT id, palette_id, chart_type, template_id, template_version, schema_version",
 		"begin",
-		"query SELECT id, slug, name, colors, color_count, type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"query SELECT id, palette_id, chart_type, template_id, template_version, schema_version",
 		"exec UPDATE palette_preview_cases",
 		"query UPDATE palette_preview_cases",
@@ -175,7 +181,7 @@ func TestSetPrimaryPreviewCaseRejectsDraftAfterPaletteLock(t *testing.T) {
 	assertScriptedEvents(t,
 		"query SELECT id, palette_id, chart_type, template_id, template_version, schema_version",
 		"begin",
-		"query SELECT id, slug, name, colors, color_count, type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"query SELECT id, palette_id, chart_type, template_id, template_version, schema_version",
 		"rollback",
 	)
@@ -200,7 +206,7 @@ func TestUpdatePreviewCaseRollsBackOnTransactionError(t *testing.T) {
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
-		"query SELECT id, slug, name, colors, color_count, type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"query UPDATE palette_preview_cases",
 		"rollback",
 	)
@@ -209,6 +215,7 @@ func TestUpdatePreviewCaseRollsBackOnTransactionError(t *testing.T) {
 func TestDeleteDraftPreviewCaseLocksChecksDeletesAndCommits(t *testing.T) {
 	restore := installScriptedDB(t, []scriptedDBOp{
 		queryOp("FROM palette_preview_cases", "FOR UPDATE", previewCaseRow(PreviewCaseStatusDraft, false)),
+		queryOp("FROM palettes", "", paletteRow(t)),
 		execOp("DELETE FROM palette_preview_cases", ""),
 	})
 	defer restore()
@@ -221,6 +228,7 @@ func TestDeleteDraftPreviewCaseLocksChecksDeletesAndCommits(t *testing.T) {
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"exec DELETE FROM palette_preview_cases",
 		"commit",
 	)
@@ -229,6 +237,7 @@ func TestDeleteDraftPreviewCaseLocksChecksDeletesAndCommits(t *testing.T) {
 func TestDeleteDraftPreviewCaseRejectsPublishedAndRollsBack(t *testing.T) {
 	restore := installScriptedDB(t, []scriptedDBOp{
 		queryOp("FROM palette_preview_cases", "FOR UPDATE", previewCaseRow(PreviewCaseStatusPublished, false)),
+		queryOp("FROM palettes", "", paletteRow(t)),
 	})
 	defer restore()
 
@@ -240,6 +249,7 @@ func TestDeleteDraftPreviewCaseRejectsPublishedAndRollsBack(t *testing.T) {
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"rollback",
 	)
 }
@@ -247,6 +257,7 @@ func TestDeleteDraftPreviewCaseRejectsPublishedAndRollsBack(t *testing.T) {
 func TestDeleteDraftPreviewCaseRejectsArchivedAndRollsBack(t *testing.T) {
 	restore := installScriptedDB(t, []scriptedDBOp{
 		queryOp("FROM palette_preview_cases", "FOR UPDATE", previewCaseRow(PreviewCaseStatusArchived, false)),
+		queryOp("FROM palettes", "", paletteRow(t)),
 	})
 	defer restore()
 
@@ -258,6 +269,7 @@ func TestDeleteDraftPreviewCaseRejectsArchivedAndRollsBack(t *testing.T) {
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"rollback",
 	)
 }
@@ -265,6 +277,7 @@ func TestDeleteDraftPreviewCaseRejectsArchivedAndRollsBack(t *testing.T) {
 func TestDeleteDraftPreviewCaseRollsBackOnDeleteSQLFailure(t *testing.T) {
 	restore := installScriptedDB(t, []scriptedDBOp{
 		queryOp("FROM palette_preview_cases", "FOR UPDATE", previewCaseRow(PreviewCaseStatusDraft, false)),
+		queryOp("FROM palettes", "", paletteRow(t)),
 		errorExecOp("DELETE FROM palette_preview_cases", "", errors.New("driver delete failed")),
 	})
 	defer restore()
@@ -277,6 +290,7 @@ func TestDeleteDraftPreviewCaseRollsBackOnDeleteSQLFailure(t *testing.T) {
 	assertScriptedEvents(t,
 		"begin",
 		"query SELECT id, palette_id, chart_type",
+		"query SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id",
 		"exec DELETE FROM palette_preview_cases",
 		"rollback",
 	)
@@ -449,6 +463,10 @@ func previewCaseRow(status string, isPrimary bool) *scriptedRows {
 }
 
 func paletteRow(t *testing.T) *scriptedRows {
+	return paletteRowWithVisibility(t, "public", "curated", nil)
+}
+
+func paletteRowWithVisibility(t *testing.T, visibility string, origin string, ownerUserID driver.Value) *scriptedRows {
 	t.Helper()
 	colors, err := json.Marshal([]PaletteColor{
 		{ID: "color-1", Hex: "#112233", RGB: [3]int{17, 34, 51}, Order: 0},
@@ -460,7 +478,8 @@ func paletteRow(t *testing.T) *scriptedRows {
 	now := time.Now()
 	return &scriptedRows{
 		columns: []string{
-			"id", "slug", "name", "colors", "color_count", "type",
+			"id", "slug", "name", "owner_user_id", "visibility", "origin", "source_palette_id",
+			"colors", "color_count", "type",
 			"chart_types", "chart_applicability", "journal_style", "discipline", "use_case", "avoid_case", "tags",
 			"accessibility", "source_type", "source_image", "source_note",
 			"status", "version", "created_by", "created_at", "updated_at",
@@ -470,6 +489,10 @@ func paletteRow(t *testing.T) *scriptedRows {
 			"palette-1",
 			"palette-one",
 			"Palette One",
+			ownerUserID,
+			visibility,
+			origin,
+			nil,
 			colors,
 			int64(2),
 			"categorical",

@@ -1,4 +1,4 @@
-export type ExportSource = 'bar_error_roles' | 'palette_order_fallback'
+export type ExportSource = 'preview_case_roles' | 'bar_error_roles' | 'palette_order_fallback'
 
 export type ExportIdentifierTarget = 'python' | 'r' | 'css'
 

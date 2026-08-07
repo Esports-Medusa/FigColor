@@ -281,9 +281,9 @@ function testEditorSourceHasExplicitRevisionFlow(): void {
   expect(editorSource.includes('!savedDraftPreviewCase?.id'), 'publish button should require a saved draft ID')
   expect(editorSource.includes('isReadOnly'), 'editor should distinguish read-only server states')
   expect(editorSource.includes("status === 'published'"), 'revision should start only from published status')
-  expect(adminPaletteFormSource.includes('<ConfirmDialog'), 'replacement should use existing confirmation component')
-  expect(adminPaletteFormSource.includes('public chart preview may temporarily fall back'), 'primary replacement confirmation should warn about public fallback')
-  expect(adminPaletteFormSource.includes('replacePublishedBarErrorWithDraft'), 'parent should use dedicated replacement helper')
+  expect(adminPaletteFormSource.includes('AdminPreviewCaseEditor'), 'parent should use registry-driven preview case editor')
+  expect(!adminPaletteFormSource.includes('replacePublishedBarErrorWithDraft'), 'parent should not keep bar_error-only replacement helper wiring')
+  expect(adminPaletteFormSource.includes('publishAdminPreviewCase'), 'parent should use lifecycle publish endpoint')
 }
 
 await testPublishedIsNotRepublishedWhenDraftMissing()

@@ -16,6 +16,7 @@ type Service struct {
 
 var (
 	ErrPaletteNotFound                       = errors.New("palette not found")
+	ErrPaletteNotAdminManageable             = errors.New("palette is not admin manageable")
 	ErrInvalidPreviewCaseLifecycleTransition = errors.New("invalid preview case lifecycle transition")
 	ErrPreviewCaseValidationFailure          = errors.New("preview case validation failure")
 )
@@ -27,7 +28,14 @@ func NewService(repo *Repository) *Service {
 
 // GetByID retrieves a palette by ID
 func (s *Service) GetByID(id string) (*Palette, error) {
-	return s.repo.GetByID(id)
+	palette, err := s.repo.GetByID(id)
+	if err != nil || palette == nil {
+		return palette, err
+	}
+	if !isAdminManageablePalette(palette) {
+		return nil, nil
+	}
+	return palette, nil
 }
 
 // GetBySlug retrieves a palette by slug
@@ -37,6 +45,8 @@ func (s *Service) GetBySlug(slug string) (*Palette, error) {
 
 // List retrieves palettes with optional filtering
 func (s *Service) List(params ListParams) ([]*Palette, int, error) {
+	params.PublicCatalogOnly = true
+	params.Visibility = ""
 	return s.repo.List(params)
 }
 
@@ -60,6 +70,7 @@ func (s *Service) Create(req *CreatePaletteRequest, createdBy string) (*Palette,
 	if err := validatePaletteTypeForCreate(req.Type); err != nil {
 		return nil, err
 	}
+	applyOfficialCatalogOwnership(req)
 
 	req.Slug = defaultPaletteSlug(req.Name, req.Slug)
 
@@ -91,6 +102,56 @@ func (s *Service) Create(req *CreatePaletteRequest, createdBy string) (*Palette,
 	return s.repo.Create(req, createdBy)
 }
 
+func applyOfficialCatalogOwnership(req *CreatePaletteRequest) {
+	if req == nil {
+		return
+	}
+	// Admin-created palettes are official catalog records. created_by remains
+	// audit metadata; owner_user_id is reserved for private user palettes.
+	req.OwnerUserID = nil
+	req.Visibility = "public"
+	req.Origin = "curated"
+	req.SourcePaletteID = nil
+}
+
+func isAdminManageablePalette(palette *Palette) bool {
+	return palette != nil && palette.Visibility == "public" && palette.OwnerUserID == nil
+}
+
+func ensureAdminManageablePalette(palette *Palette) error {
+	if palette == nil {
+		return ErrPaletteNotFound
+	}
+	if !isAdminManageablePalette(palette) {
+		return ErrPaletteNotAdminManageable
+	}
+	return nil
+}
+
+func (s *Service) ensurePreviewCaseAdminManageablePalette(previewCase *PalettePreviewCase) (*Palette, error) {
+	if previewCase == nil {
+		return nil, ErrPreviewCaseNotFound
+	}
+	palette, err := s.repo.GetByID(previewCase.PaletteID)
+	if err != nil {
+		return nil, fmt.Errorf("load palette for preview case: %w", err)
+	}
+	if err := ensureAdminManageablePalette(palette); err != nil {
+		return nil, err
+	}
+	return palette, nil
+}
+
+func applyAdminCatalogUpdateBoundary(req *UpdatePaletteRequest) {
+	if req == nil {
+		return
+	}
+	req.OwnerUserID = nil
+	req.Visibility = nil
+	req.Origin = nil
+	req.SourcePaletteID = nil
+}
+
 func defaultPaletteSlug(name, slug string) string {
 	slug = strings.TrimSpace(slug)
 	if slug != "" {
@@ -107,8 +168,15 @@ func (s *Service) Update(id string, req *UpdatePaletteRequest) (*Palette, error)
 		return nil, err
 	}
 	if existing == nil {
-		return nil, fmt.Errorf("palette not found")
+		return nil, ErrPaletteNotFound
 	}
+	if err := ensureAdminManageablePalette(existing); err != nil {
+		return nil, err
+	}
+	applyAdminCatalogUpdateBoundary(req)
+	// Candidate review edits are not publication transitions. Preserve the
+	// ingestion-owned candidate state even if a client submits a status field.
+	applyCandidateReviewUpdateBoundary(existing, req)
 	if err := validatePaletteTypeForUpdate(existing.Type, req.Type); err != nil {
 		return nil, err
 	}
@@ -140,6 +208,12 @@ func (s *Service) Update(id string, req *UpdatePaletteRequest) (*Palette, error)
 	}
 
 	return s.repo.Update(id, req)
+}
+
+func applyCandidateReviewUpdateBoundary(existing *Palette, req *UpdatePaletteRequest) {
+	if existing != nil && existing.Status == "candidate" && req != nil {
+		req.Status = nil
+	}
 }
 
 func (s *Service) applyCreateApplicabilityRules(req *CreatePaletteRequest) error {
@@ -208,6 +282,9 @@ func (s *Service) CreatePreviewCase(paletteID string, req *CreatePreviewCaseRequ
 	if palette == nil {
 		return nil, ErrPaletteNotFound
 	}
+	if err := ensureAdminManageablePalette(palette); err != nil {
+		return nil, err
+	}
 	if err := validateCreatePreviewCaseRequest(req); err != nil {
 		return nil, previewCaseValidationError(err)
 	}
@@ -232,6 +309,9 @@ func (s *Service) ListPreviewCasesByPalette(paletteID string, includeArchived bo
 	if palette == nil {
 		return nil, ErrPaletteNotFound
 	}
+	if err := ensureAdminManageablePalette(palette); err != nil {
+		return nil, err
+	}
 	previewCases, err := s.repo.ListPreviewCasesByPalette(paletteID, includeArchived)
 	if err != nil {
 		return nil, previewCaseServiceError("list preview cases", err)
@@ -243,6 +323,9 @@ func (s *Service) GetPreviewCaseByID(id string) (*PalettePreviewCase, error) {
 	previewCase, err := s.repo.GetPreviewCaseByID(id)
 	if err != nil {
 		return nil, previewCaseServiceError("load preview case", err)
+	}
+	if _, err := s.ensurePreviewCaseAdminManageablePalette(previewCase); err != nil {
+		return nil, err
 	}
 	return previewCase, nil
 }
@@ -268,6 +351,9 @@ func (s *Service) UpdatePreviewCase(id string, req *UpdatePreviewCaseRequest) (*
 	}
 	if palette == nil {
 		return nil, ErrPaletteNotFound
+	}
+	if err := ensureAdminManageablePalette(palette); err != nil {
+		return nil, err
 	}
 
 	candidate := previewCaseCandidateFromExisting(existing)
@@ -297,6 +383,13 @@ func (s *Service) DeleteDraftPreviewCase(id string) error {
 	if err != nil {
 		return previewCaseServiceError("load preview case", err)
 	}
+	palette, err := s.repo.GetPaletteByIDTx(tx, existing.PaletteID)
+	if err != nil {
+		return fmt.Errorf("load palette for preview case: %w", err)
+	}
+	if err := ensureAdminManageablePalette(palette); err != nil {
+		return err
+	}
 	if err := canDeleteDraftPreviewCase(existing); err != nil {
 		return err
 	}
@@ -322,6 +415,13 @@ func (s *Service) PublishPreviewCase(id string) (*PalettePreviewCase, error) {
 	if err != nil {
 		return nil, previewCaseServiceError("load preview case", err)
 	}
+	palette, err := s.repo.GetPaletteByIDTx(tx, existing.PaletteID)
+	if err != nil {
+		return nil, fmt.Errorf("load palette for preview case: %w", err)
+	}
+	if err := ensureAdminManageablePalette(palette); err != nil {
+		return nil, err
+	}
 	unchanged, err := canPublishPreviewCase(existing)
 	if err != nil {
 		return nil, err
@@ -333,13 +433,6 @@ func (s *Service) PublishPreviewCase(id string) (*PalettePreviewCase, error) {
 		return existing, nil
 	}
 
-	palette, err := s.repo.GetPaletteByIDTx(tx, existing.PaletteID)
-	if err != nil {
-		return nil, fmt.Errorf("load palette for preview case: %w", err)
-	}
-	if palette == nil {
-		return nil, ErrPaletteNotFound
-	}
 	candidate := previewCaseCandidateFromExisting(existing)
 	if err := s.validatePreviewCaseCandidate(palette, candidate); err != nil {
 		return nil, err
@@ -367,6 +460,13 @@ func (s *Service) ArchivePreviewCase(id string) (*PalettePreviewCase, error) {
 	existing, err := s.repo.GetPreviewCaseByIDForUpdateTx(tx, id)
 	if err != nil {
 		return nil, previewCaseServiceError("load preview case", err)
+	}
+	palette, err := s.repo.GetPaletteByIDTx(tx, existing.PaletteID)
+	if err != nil {
+		return nil, fmt.Errorf("load palette for preview case: %w", err)
+	}
+	if err := ensureAdminManageablePalette(palette); err != nil {
+		return nil, err
 	}
 	unchanged, err := canArchivePreviewCase(existing)
 	if err != nil {
@@ -407,6 +507,9 @@ func (s *Service) SetPrimaryPreviewCase(id string) (*PalettePreviewCase, error) 
 	}
 	if palette == nil {
 		return nil, ErrPaletteNotFound
+	}
+	if err := ensureAdminManageablePalette(palette); err != nil {
+		return nil, err
 	}
 
 	existing, err := s.repo.GetPreviewCaseByIDForUpdateTx(tx, id)
@@ -674,7 +777,10 @@ func (s *Service) Publish(id string) (*Palette, error) {
 		return nil, err
 	}
 	if existing == nil {
-		return nil, fmt.Errorf("palette not found")
+		return nil, ErrPaletteNotFound
+	}
+	if err := ensureAdminManageablePalette(existing); err != nil {
+		return nil, err
 	}
 
 	return s.repo.Publish(id)
@@ -687,7 +793,10 @@ func (s *Service) Unpublish(id string) (*Palette, error) {
 		return nil, err
 	}
 	if existing == nil {
-		return nil, fmt.Errorf("palette not found")
+		return nil, ErrPaletteNotFound
+	}
+	if err := ensureAdminManageablePalette(existing); err != nil {
+		return nil, err
 	}
 
 	return s.repo.Unpublish(id)
@@ -700,7 +809,10 @@ func (s *Service) Archive(id string) (*Palette, error) {
 		return nil, err
 	}
 	if existing == nil {
-		return nil, fmt.Errorf("palette not found")
+		return nil, ErrPaletteNotFound
+	}
+	if err := ensureAdminManageablePalette(existing); err != nil {
+		return nil, err
 	}
 
 	return s.repo.Archive(id)
@@ -713,7 +825,10 @@ func (s *Service) Delete(id string) error {
 		return err
 	}
 	if existing == nil {
-		return fmt.Errorf("palette not found")
+		return ErrPaletteNotFound
+	}
+	if err := ensureAdminManageablePalette(existing); err != nil {
+		return err
 	}
 
 	return s.repo.Delete(id)
@@ -722,6 +837,8 @@ func (s *Service) Delete(id string) error {
 // ListPublic retrieves only published palettes (for public API)
 func (s *Service) ListPublic(params ListParams) ([]*PublicPaletteDTO, int, error) {
 	params.PublishedOnly = true
+	params.Visibility = "public"
+	params.PublicCatalogOnly = true
 	palettes, total, err := s.repo.List(params)
 	if err != nil {
 		return nil, 0, err
@@ -752,7 +869,7 @@ func (s *Service) GetPublicBySlug(slug string) (*PublicPaletteDTO, error) {
 	if palette == nil {
 		return nil, nil
 	}
-	if palette.Status != "published" {
+	if palette.Status != "published" || !isAdminManageablePalette(palette) {
 		return nil, fmt.Errorf("palette not found")
 	}
 	previewCases, err := s.repo.ListPublishedPreviewCasesByPalette(palette.ID)
@@ -771,7 +888,7 @@ func (s *Service) GetPublicByID(id string) (*PublicPaletteDTO, error) {
 	if palette == nil {
 		return nil, nil
 	}
-	if palette.Status != "published" {
+	if palette.Status != "published" || !isAdminManageablePalette(palette) {
 		return nil, fmt.Errorf("palette not found")
 	}
 	previewCases, err := s.repo.ListPublishedPreviewCasesByPalette(palette.ID)

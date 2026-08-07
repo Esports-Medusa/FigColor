@@ -1,6 +1,7 @@
 package palette
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -86,6 +87,7 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, jwtSecret string, auth
 func (h *Handler) List(c *gin.Context) {
 	params := ListParams{
 		Status:       c.Query("status"),
+		Search:       c.Query("search"),
 		Type:         c.Query("type"),
 		ChartType:    c.Query("chart_type"),
 		JournalStyle: c.Query("journal_style"),
@@ -104,10 +106,11 @@ func (h *Handler) List(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"palettes":  palettes,
-		"total":     total,
-		"page":      page,
-		"page_size": pageSize,
+		"palettes":    palettes,
+		"total":       total,
+		"page":        page,
+		"page_size":   pageSize,
+		"total_pages": totalPages(total, pageSize),
 	})
 }
 
@@ -167,6 +170,10 @@ func (h *Handler) Update(c *gin.Context) {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": validationErr.Error(), "issues": validationErr.Issues})
 			return
 		}
+		if errors.Is(err, ErrPaletteNotFound) || errors.Is(err, ErrPaletteNotAdminManageable) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "palette not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -180,6 +187,10 @@ func (h *Handler) Publish(c *gin.Context) {
 
 	palette, err := h.service.Publish(id)
 	if err != nil {
+		if errors.Is(err, ErrPaletteNotFound) || errors.Is(err, ErrPaletteNotAdminManageable) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "palette not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -193,6 +204,10 @@ func (h *Handler) Unpublish(c *gin.Context) {
 
 	palette, err := h.service.Unpublish(id)
 	if err != nil {
+		if errors.Is(err, ErrPaletteNotFound) || errors.Is(err, ErrPaletteNotAdminManageable) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "palette not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -207,6 +222,10 @@ func (h *Handler) Delete(c *gin.Context) {
 	// Archive instead of hard delete (soft delete)
 	palette, err := h.service.Archive(id)
 	if err != nil {
+		if errors.Is(err, ErrPaletteNotFound) || errors.Is(err, ErrPaletteNotAdminManageable) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "palette not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -218,15 +237,22 @@ func (h *Handler) Delete(c *gin.Context) {
 func (h *Handler) ListPublic(c *gin.Context) {
 	params := ListParams{
 		Page:          1,
-		PageSize:      100, // Public API returns more items by default
+		PageSize:      20,
 		PublishedOnly: true,
+		Visibility:    "public",
 	}
 
 	// Optional filters for public API
+	params.Search = c.Query("search")
 	params.Type = c.Query("type")
 	params.ChartType = c.Query("chart_type")
 	params.JournalStyle = c.Query("journal_style")
 	params.Discipline = c.Query("discipline")
+	params.UseCase = c.Query("use_case")
+	params.Tag = c.Query("tag")
+	if colorCount, err := strconv.Atoi(c.Query("color_count")); err == nil {
+		params.ColorCount = colorCount
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -240,11 +266,23 @@ func (h *Handler) ListPublic(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"palettes":  palettes,
-		"total":     total,
-		"page":      page,
-		"page_size": pageSize,
+		"palettes":    palettes,
+		"total":       total,
+		"page":        page,
+		"page_size":   pageSize,
+		"total_pages": totalPages(total, pageSize),
 	})
+}
+
+func totalPages(total int, pageSize int) int {
+	if pageSize < 1 {
+		return 1
+	}
+	pages := (total + pageSize - 1) / pageSize
+	if pages < 1 {
+		return 1
+	}
+	return pages
 }
 
 // GetPublicBySlug returns a published palette by slug for public API
