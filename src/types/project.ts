@@ -1,4 +1,5 @@
 // Paper Project related types
+import type { RawPaletteDTO } from '@/types/palette'
 
 export type PaletteRole = {
   id: string
@@ -19,6 +20,7 @@ export type ProjectPalette = {
   basePaletteId?: string
   isDefault: boolean
   roles: PaletteRole[]
+  previewPalette?: RawPaletteDTO
   createdAt: string
   updatedAt: string
 }
@@ -36,7 +38,7 @@ export type PaperProject = {
 export type FigureAssignment = {
   id: string
   projectId: string
-  paletteId: string
+  paletteId: string // base palette id stored by figure_assignments.palette_id
   name: string
   panel?: string
   chartType: string
@@ -73,7 +75,7 @@ export type CreateFigureRequest = {
   name: string
   panel?: string
   chartType: string
-  paletteId: string
+  paletteId: string // submit the selected ProjectPalette.basePaletteId
   // New: directly store selected color IDs
   selectedColorIds?: string[]
   // Legacy: selected role keys
@@ -85,7 +87,7 @@ export type UpdateFigureRequest = {
   name?: string
   panel?: string
   chartType?: string
-  paletteId?: string
+  paletteId?: string // submit the selected ProjectPalette.basePaletteId
   // New: directly store selected color IDs
   selectedColorIds?: string[]
   // Legacy: selected role keys
@@ -94,7 +96,6 @@ export type UpdateFigureRequest = {
 }
 
 export type CreateProjectPaletteRequest = {
-  projectId: string
   basePaletteId?: string
   name: string
   roles?: Array<{

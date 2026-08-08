@@ -28,6 +28,10 @@
         </button>
       </div>
 
+      <div v-if="errorMessage" class="modal-error" role="alert">
+        {{ errorMessage }}
+      </div>
+
       <!-- Tab Content: Select from database -->
       <div v-if="activeTab === 'select'" class="tab-content">
         <!-- Search Bar -->
@@ -113,10 +117,10 @@
           <button class="btn-cancel" @click="$emit('close')">Cancel</button>
           <button 
             class="btn-add" 
-            :disabled="!selectedPaletteId"
+            :disabled="!selectedPaletteId || saving"
             @click="addSelectedPalette"
           >
-            Add Selected Palette
+            {{ saving ? 'Adding...' : 'Add Selected Palette' }}
           </button>
         </div>
       </div>
@@ -282,6 +286,7 @@ import { ref, computed, onMounted } from 'vue'
 import type { Palette } from '@/types/palette'
 import type { ProjectPalette } from '@/types/project'
 import { loadPalettes, paletteToSearchText } from '@/lib/palette'
+import { projectApi } from '@/lib/projectApi'
 import { useFavorites } from '@/composables/useFavorites'
 import { getToken } from '@/api/auth'
 
@@ -298,6 +303,8 @@ const emit = defineEmits<{
 const activeTab = ref<'select' | 'favorites' | 'create'>('select')
 const loading = ref(false)
 const favoritesLoading = ref(false)
+const saving = ref(false)
+const errorMessage = ref('')
 
 // Load all palettes from local data
 const allPalettes = ref<Palette[]>([])
@@ -475,81 +482,29 @@ const isValidCustomPalette = computed(() => {
 async function addSelectedPalette() {
   if (!selectedPaletteId.value) return
 
-  const basePalette = filteredPalettes.value.find(p => p.id === selectedPaletteId.value)
+  const basePalette = allPalettes.value.find(p => p.id === selectedPaletteId.value)
   if (!basePalette) return
 
-  // TODO: Replace with actual API call when backend supports creating project palettes
-  // const request: CreateProjectPaletteRequest = {
-  //   projectId: props.projectId,
-  //   basePaletteId: basePalette.id,
-  //   name: basePalette.name
-  // }
-  // const newProjectPalette = await projectApi.createProjectPalette(request)
-
-  // Generate UUIDs for the new palette and roles
-  const paletteId = crypto.randomUUID()
-  const newProjectPalette: ProjectPalette = {
-    id: paletteId,
-    projectId: props.projectId,
-    name: basePalette.name,
-    basePaletteId: basePalette.id,
-    isDefault: false,
-    roles: basePalette.colors.map((color, idx) => ({
-      id: crypto.randomUUID(),
-      paletteId: paletteId,
-      key: `color-${idx}`,
-      label: `Color ${idx + 1}`,
-      color: color.hex,
-      roleType: 'semantic' as const,
-      order: idx,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    })),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+  saving.value = true
+  errorMessage.value = ''
+  try {
+    const newProjectPalette = await projectApi.createProjectPalette(props.projectId, {
+      basePaletteId: basePalette.id,
+      name: basePalette.name
+    })
+    emit('add', newProjectPalette)
+    emit('close')
+  } catch (e: any) {
+    errorMessage.value = e?.message || 'Failed to add palette'
+  } finally {
+    saving.value = false
   }
-
-  console.log('[AddPaletteModal] Adding palette from database:', newProjectPalette)
-  emit('add', newProjectPalette)
-  emit('close')
 }
 
 async function addCustomPalette() {
   if (!isValidCustomPalette.value) return
 
-  // TODO: Replace with actual API call when backend supports creating project palettes
-  // const request: CreateProjectPaletteRequest = {
-  //   projectId: props.projectId,
-  //   name: newPalette.value.name,
-  //   roles: newPalette.value.roles
-  // }
-  // const newProjectPalette = await projectApi.createProjectPalette(request)
-
-  // Mock: Create project-level palette from custom form
-  const paletteId = crypto.randomUUID()
-  const newProjectPalette: ProjectPalette = {
-    id: paletteId,
-    projectId: props.projectId,
-    name: newPalette.value.name,
-    isDefault: false,
-    roles: newPalette.value.roles.map((role, idx) => ({
-      id: crypto.randomUUID(),
-      paletteId: paletteId,
-      key: role.key,
-      label: role.label,
-      color: role.color,
-      roleType: 'custom' as const,
-      order: idx,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    })),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-
-  console.log('[AddPaletteModal] Adding custom palette:', newProjectPalette)
-  emit('add', newProjectPalette)
-  emit('close')
+  errorMessage.value = 'Custom project palettes do not have a basePaletteId yet, so they cannot be used for figures. This needs a separate custom palette persistence design.'
 }
 
 onMounted(async () => {
@@ -593,6 +548,16 @@ onMounted(async () => {
 .modal-header h3 {
   margin: 0;
   font-size: 1.25rem;
+}
+
+.modal-error {
+  margin: 1rem 1.5rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.9rem;
 }
 
 .btn-close {

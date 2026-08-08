@@ -56,7 +56,7 @@ const emit = defineEmits<{
 const showDeleteConfirm = ref(false)
 
 const paletteName = computed(() => {
-  const palette = props.palettes.find(p => p.id === props.figure.paletteId)
+  const palette = findProjectPalette(props.figure.paletteId)
   return palette?.name
 })
 
@@ -77,7 +77,7 @@ const chartTypeLabel = computed(() => {
 
 const selectedRoles = computed(() => {
   if (!props.figure.paletteId || !props.palettes?.length) return []
-  const palette = props.palettes.find(p => p.id === props.figure.paletteId)
+  const palette = findProjectPalette(props.figure.paletteId)
   if (!palette) return []
   return props.figure.selectedRoleKeys
     ?.map(key => palette.roles.find(r => r.key === key))
@@ -93,7 +93,7 @@ const selectedRoles = computed(() => {
  */
 function getFigureSelectedColors(figure: FigureAssignment): Array<{ id: string; hex: string; roleLabel?: string }> {
   // Find the palette
-  const palette = props.palettes?.find(p => p.id === figure.paletteId)
+  const palette = findProjectPalette(figure.paletteId)
   
   // If palette not found, return empty array
   if (!palette) {
@@ -130,6 +130,10 @@ function getFigureSelectedColors(figure: FigureAssignment): Array<{ id: string; 
     hex: r.color,
     roleLabel: r.label
   }))
+}
+
+function findProjectPalette(paletteId: string): ProjectPalette | undefined {
+  return props.palettes?.find((palette) => palette.id === paletteId || palette.basePaletteId === paletteId)
 }
 
 function confirmDelete() {

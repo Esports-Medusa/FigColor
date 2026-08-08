@@ -42,12 +42,14 @@ const router = createRouter({
     {
       path: '/projects',
       name: 'projects',
-      component: ProjectsView
+      component: ProjectsView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/projects/:projectId',
       name: 'project-detail',
-      component: ProjectDetailView
+      component: ProjectDetailView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/favorites',
