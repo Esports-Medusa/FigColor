@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite",
     "test": "node scripts/run-tests.mjs",
+    "test:palette-ingest": "node --test scripts/palette-ingest/test/*.test.mjs",
     "build": "vue-tsc && vite build",
-    "preview": "vite preview",
-    "test:palette-ingest": "node --test scripts/palette-ingest/test/*.test.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -19,6 +19,6 @@
     "@vitejs/plugin-vue": "^6.0.7",
     "typescript": "^5.3.0",
     "vite": "^8.0.16",
-    "vue-tsc": "^2.0.0"
+    "vue-tsc": "^3.3.8"
   }
 }
