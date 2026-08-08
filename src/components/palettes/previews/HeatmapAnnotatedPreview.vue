@@ -1,72 +1,11 @@
 <template>
-  <svg viewBox="0 0 360 220" preserveAspectRatio="xMidYMid meet" class="heatmap-annotated-preview">
-    <!-- Background -->
-    <rect x="0" y="0" width="360" height="220" fill="#FAFAFB" />
-    
-    <!-- Panel label A -->
-    <text x="12" y="20" font-size="12" font-weight="600" fill="#6B7280">A</text>
-    
-    <!-- Heatmap grid -->
-    <g transform="translate(30, 35)">
-      <rect
-        v-for="(cell, i) in heatmapCells"
-        :key="i"
-        :x="cell.x"
-        :y="cell.y"
-        :width="cellSize"
-        :height="cellSize"
-        :fill="cell.color"
-        rx="2"
-      />
-    </g>
-    
-    <!-- Row annotations (left side) -->
-    <g transform="translate(8, 35)">
-      <rect
-        v-for="(ann, i) in rowAnnotations"
-        :key="i"
-        :x="0"
-        :y="ann.y + cellSize/2 - 4"
-        :width="18"
-        :height="8"
-        :fill="ann.color"
-        rx="2"
-      />
-    </g>
-    
-    <!-- Column annotations (top) -->
-    <g transform="translate(30, 27)">
-      <rect
-        v-for="(ann, i) in colAnnotations"
-        :key="i"
-        :x="ann.x + cellSize/2 - 6"
-        :y="0"
-        :width="12"
-        :height="10"
-        :fill="ann.color"
-        rx="2"
-      />
-    </g>
-    
-    <!-- Legend -->
-    <g transform="translate(280, 180)">
-      <defs>
-        <linearGradient id="heatmapLegendGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" :stop-color="heatmapColors[0]" />
-          <stop offset="50%" :stop-color="heatmapColors[1]" />
-          <stop offset="100%" :stop-color="heatmapColors[2]" />
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width="60" height="8" fill="url(#heatmapLegendGradient)" rx="2" />
-      <text x="0" y="20" font-size="8" fill="#6B7280">-2</text>
-      <text x="25" y="20" font-size="8" fill="#6B7280" text-anchor="middle">0</text>
-      <text x="60" y="20" font-size="8" fill="#6B7280" text-anchor="end">+2</text>
-    </g>
-  </svg>
+  <div class="preview-adapter" v-html="svgMarkup"></div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { renderPalettePreview } from '@/lib/renderers'
+import type { CanonicalPalette, PalettePreviewCase } from '@/types/palette'
 
 interface Props {
   colors: string[]
@@ -78,153 +17,118 @@ const props = withDefaults(defineProps<Props>(), {
   seed: 'default'
 })
 
-// Cell configuration
-const cellSize = 32
-const cellGap = 3
-const gridCols = 8
-const gridRows = 4
-const startX = 0
-const startY = 0
-
-// Parse heatmap colors from colors array
-const heatmapColors = computed(() => {
-  if (props.colors.length >= 3) {
-    return [props.colors[0], props.colors[1], props.colors[2]]
+const palette = computed<CanonicalPalette>(() => {
+  const colors = normalizedColors.value
+  return {
+    id: 'heatmap-preview-palette',
+    slug: 'heatmap-preview-palette',
+    name: 'Heatmap preview palette',
+    status: 'published',
+    colors,
+    color_count: colors.length,
+    type: 'diverging',
+    chart_types: ['heatmap_annotated'],
+    journal_style: [],
+    disciplines: [],
+    use_cases: [],
+    avoid_cases: [],
+    tags: [],
+    created_at: '',
+    updated_at: '',
+    primary_preview_case: null,
+    preview_cases: []
   }
-  // Fallback to default colors
-  return ['#3F2EA8', '#FFFFFF', '#C43B2F']
 })
 
-// Parse annotation colors from colors array
-const annotationColors = computed(() => {
-  if (props.colors.length > 3) {
-    return [props.colors[3], props.colors[4] || props.colors[3]]
+const previewCase = computed<PalettePreviewCase>(() => {
+  const colors = normalizedColors.value
+  const scaleColors = colors.length >= 3 ? colors.slice(0, 3) : colors
+  const annotations = colors.slice(3, 5).map((color, index) => ({
+    key: `annotation_${index + 1}`,
+    label: `A${index + 1}`,
+    color: { source: 'palette' as const, color_id: color.id }
+  }))
+
+  return {
+    id: 'heatmap-preview-case',
+    palette_id: palette.value.id,
+    chart_type: 'heatmap_annotated',
+    template_id: 'heatmap_annotated_v1',
+    template_version: 1,
+    schema_version: 1,
+    color_roles: {
+      scale: {
+        type: scaleColors.length >= 3 ? 'diverging' : 'sequential',
+        stops: scaleColors.map((color, index) => ({
+          position: scaleColors.length === 1 ? 0 : index / (scaleColors.length - 1),
+          color: { source: 'palette' as const, color_id: color.id }
+        }))
+      },
+      annotations,
+      elements: {
+        text: { source: 'theme', token: 'muted_foreground' },
+        border: { source: 'theme', token: 'foreground' },
+        grid: { source: 'theme', token: 'grid' },
+        background: { source: 'theme', token: 'background' }
+      }
+    },
+    preview_config: {
+      rows: 6,
+      columns: 6,
+      cluster_rows: true,
+      cluster_columns: true,
+      show_row_labels: true,
+      show_column_labels: true,
+      show_values: false,
+      data_pattern: 'mixed'
+    },
+    seed_strategy: 'fixed',
+    seed_value: hashSeed(props.seed),
+    is_primary: true,
+    status: 'published'
   }
-  return ['#18B7B5', '#F2A51A']
 })
 
-// Deterministic random based on seed
-function seededRandom(seed: string): () => number {
-  let hash = 0
-  for (let i = 0; i < seed.length; i++) {
-    const char = seed.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash
+const svgMarkup = computed(() => {
+  const result = renderPalettePreview(palette.value, previewCase.value)
+  return result.ok ? result.markup : ''
+})
+
+const normalizedColors = computed(() => {
+  const input = props.colors.length > 0 ? [...props.colors] : ['#3F2EA8', '#FFFFFF', '#C43B2F']
+  if (input.length === 1) {
+    input.push('#FFFFFF')
   }
-  return () => {
-    hash = Math.sin(hash) * 10000
-    return hash - Math.floor(hash)
-  }
+  return input.map((hex, index) => ({
+    id: `preview-color-${index + 1}`,
+    hex,
+    rgb: hexToRgb(hex),
+    order: index
+  }))
+})
+
+function hashSeed(seed: string): number {
+  return Math.abs([...seed].reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0))
 }
 
-const random = seededRandom(props.seed || 'default')
-
-// Generate heatmap cells with values for color interpolation
-interface Cell {
-  x: number
-  y: number
-  color: string
-  value: number
-}
-
-const heatmapCells = computed((): Cell[] => {
-  const cells: Cell[] = []
-  const [lowColor, midColor, highColor] = heatmapColors.value
-  
-  for (let row = 0; row < gridRows; row++) {
-    for (let col = 0; col < gridCols; col++) {
-      // Generate a value between -2 and 2
-      const value = (random() - 0.5) * 4
-      // Interpolate color based on value
-      const color = interpolateColor(lowColor, midColor, highColor, value)
-      
-      cells.push({
-        x: startX + col * (cellSize + cellGap),
-        y: startY + row * (cellSize + cellGap),
-        color,
-        value
-      })
-    }
-  }
-  
-  return cells
-})
-
-// Generate row annotations
-interface Annotation {
-  y: number
-  color: string
-}
-
-const rowAnnotations = computed((): Annotation[] => {
-  const annotations: Annotation[] = []
-  
-  for (let row = 0; row < gridRows; row++) {
-    const annColor = annotationColors.value[row % annotationColors.value.length]
-    annotations.push({
-      y: startY + row * (cellSize + cellGap),
-      color: annColor
-    })
-  }
-  
-  return annotations
-})
-
-// Generate column annotations
-const colAnnotations = computed((): { x: number; color: string }[] => {
-  const annotations: { x: number; color: string }[] = []
-  
-  for (let col = 0; col < gridCols; col++) {
-    const annColor = annotationColors.value[col % annotationColors.value.length]
-    annotations.push({
-      x: startX + col * (cellSize + cellGap),
-      color: annColor
-    })
-  }
-  
-  return annotations
-})
-
-// Color interpolation helper
-function interpolateColor(low: string, mid: string, high: string, value: number): string {
-  // Clamp value between -2 and 2
-  const clampedValue = Math.max(-2, Math.min(2, value))
-  
-  const lowRGB = hexToRgb(low)
-  const midRGB = hexToRgb(mid)
-  const highRGB = hexToRgb(high)
-  
-  let r: number, g: number, b: number
-  
-  if (clampedValue < 0) {
-    // Interpolate between low and mid
-    const t = (clampedValue + 2) / 2 // 0 at -2, 1 at 0
-    r = lowRGB.r + t * (midRGB.r - lowRGB.r)
-    g = lowRGB.g + t * (midRGB.g - lowRGB.g)
-    b = lowRGB.b + t * (midRGB.b - lowRGB.b)
-  } else {
-    // Interpolate between mid and high
-    const t = clampedValue / 2 // 0 at 0, 1 at 2
-    r = midRGB.r + t * (highRGB.r - midRGB.r)
-    g = midRGB.g + t * (highRGB.g - midRGB.g)
-    b = midRGB.b + t * (highRGB.b - midRGB.b)
-  }
-  
-  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : { r: 128, g: 128, b: 128 }
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex.slice(1) : '000000'
+  return [
+    Number.parseInt(normalized.slice(0, 2), 16),
+    Number.parseInt(normalized.slice(2, 4), 16),
+    Number.parseInt(normalized.slice(4, 6), 16)
+  ]
 }
 </script>
 
 <style scoped>
-.heatmap-annotated-preview {
+.preview-adapter {
+  width: 100%;
+  height: 100%;
+}
+
+.preview-adapter :deep(svg) {
+  display: block;
   width: 100%;
   height: 100%;
 }

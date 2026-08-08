@@ -2,11 +2,13 @@ import paletteDetailSource from '@/views/PaletteDetailView.vue?raw'
 import type { CanonicalPalette, PalettePreviewCase } from '@/types/palette'
 import {
   resolvePaletteExportModel,
+  resolveExplicitPreviewCaseExportModel,
   sanitizeExportIdentifier,
   toCssCustomProperties,
   toExportHexArray,
   toExportRgbTuples,
   toGgplotFillScale,
+  toJsonExport,
   toMatplotlibSnippet,
   toPythonDictionary,
   toPythonList,
@@ -85,6 +87,70 @@ function previewCase(overrides: Partial<PalettePreviewCase> = {}): PalettePrevie
   }
 }
 
+function linePreviewCase(overrides: Partial<PalettePreviewCase> = {}): PalettePreviewCase {
+  return {
+    ...previewCase(),
+    id: 'line-preview-1',
+    chart_type: 'line_multiseries',
+    template_id: 'line_multiseries_v1',
+    color_roles: {
+      series: [
+        { key: 'baseline', label: 'Baseline', line: { source: 'palette', color_id: 'blue-id' } },
+        { key: 'treated', label: 'Treated', line: { source: 'palette', color_id: 'orange-id' } }
+      ],
+      elements: {
+        axis: { source: 'theme', token: 'foreground' },
+        grid: { source: 'theme', token: 'grid' },
+        text: { source: 'theme', token: 'foreground' },
+        marker_stroke: { source: 'theme', token: 'background' },
+        background: { source: 'theme', token: 'background' }
+      }
+    },
+    preview_config: {
+      point_count: 8,
+      curve_shape: 'increasing'
+    },
+    ...overrides
+  }
+}
+
+function heatmapPreviewCase(overrides: Partial<PalettePreviewCase> = {}): PalettePreviewCase {
+  return {
+    ...previewCase(),
+    id: 'heatmap-preview-1',
+    chart_type: 'heatmap_annotated',
+    template_id: 'heatmap_annotated_v1',
+    color_roles: {
+      scale: {
+        type: 'diverging',
+        stops: [
+          { position: 0, label: 'Low', color: { source: 'palette', color_id: 'blue-id' } },
+          { position: 0.5, label: 'Mid', color: { source: 'palette', color_id: 'green-id' } },
+          { position: 1, label: 'High', color: { source: 'palette', color_id: 'orange-id' } }
+        ]
+      },
+      elements: {
+        text: { source: 'theme', token: 'foreground' },
+        grid: { source: 'theme', token: 'grid' },
+        border: { source: 'theme', token: 'foreground' },
+        background: { source: 'theme', token: 'background' },
+        annotation_text: { source: 'theme', token: 'foreground' }
+      }
+    },
+    preview_config: {
+      rows: 6,
+      columns: 6,
+      cluster_rows: false,
+      cluster_columns: false,
+      show_row_labels: true,
+      show_column_labels: true,
+      show_values: true,
+      data_pattern: 'gradient'
+    },
+    ...overrides
+  }
+}
+
 function testRoleAwareResolver(): void {
   const model = resolvePaletteExportModel(palette())
   expect(model.source === 'bar_error_roles', 'valid published primary bar_error_v1 should use role-aware exports')
@@ -116,8 +182,8 @@ function testFallbackSelection(): void {
   const fallbackCases: Array<[string, CanonicalPalette]> = [
     ['no primary', palette({ primary_preview_case: null, preview_cases: [previewCase()] })],
     ['draft primary', palette({ primary_preview_case: previewCase({ status: 'draft' }) })],
+    ['published non-primary', palette({ primary_preview_case: previewCase({ is_primary: false }) })],
     ['archived primary', palette({ primary_preview_case: previewCase({ status: 'archived' }) })],
-    ['non-bar primary', palette({ primary_preview_case: previewCase({ chart_type: 'boxplot_jitter', template_id: 'boxplot_jitter_v1' }) })],
     ['invalid preview', palette({ primary_preview_case: previewCase({ preview_config: { orientation: 'diagonal' } }) })],
     ['missing color', palette({
       primary_preview_case: previewCase({
@@ -149,12 +215,53 @@ function testFallbackSelection(): void {
   })
 }
 
+function testDraftDerivedExportOutputChangesImmediately(): void {
+  const draft = previewCase({
+    status: 'draft',
+    is_primary: false,
+    color_roles: {
+      ...(previewCase().color_roles as Record<string, unknown>),
+      groups: [
+        { key: 'first_role', label: 'First Role', fill: { source: 'palette', color_id: 'green-id' } },
+        { key: 'second_role', label: 'Second Role', fill: { source: 'palette', color_id: 'blue-id' } }
+      ]
+    }
+  })
+  const model = resolveExplicitPreviewCaseExportModel(palette(), draft)
+
+  expect(model.source === 'bar_error_roles', 'explicit draft export should use preview-case roles')
+  expect(model.colors.map((color) => color.colorId).join(',') === 'green-id,blue-id', 'draft export should not fall back to palette order')
+  expect(toJsonExport(model).includes('"key": "first_role"'), 'JSON export should reflect current draft role key')
+  expect(toJsonExport(model).includes('"hex": "#009E73"'), 'JSON export should reflect current draft role color')
+  expect(toPythonDictionary(model).includes('"first_role": "#009E73"'), 'Python export should reflect current draft role')
+  expect(toRNamedVector(model).includes('first_role = "#009E73"'), 'R export should reflect current draft role')
+  expect(toCssCustomProperties(model).includes('--figcolor-first_role: #009E73;'), 'CSS export should reflect current draft role')
+}
+
 function testNoAutoSelectionFromPreviewCases(): void {
   const model = resolvePaletteExportModel(palette({
     primary_preview_case: null,
     preview_cases: [previewCase()]
   }))
   expect(model.source === 'palette_order_fallback', 'resolver should not auto-select from preview_cases')
+}
+
+function testPhaseOneRoleAwareResolver(): void {
+  const lineModel = resolvePaletteExportModel(palette({
+    primary_preview_case: linePreviewCase(),
+    chart_types: ['line_multiseries']
+  }))
+  expect(lineModel.source === 'preview_case_roles', 'line_multiseries should use role-aware preview exports')
+  expect(lineModel.colors.map((color) => color.key).join(',') === 'baseline,treated', 'line series export order should be preserved')
+  expect(lineModel.colors.map((color) => color.hex).join(',') === '#2458A6,#D55E00', 'line series colors should resolve from palette color IDs')
+
+  const heatmapModel = resolvePaletteExportModel(palette({
+    primary_preview_case: heatmapPreviewCase(),
+    chart_types: ['heatmap_annotated']
+  }))
+  expect(heatmapModel.source === 'preview_case_roles', 'heatmap_annotated should export scale stop colors')
+  expect(heatmapModel.colors.map((color) => color.key).join(',') === 'scale_0,scale_50,scale_100', 'heatmap scale stop export keys should be stable')
+  expect(heatmapModel.colors.map((color) => color.label).join(',') === 'Low,Mid,High', 'heatmap scale stop labels should be preserved')
 }
 
 function testGeneratedOutputs(): void {
@@ -169,6 +276,7 @@ function testGeneratedOutputs(): void {
   expect(toSeabornSnippet(model).includes('sns.set_palette(colors)'), 'Seaborn output should set the ordered palette')
   expect(toRNamedVector(model).includes('control = "#2458A6"'), 'R named vector should include role names')
   expect(toGgplotFillScale(model).startsWith('scale_fill_manual('), 'ggplot2 output should be a fill scale')
+  expect(toJsonExport(model).includes('"color_id": "blue-id"'), 'JSON output should include stable color IDs')
   expect(toCssCustomProperties(model).includes('--figcolor-control: #2458A6;'), 'CSS output should include role custom properties')
 }
 
@@ -212,14 +320,18 @@ function testPaletteDetailWiring(): void {
   expect(paletteDetailSource.includes('resolvePaletteExportModel'), 'PaletteDetailView should resolve the shared export model')
   expect(paletteDetailSource.includes("label: 'RGB'"), 'PaletteDetailView should include the RGB tab')
   expect(paletteDetailSource.includes("label: 'Seaborn'"), 'PaletteDetailView should preserve the Seaborn copy tab')
+  expect(paletteDetailSource.includes("label: 'JSON'"), 'PaletteDetailView should include the JSON copy tab')
   expect(paletteDetailSource.includes('toSeabornSnippet'), 'PaletteDetailView should generate Seaborn from the shared export model')
+  expect(paletteDetailSource.includes('loadPaletteBySlug'), 'PaletteDetailView should fetch direct detail payloads by slug')
   expect(!paletteDetailSource.includes('toSeabornPalette'), 'PaletteDetailView should not use old palette-only Seaborn copy block')
 }
 
 testRoleAwareResolver()
 testDuplicateRoleColorsArePreserved()
 testFallbackSelection()
+testDraftDerivedExportOutputChangesImmediately()
 testNoAutoSelectionFromPreviewCases()
+testPhaseOneRoleAwareResolver()
 testGeneratedOutputs()
 testIdentifierSanitization()
 testNoMutation()

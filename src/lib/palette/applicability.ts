@@ -5,6 +5,10 @@ import type {
   ChartTypeApplicability,
   ValidationIssue
 } from './schema'
+import {
+  getPhase1ChartTypesForLegacyKey,
+  getResolvedCompatibilityChartTypes
+} from './schema'
 
 export type ChartSupportStatus =
   | ChartSuitability
@@ -17,21 +21,28 @@ export interface ChartSupportResult {
   applicability?: ChartTypeApplicability
 }
 
-const LEGACY_CHART_TYPE_TO_PHASE_1: Record<string, ChartType[]> = {
-  bar: ['bar_error'],
-  barplot: ['bar_error'],
-  boxplot: ['boxplot_jitter'],
-  violin: ['boxplot_jitter'],
-  line: ['line_multiseries'],
-  heatmap: ['heatmap_annotated']
-}
-
-export const PHASE_1_CHART_TYPES: ChartType[] = [
+export const PHASE_1_CHART_TYPES = [
   'bar_error',
   'boxplot_jitter',
   'line_multiseries',
   'heatmap_annotated'
+] as const satisfies readonly ChartType[]
+
+export const SUPPORTED_PREVIEW_CHART_TYPES: ChartType[] = [
+  ...PHASE_1_CHART_TYPES,
+  'scatter_grouped',
+  'violin_distribution'
 ]
+
+const BROAD_CHART_FILTER_TO_PHASE_1: Record<string, ChartType[]> = {
+  bar: ['bar_error'],
+  barplot: ['bar_error'],
+  boxplot: ['boxplot_jitter'],
+  violin: ['violin_distribution', 'boxplot_jitter'],
+  scatter: ['scatter_grouped'],
+  line: ['line_multiseries'],
+  heatmap: ['heatmap_annotated']
+}
 
 export function normalizeLegacyChartTypesToApplicability(
   chartTypes: string[]
@@ -40,7 +51,7 @@ export function normalizeLegacyChartTypesToApplicability(
   const seen = new Set<ChartType>()
 
   chartTypes.forEach((chartType) => {
-    const mapped = LEGACY_CHART_TYPE_TO_PHASE_1[normalizeChartTypeKey(chartType)] ?? []
+    const mapped = getPhase1ChartTypesForLegacyKey(chartType)
     mapped.forEach((phase1Type) => {
       if (!seen.has(phase1Type)) {
         result.push({
@@ -64,7 +75,7 @@ export function getLegacyBroadChartTypes(palette: Pick<CanonicalPalette, 'chart_
 export function getEffectivePreviewChartTypes(
   palette: Pick<CanonicalPalette, 'chart_applicability' | 'chart_types'>
 ): ChartType[] {
-  return getEffectiveApplicabilityInput(palette).map((item) => item.chart_type)
+  return getResolvedCompatibilityChartTypes(palette).filter(isPhase1ChartType)
 }
 
 export function supportsChartType(
@@ -73,6 +84,26 @@ export function supportsChartType(
 ): boolean {
   const support = getChartSupport(palette, chartType)
   return support.status !== 'not_declared'
+}
+
+export function chartFilterMatchesPalette(
+  palette: Pick<CanonicalPalette, 'chart_applicability' | 'chart_types'>,
+  selectedChartType: string
+): boolean {
+  const selected = normalizeChartFilterKey(selectedChartType)
+  if (!selected) {
+    return true
+  }
+
+  const phase1Targets = resolveChartFilterTargets(selected)
+  if (palette.chart_applicability !== undefined) {
+    return palette.chart_applicability.some((item) => phase1Targets.includes(item.chart_type))
+  }
+
+  return palette.chart_types.some((chartType) => {
+    const normalizedChartType = normalizeChartFilterKey(chartType)
+    return normalizedChartType === selected || phase1Targets.includes(normalizedChartType as ChartType)
+  })
 }
 
 export function getChartSupport(
@@ -126,7 +157,7 @@ export function validateChartApplicability(
   let bestFitCount = 0
 
   applicability.forEach((item, index) => {
-    if (!PHASE_1_CHART_TYPES.includes(item.chart_type)) {
+    if (!SUPPORTED_PREVIEW_CHART_TYPES.includes(item.chart_type)) {
       issues.push({
         path: `${path}[${index}].chart_type`,
         code: 'INVALID_CHART_TYPE',
@@ -172,6 +203,17 @@ function getEffectiveApplicabilityInput(
   return normalizeLegacyChartTypesToApplicability(palette.chart_types)
 }
 
-function normalizeChartTypeKey(value: string): string {
+function isPhase1ChartType(value: string): value is ChartType {
+  return SUPPORTED_PREVIEW_CHART_TYPES.includes(value as ChartType)
+}
+
+function resolveChartFilterTargets(selected: string): ChartType[] {
+  if (isPhase1ChartType(selected)) {
+    return [selected]
+  }
+  return BROAD_CHART_FILTER_TO_PHASE_1[selected] ?? []
+}
+
+function normalizeChartFilterKey(value: string): string {
   return value.toLowerCase().replace(/[-\s]/g, '_').trim()
 }

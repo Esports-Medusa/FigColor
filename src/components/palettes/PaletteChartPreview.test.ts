@@ -2,6 +2,7 @@ import {
   createPaletteChartPreviewModel,
   selectPalettePreviewCase
 } from './PaletteChartPreview.logic'
+import { renderGenericPalettePreview } from '@/lib/palette/genericPreview'
 import type { CanonicalPalette, PalettePreviewCase } from '@/types/palette'
 
 function expect(condition: boolean, message: string): void {
@@ -80,18 +81,28 @@ function testMissingPrimaryPreviewUsesFallback(): void {
   const legacyPalette = { ...palette, primary_preview_case: null, preview_cases: [previewCase] }
   const selected = selectPalettePreviewCase(legacyPalette, undefined, false)
   const model = createPaletteChartPreviewModel(legacyPalette, selected)
-  expect(model.state === 'no-preview', 'missing primary preview should render no-preview state')
-  expect(model.svgMarkup === '', 'missing primary preview should not auto-select another preview case')
+  expect(model.state === 'generic', 'missing primary preview should render generic palette fallback')
+  expect(model.svgMarkup.includes('Generic colour palette preview'), 'generic fallback should produce palette-focused SVG')
+  expect(!model.svgMarkup.includes('Line chart preview'), 'generic fallback should not claim a chart type')
   expect(model.fallbackColors.join(',') === '#2458A6,#D55E00,#009E73', 'fallback should use palette colors')
-  expect(model.accessibleLabel === 'Colour palette preview', 'no-preview fallback should expose public palette label')
+  expect(model.accessibleLabel === null, 'generic fallback SVG should carry its own accessible label')
 }
 
 function testExplicitNullPreviewCaseOverridesPrimary(): void {
   const selected = selectPalettePreviewCase(palette, null, true)
   const model = createPaletteChartPreviewModel(palette, selected)
-  expect(model.state === 'no-preview', 'explicit null preview case should be respected')
-  expect(model.svgMarkup === '', 'explicit null preview case should not render palette primary preview')
-  expect(model.accessibleLabel === 'Colour palette preview', 'explicit null fallback should expose public palette label')
+  expect(model.state === 'generic', 'explicit null preview case should be respected')
+  expect(model.svgMarkup.includes('Generic colour palette preview'), 'explicit null should use generic fallback')
+  expect(model.accessibleLabel === null, 'generic fallback SVG should carry its own label')
+}
+
+function testDraftAndSecondaryPreviewCasesAreNotSelectedPublicly(): void {
+  const draft = { ...previewCase, id: 'draft-preview', status: 'draft' as const }
+  const secondary = { ...previewCase, id: 'secondary-preview', is_primary: false }
+
+  expect(selectPalettePreviewCase({ ...palette, primary_preview_case: draft }, undefined, false) === null, 'draft primary preview should not be publicly selected')
+  expect(selectPalettePreviewCase({ ...palette, primary_preview_case: secondary }, undefined, false) === null, 'secondary preview should not be publicly selected')
+  expect(selectPalettePreviewCase(palette, draft, true) === null, 'draft override should not be publicly selected')
 }
 
 function testInvalidPreviewUsesPublicFallback(): void {
@@ -100,8 +111,8 @@ function testInvalidPreviewUsesPublicFallback(): void {
     { ...previewCase, color_roles: { groups: [], elements: {} } }
   )
   expect(model.state === 'invalid', 'invalid preview should render invalid state')
-  expect(model.svgMarkup === '', 'invalid preview should not expose generated markup')
-  expect(model.accessibleLabel === 'Scientific chart preview unavailable', 'invalid fallback should expose public unavailable label')
+  expect(model.svgMarkup.includes('Generic colour palette preview'), 'invalid preview should fall back to generic palette SVG')
+  expect(model.accessibleLabel === null, 'invalid generic fallback SVG should carry its own label')
 }
 
 function testUnsupportedPreviewUsesPublicFallback(): void {
@@ -116,8 +127,8 @@ function testUnsupportedPreviewUsesPublicFallback(): void {
     })
   )
   expect(model.state === 'unsupported', 'unsupported preview should render unsupported state')
-  expect(model.svgMarkup === '', 'unsupported preview should not expose SVG markup')
-  expect(model.accessibleLabel === 'Scientific chart preview unavailable', 'unsupported fallback should expose public unavailable label')
+  expect(model.svgMarkup.includes('Generic colour palette preview'), 'unsupported preview should fall back to generic palette SVG')
+  expect(model.accessibleLabel === null, 'unsupported generic fallback SVG should carry its own label')
   expect(!JSON.stringify(model).includes('internal message'), 'unsupported fallback should not expose internal messages')
 }
 
@@ -133,14 +144,34 @@ function testRendererFailuresUseFallbackStates(): void {
     })
   )
   expect(model.state === 'error', 'renderer errors should use error state')
-  expect(model.svgMarkup === '', 'renderer errors should render fallback instead of details')
-  expect(model.accessibleLabel === 'Scientific chart preview unavailable', 'renderer error fallback should expose public unavailable label')
+  expect(model.svgMarkup.includes('Generic colour palette preview'), 'renderer errors should render generic fallback instead of details')
+  expect(model.accessibleLabel === null, 'renderer error generic fallback should carry its own label')
   expect(!JSON.stringify(model).includes('private failure'), 'renderer error fallback should not expose internal messages')
+}
+
+function testMissingColorsUsePlaceholder(): void {
+  const model = createPaletteChartPreviewModel(
+    { ...palette, colors: [], color_count: 0, primary_preview_case: null, preview_cases: [] },
+    null
+  )
+  expect(model.state === 'placeholder', 'palettes without usable colors should use placeholder')
+  expect(model.svgMarkup === '', 'placeholder should not render SVG')
+  expect(model.fallbackColors.length === 0, 'placeholder should not invent palette colors')
+}
+
+function testGenericFallbackSeedIgnoresSlugChanges(): void {
+  const colors = palette.colors.map((color) => color.hex)
+  const first = renderGenericPalettePreview({ id: palette.id }, colors)
+  const second = renderGenericPalettePreview({ id: palette.id }, colors)
+  expect(first === second, 'generic fallback should be seeded from palette id rather than route slug')
 }
 
 testPrimaryPreviewRendersInternalSvg()
 testMissingPrimaryPreviewUsesFallback()
 testExplicitNullPreviewCaseOverridesPrimary()
+testDraftAndSecondaryPreviewCasesAreNotSelectedPublicly()
 testInvalidPreviewUsesPublicFallback()
 testUnsupportedPreviewUsesPublicFallback()
 testRendererFailuresUseFallbackStates()
+testMissingColorsUsePlaceholder()
+testGenericFallbackSeedIgnoresSlugChanges()

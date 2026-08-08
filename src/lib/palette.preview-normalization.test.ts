@@ -1,7 +1,9 @@
 import {
   PaletteNormalizationError,
+  normalizePalette,
   normalizePaletteToCanonical
 } from '@/lib/palette'
+import { chartFilterMatchesPalette } from '@/lib/palette/applicability'
 import type { RawPaletteDTO, RawPalettePreviewCase } from '@/types/palette'
 
 function baseRawPalette(overrides: Partial<RawPaletteDTO> = {}): RawPaletteDTO {
@@ -114,6 +116,87 @@ function testLegacyPayloadWithoutPreviewFieldsNormalizes(): void {
   expect(palette.preview_cases.length === 0, 'legacy payload should have empty preview_cases')
 }
 
+function testUndefinedApplicabilityFallsBackToLegacyChartTypes(): void {
+  const palette = normalizePalette(baseRawPalette({ chart_types: ['bar', 'heatmap'] }))
+  expect(palette.chart_applicability === undefined, 'missing applicability should remain undefined')
+  expect(palette.chart_type.join(',') === 'bar_error,heatmap_annotated', 'legacy chart_types should map to Phase 1 compatibility chart_type')
+}
+
+function testEmptyApplicabilityDoesNotFallBackToLegacyChartTypes(): void {
+  const palette = normalizePalette(baseRawPalette({
+    chart_types: ['bar'],
+    chart_applicability: []
+  }))
+  expect(Array.isArray(palette.chart_applicability), 'empty applicability should remain authoritative')
+  expect(palette.chart_type.length === 0, 'empty applicability must not fall back to legacy chart_types')
+}
+
+function testCuratedApplicabilityOrderPreservedInCompatibilityAdapter(): void {
+  const palette = normalizePalette(baseRawPalette({
+    chart_types: ['bar'],
+    chart_applicability: [
+      { chart_type: 'line_multiseries', suitability: 'best_fit', source: 'curated' },
+      { chart_type: 'bar_error', suitability: 'compatible', source: 'curated' }
+    ]
+  }))
+  expect(palette.chart_type.join(',') === 'line_multiseries,bar_error', 'curated applicability order should drive compatibility chart_type')
+}
+
+function testInvalidApplicabilityRejected(): void {
+  expectNormalizationIssue(
+    baseRawPalette({
+      chart_applicability: [
+        { chart_type: 'bar_error', suitability: 'best_fit' },
+        { chart_type: 'bar_error', suitability: 'best_fit' }
+      ]
+    }),
+    'DUPLICATE_CHART_TYPE'
+  )
+  expectNormalizationIssue(
+    baseRawPalette({
+      chart_applicability: [
+        { chart_type: 'bar_error', suitability: 'best_fit' },
+        { chart_type: 'line_multiseries', suitability: 'best_fit' }
+      ]
+    }),
+    'MULTIPLE_BEST_FIT'
+  )
+}
+
+function testChartFilterMatchesBroadAndPhaseOneChartTypes(): void {
+  const curated = normalizePalette(baseRawPalette({
+    chart_types: ['line'],
+    chart_applicability: [
+      { chart_type: 'bar_error', suitability: 'compatible', source: 'curated' },
+      { chart_type: 'boxplot_jitter', suitability: 'compatible', source: 'curated' },
+      { chart_type: 'line_multiseries', suitability: 'best_fit', source: 'curated' },
+      { chart_type: 'heatmap_annotated', suitability: 'compatible', source: 'curated' }
+    ]
+  }))
+
+  expect(chartFilterMatchesPalette(curated, 'bar'), 'bar filter should match bar_error applicability')
+  expect(chartFilterMatchesPalette(curated, 'boxplot'), 'boxplot filter should match boxplot_jitter applicability')
+  expect(chartFilterMatchesPalette(curated, 'violin'), 'violin filter should match boxplot_jitter applicability')
+  expect(chartFilterMatchesPalette(curated, 'line'), 'line filter should match line_multiseries applicability')
+  expect(chartFilterMatchesPalette(curated, 'heatmap'), 'heatmap filter should match heatmap_annotated applicability')
+  expect(chartFilterMatchesPalette(curated, 'line_multiseries'), 'precise Phase 1 filter should match directly')
+  expect(!chartFilterMatchesPalette(curated, 'scatter'), 'undeclared broad chart filter should not match curated applicability')
+}
+
+function testChartFilterRespectsEmptyApplicabilityAndLegacyFallback(): void {
+  const migratedEmpty = normalizePalette(baseRawPalette({
+    chart_types: ['heatmap'],
+    chart_applicability: []
+  }))
+  const legacy = normalizePalette(baseRawPalette({
+    chart_types: ['heatmap', 'line']
+  }))
+
+  expect(!chartFilterMatchesPalette(migratedEmpty, 'heatmap'), 'empty applicability should not fall back to legacy heatmap')
+  expect(chartFilterMatchesPalette(legacy, 'heatmap'), 'legacy heatmap should match without chart_applicability')
+  expect(chartFilterMatchesPalette(legacy, 'line'), 'legacy line should match without chart_applicability')
+}
+
 testMissingPreviewCasesNormalizeToEmptyArray()
 testNullPrimaryNormalizesToNull()
 testPublishedPreviewNormalizes()
@@ -122,3 +205,9 @@ testInvalidSeedStrategyRejected()
 testPrimaryPaletteMismatchRejected()
 testOrderPreserved()
 testLegacyPayloadWithoutPreviewFieldsNormalizes()
+testUndefinedApplicabilityFallsBackToLegacyChartTypes()
+testEmptyApplicabilityDoesNotFallBackToLegacyChartTypes()
+testCuratedApplicabilityOrderPreservedInCompatibilityAdapter()
+testInvalidApplicabilityRejected()
+testChartFilterMatchesBroadAndPhaseOneChartTypes()
+testChartFilterRespectsEmptyApplicabilityAndLegacyFallback()

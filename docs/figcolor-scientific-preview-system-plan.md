@@ -345,6 +345,129 @@ function resolveChartTypes(palette: Palette): ChartType[] {
 }
 ```
 
+Long-term chart-type design principle:
+
+Chart type labels must be specific enough to drive role schemas, renderer selection, mock-data generation, and template validation. Broad labels such as `bar`, `line`, and `heatmap` are useful for navigation and coarse filtering, but they are not precise enough for renderer or role contracts.
+
+Examples of future chart types that may share one family but require different roles:
+
+```typescript
+type ChartFamily =
+  | 'bar'
+  | 'line'
+  | 'distribution'
+  | 'heatmap'
+  | 'scatter'
+  | 'network'
+  | 'spatial'
+
+type ChartType =
+  | 'bar_error'
+  | 'bar_grouped'
+  | 'bar_stacked'
+  | 'boxplot_jitter'
+  | 'violin_grouped'
+  | 'line_multiseries'
+  | 'heatmap_annotated'
+```
+
+Use the hierarchy consistently:
+
+| Field | Main purpose |
+|-------|--------------|
+| `chart_family` | User-facing coarse navigation and broad filter grouping |
+| `chart_type` | Precise preview, role schema, renderer, mock-data, and applicability contract |
+| `template_id` | Visual/template variant under one chart type |
+
+Example:
+
+```json
+{
+  "chart_family": "bar",
+  "chart_type": "bar_error",
+  "template_id": "bar_error_biomedical_v1"
+}
+```
+
+Every concrete `chart_type` should eventually register one definition:
+
+```typescript
+interface ChartTypeDefinition {
+  id: ChartType
+  family: ChartFamily
+  label: string
+
+  required_capabilities: PaletteCapability[]
+
+  color_role_schema: unknown
+  preview_config_schema: unknown
+
+  renderer: Component
+  generateMockData: Function
+}
+```
+
+Example:
+
+```typescript
+const barErrorDefinition = {
+  id: 'bar_error',
+  family: 'bar',
+  required_capabilities: [
+    'categorical_groups',
+    'neutral_foreground'
+  ],
+  color_role_schema: barErrorRoleSchema,
+  preview_config_schema: barErrorConfigSchema,
+  renderer: BarErrorPreview,
+  generateMockData: generateBarErrorMockData
+}
+```
+
+This allows preview creation to ask:
+
+```typescript
+canCreatePreview(palette, chartTypeRegistry['bar_error'])
+```
+
+instead of relying only on whether a palette has a manually assigned `bar_error` tag.
+
+Long-term applicability should be driven by palette capabilities as well as curated admin decisions:
+
+```typescript
+type PaletteCapability =
+  | 'categorical_groups'
+  | 'ordered_sequential'
+  | 'diverging_scale'
+  | 'binary_contrast'
+  | 'continuous_gradient'
+  | 'neutral_foreground'
+  | 'light_background'
+  | 'dark_background'
+  | 'uncertainty_band'
+  | 'many_series'
+```
+
+Future capability flow:
+
+```text
+Palette Colors
+      ↓
+Palette Capabilities
+      ↓
+Chart Type Applicability
+      ↓
+Color Role Mapping
+```
+
+Phase 1 does not implement full automatic capability inference. The intended progressive model is:
+
+1. Phase 1: admin manually selects precise applicable `chart_type` values.
+2. Phase 1: record suitability in `chart_applicability`, such as `best_fit`, `recommended`, or `compatible`.
+3. Future phase: infer palette capabilities from color count, luminance difference, hue distance, neutral colors, sequential/diverging structure, and colorblind distinguishability; use those capabilities to suggest chart applicability for admin confirmation.
+
+The system should generate suggestions only. Published applicability and published preview cases still require admin confirmation.
+
 `chart_applicability` nullability semantics:
 
 - `undefined` / database `NULL`: not migrated yet; read legacy `chart_types`.
@@ -1515,6 +1638,14 @@ Validation commands:
 
 Stop point: Stop after legacy compatibility tests pass.
 
+WP6 follow-up notes:
+
+- Resolved: Generic fallback preview generation lives in a dedicated `src/lib/palette/genericPreview.ts` module.
+- Resolved: Generic fallback preview seeding uses `palette.id` when available, so route slug changes do not change the fallback image.
+- Resolved: Palette Detail distinguishes fatal API load errors from cached-data warnings.
+- Deferred: Public normalization still accepts legacy `preview_cases` for backward compatibility. Reassess after public API migration is complete.
+- Deferred: Add an explicit Paper Project integration scenario in final Phase 1 verification.
+
 ### WP7 - Admin Experience and Export
 
 Goal: Complete admin dynamic editing, live preview, validation display, and copy outputs.
@@ -1715,6 +1846,8 @@ Codex must stop and report if any item below blocks implementation. Do not decid
 Post-Phase 1 reassessment items:
 
 - Whether `chart_applicability` should move from JSONB to a normalized table.
+- Whether to introduce explicit persisted `chart_family` alongside precise `chart_type` for coarse navigation and filtering.
+- Whether to introduce `palette_capabilities` and capability-driven chart applicability suggestions for admin confirmation.
 - Whether the Phase 1 theme token set should expand beyond `foreground`, `muted_foreground`, `grid`, and `background`.
 - Whether `source_image` remains part of palette data long term.
 - Whether public detail should expose all published preview cases through API or UI.

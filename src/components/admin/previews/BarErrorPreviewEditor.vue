@@ -188,6 +188,14 @@
           >
             Archive
           </button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            :disabled="!savedDraftPreviewCase?.id || requestInProgress"
+            @click="emitDeleteDraft"
+          >
+            Delete Draft
+          </button>
         </div>
       </div>
 
@@ -239,6 +247,7 @@ interface Emits {
   (e: 'replacePublished', previewCaseId: string, draft: EditableBarErrorDraft): void
   (e: 'setPrimary', previewCaseId: string): void
   (e: 'archive', previewCaseId: string): void
+  (e: 'deleteDraft', previewCaseId: string): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -462,6 +471,11 @@ function emitSetPrimary(): void {
 function emitArchive(): void {
   if (!selectedPreviewCase.value?.id) return
   emit('archive', selectedPreviewCase.value.id)
+}
+
+function emitDeleteDraft(): void {
+  if (!savedDraftPreviewCase.value?.id) return
+  emit('deleteDraft', savedDraftPreviewCase.value.id)
 }
 
 function nextGroupKey(): string {

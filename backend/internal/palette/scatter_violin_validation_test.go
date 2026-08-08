@@ -117,3 +117,12 @@ func assertHasValidationCode(t *testing.T, issues []ValidationIssue, code string
 	}
 	t.Fatalf("issues %#v do not contain %s", issues, code)
 }
+
+func TestScatterViolinLegacyFilterTargets(t *testing.T) {
+	if got := chartTypeFilterTargets("scatter"); len(got) != 2 || got[1] != ChartTypeScatterGrouped {
+		t.Fatalf("scatter targets = %#v", got)
+	}
+	if got := chartTypeFilterTargets("violin"); len(got) != 3 || got[1] != ChartTypeViolinDistribution || got[2] != ChartTypeBoxplotJitter {
+		t.Fatalf("violin targets = %#v", got)
+	}
+}

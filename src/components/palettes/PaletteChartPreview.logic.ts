@@ -1,8 +1,9 @@
 import { renderPalettePreview } from '@/lib/renderers'
+import { renderGenericPalettePreview } from '@/lib/palette/genericPreview'
 import type { PreviewRenderResult } from '@/lib/renderers'
 import type { CanonicalPalette, PalettePreviewCase } from '@/types/palette'
 
-export type PaletteChartPreviewState = 'svg' | 'no-preview' | 'invalid' | 'unsupported' | 'error'
+export type PaletteChartPreviewState = 'svg' | 'generic' | 'strip' | 'placeholder' | 'invalid' | 'unsupported' | 'error'
 
 export interface PaletteChartPreviewModel {
   state: PaletteChartPreviewState
@@ -14,9 +15,13 @@ export interface PaletteChartPreviewModel {
 export function selectPalettePreviewCase(
   palette: CanonicalPalette,
   previewCase: PalettePreviewCase | null | undefined,
-  hasPreviewCaseOverride: boolean
+  hasPreviewCaseOverride: boolean,
+  publicOnly = true
 ): PalettePreviewCase | null {
-  return hasPreviewCaseOverride ? previewCase ?? null : palette.primary_preview_case
+  const candidate = hasPreviewCaseOverride ? previewCase ?? null : palette.primary_preview_case
+  return publicOnly
+    ? isPublicPrimaryPreviewCase(candidate) ? candidate : null
+    : candidate ?? null
 }
 
 export function createPaletteChartPreviewModel(
@@ -25,17 +30,10 @@ export function createPaletteChartPreviewModel(
   render: typeof renderPalettePreview = renderPalettePreview
 ): PaletteChartPreviewModel {
   const fallbackColors = palette.colors.map((color) => color.hex).filter(Boolean)
-  const normalizedFallbackColors = fallbackColors.length > 0
-    ? fallbackColors
-    : ['#d1d5db', '#e5e7eb', '#f3f4f6']
+  const hasUsableColors = fallbackColors.length > 0
 
   if (!selectedPreviewCase) {
-    return {
-      state: 'no-preview',
-      svgMarkup: '',
-      fallbackColors: normalizedFallbackColors,
-      accessibleLabel: 'Colour palette preview'
-    }
+    return createPublicFallbackModel(palette, fallbackColors)
   }
 
   const result = render(palette, selectedPreviewCase)
@@ -43,16 +41,24 @@ export function createPaletteChartPreviewModel(
     return {
       state: 'svg',
       svgMarkup: result.markup,
-      fallbackColors: normalizedFallbackColors,
+      fallbackColors,
       accessibleLabel: null
     }
   }
 
+  if (hasUsableColors) {
+    const fallback = createPublicFallbackModel(palette, fallbackColors)
+    return {
+      ...fallback,
+      state: result.kind
+    }
+  }
+
   return {
-    state: result.kind,
+    state: 'placeholder',
     svgMarkup: '',
-    fallbackColors: normalizedFallbackColors,
-    accessibleLabel: 'Scientific chart preview unavailable'
+    fallbackColors: [],
+    accessibleLabel: 'Palette preview unavailable'
   }
 }
 
@@ -60,4 +66,39 @@ function isSuccessfulSvgResult(
   result: PreviewRenderResult
 ): result is Extract<PreviewRenderResult, { ok: true; kind: 'svg' }> {
   return result.ok && result.kind === 'svg'
+}
+
+function isPublicPrimaryPreviewCase(previewCase: PalettePreviewCase | null | undefined): previewCase is PalettePreviewCase {
+  return previewCase?.status === 'published' && previewCase.is_primary === true
+}
+
+function createPublicFallbackModel(
+  palette: CanonicalPalette,
+  colors: string[]
+): PaletteChartPreviewModel {
+  if (colors.length === 0) {
+    return {
+      state: 'placeholder',
+      svgMarkup: '',
+      fallbackColors: [],
+      accessibleLabel: 'Palette preview unavailable'
+    }
+  }
+
+  const genericMarkup = renderGenericPalettePreview(palette, colors)
+  if (genericMarkup) {
+    return {
+      state: 'generic',
+      svgMarkup: genericMarkup,
+      fallbackColors: colors,
+      accessibleLabel: null
+    }
+  }
+
+  return {
+    state: 'strip',
+    svgMarkup: '',
+    fallbackColors: colors,
+    accessibleLabel: 'Colour palette preview'
+  }
 }

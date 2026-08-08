@@ -83,7 +83,11 @@ function testValidationPassesForSuggestedDraft(): void {
 
 function testValidationReportsLocalIssues(): void {
   const draft = editableDraftFromSuggestion(suggestOrThrow())
-  draft.groups = draft.groups.slice(0, 2)
+  draft.groups = Array.from({ length: 6 }, (_, index) => ({
+    ...draft.groups[index % draft.groups.length],
+    key: `group-${index + 1}`,
+    label: `Group ${index + 1}`
+  }))
   draft.groups[0].color_id = 'missing-color'
 
   const issues = validateEditableBarErrorDraft(palette, draft)

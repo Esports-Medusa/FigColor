@@ -11,7 +11,7 @@ import type {
   BarErrorPreviewConfig
 } from './suggestion'
 
-export const BAR_ERROR_MIN_GROUPS = 3
+export const BAR_ERROR_MIN_GROUPS = 1
 export const BAR_ERROR_MAX_GROUPS = 5
 
 export interface EditableBarErrorGroup {
