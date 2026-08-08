@@ -9,8 +9,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -18,6 +22,7 @@ import (
 )
 
 var chartTypes = map[string]bool{"bar_error": true, "boxplot_jitter": true, "line_multiseries": true, "heatmap_annotated": true, "scatter_grouped": true, "violin_distribution": true, "unsupported": true}
+var fixtureIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,79}$`)
 
 type Manifest struct {
 	SchemaVersion      int       `json:"schema_version"`
@@ -33,6 +38,38 @@ type Fixture struct {
 	ExpectedOrdered, ExpectedUnordered, Structural, Ambiguous                                                                []string
 	ContinuousGradient                                                                                                       bool
 	Notes                                                                                                                    string
+}
+
+func (f Fixture) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ID                 string   `json:"id"`
+		Path               string   `json:"path"`
+		SHA256             string   `json:"sha256"`
+		ChartType          string   `json:"chart_type"`
+		Format             string   `json:"format"`
+		Width              int      `json:"width"`
+		Height             int      `json:"height"`
+		EncodedBytes       int64    `json:"encoded_bytes"`
+		PaletteType        string   `json:"palette_type"`
+		ExpectedOrdered    []string `json:"expected_ordered_data_colors"`
+		ExpectedUnordered  []string `json:"expected_unordered_data_colors"`
+		Structural         []string `json:"expected_structural_colors"`
+		Ambiguous          []string `json:"ambiguous_colors"`
+		ContinuousGradient bool     `json:"continuous_gradient"`
+		OrderObservable    bool     `json:"order_observable"`
+		AnnotationMethod   string   `json:"annotation_method"`
+		Transformation     string   `json:"transformation"`
+		ProvenanceCategory string   `json:"provenance_category"`
+		PermissionStatus   string   `json:"permission_status"`
+		MayCommit          bool     `json:"may_commit"`
+		Notes              string   `json:"notes"`
+	}{f.ID, f.Path, f.SHA256, f.ChartType, f.Format, f.Width, f.Height, f.EncodedBytes, f.PaletteType, nonNil(f.ExpectedOrdered), nonNil(f.ExpectedUnordered), nonNil(f.Structural), nonNil(f.Ambiguous), f.ContinuousGradient, f.OrderObservable, f.AnnotationMethod, f.Transformation, f.ProvenanceCategory, f.PermissionStatus, f.MayCommit, f.Notes})
+}
+func nonNil(v []string) []string {
+	if v == nil {
+		return []string{}
+	}
+	return v
 }
 
 func (f *Fixture) UnmarshalJSON(b []byte) error {
@@ -99,6 +136,121 @@ func Load(path string) (Manifest, error) {
 		return Manifest{}, err
 	}
 	return m, nil
+}
+
+// PrepareManifest records file facts only. Empty semantic/provenance fields are
+// intentional: validation must fail until a human completes both annotation passes.
+func PrepareManifest(inputRoot, pilotID string) (Manifest, error) {
+	if pilotID == "" {
+		return Manifest{}, errors.New("pilot ID is required")
+	}
+	rootInfo, err := os.Lstat(inputRoot)
+	if err != nil {
+		return Manifest{}, err
+	}
+	if rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() {
+		return Manifest{}, errors.New("input root must be a real directory")
+	}
+	rootReal, err := filepath.EvalSymlinks(inputRoot)
+	if err != nil {
+		return Manifest{}, err
+	}
+	entries, err := os.ReadDir(rootReal)
+	if err != nil {
+		return Manifest{}, err
+	}
+	m := Manifest{SchemaVersion: 1, PilotID: pilotID, AnnotationProtocol: "manual-two-pass-v1", Fixtures: []Fixture{}}
+	for _, entry := range entries {
+		id := entry.Name()
+		if !fixtureIDPattern.MatchString(id) {
+			return Manifest{}, fmt.Errorf("unsafe fixture directory name: %s", id)
+		}
+		entryInfo, err := os.Lstat(filepath.Join(rootReal, id))
+		if err != nil {
+			return Manifest{}, err
+		}
+		if entryInfo.Mode()&os.ModeSymlink != 0 || !entryInfo.IsDir() {
+			return Manifest{}, fmt.Errorf("fixture %s must be a real directory", id)
+		}
+		files, err := os.ReadDir(filepath.Join(rootReal, id))
+		if err != nil {
+			return Manifest{}, err
+		}
+		var selected string
+		for _, file := range files {
+			name := strings.ToLower(file.Name())
+			if name != "figure.png" && name != "figure.jpg" && name != "figure.jpeg" {
+				return Manifest{}, fmt.Errorf("fixture %s contains unexpected entry %s", id, file.Name())
+			}
+			if selected != "" {
+				return Manifest{}, fmt.Errorf("fixture %s must contain exactly one figure image", id)
+			}
+			selected = file.Name()
+		}
+		if selected == "" {
+			return Manifest{}, fmt.Errorf("fixture %s contains no figure image", id)
+		}
+		path := filepath.Join(rootReal, id, selected)
+		info, err := os.Lstat(path)
+		if err != nil {
+			return Manifest{}, err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return Manifest{}, fmt.Errorf("fixture %s image must be a regular non-symlink file", id)
+		}
+		if info.Size() < 1 || info.Size() > imagecolor.DefaultConfig.MaxBytes {
+			return Manifest{}, fmt.Errorf("fixture %s image size is outside frozen decoder limits", id)
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return Manifest{}, err
+		}
+		cfg, format, err := image.DecodeConfig(bytes.NewReader(b))
+		if err != nil {
+			return Manifest{}, fmt.Errorf("fixture %s image header: %w", id, err)
+		}
+		ext := strings.ToLower(filepath.Ext(selected))
+		want := map[string]string{".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg"}[ext]
+		if want != format {
+			return Manifest{}, fmt.Errorf("fixture %s extension/signature mismatch", id)
+		}
+		if cfg.Width < 1 || cfg.Height < 1 || cfg.Width > imagecolor.DefaultConfig.MaxWidth || cfg.Height > imagecolor.DefaultConfig.MaxHeight || cfg.Width > imagecolor.DefaultConfig.MaxPixels/cfg.Height {
+			return Manifest{}, fmt.Errorf("fixture %s dimensions are outside frozen decoder limits", id)
+		}
+		sum := sha256.Sum256(b)
+		m.Fixtures = append(m.Fixtures, Fixture{ID: id, Path: filepath.ToSlash(filepath.Join(id, selected)), SHA256: hex.EncodeToString(sum[:]), Format: format, Width: cfg.Width, Height: cfg.Height, EncodedBytes: info.Size(), MayCommit: false})
+	}
+	sort.Slice(m.Fixtures, func(i, j int) bool { return m.Fixtures[i].ID < m.Fixtures[j].ID })
+	return m, nil
+}
+
+func WriteManifest(path string, m Manifest) error {
+	if path == "" {
+		return errors.New("manifest path required")
+	}
+	b, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	ok := false
+	defer func() {
+		f.Close()
+		if !ok {
+			os.Remove(path)
+		}
+	}()
+	if _, err = f.Write(append(b, '\n')); err != nil {
+		return err
+	}
+	if err = f.Close(); err != nil {
+		return err
+	}
+	ok = true
+	return nil
 }
 func Validate(m Manifest) []Issue {
 	var out []Issue

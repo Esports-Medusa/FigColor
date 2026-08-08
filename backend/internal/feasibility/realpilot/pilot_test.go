@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"github.com/qiqi/figcolor/backend/internal/feasibility/imagecolor"
 	"image"
 	"image/color"
@@ -174,4 +175,111 @@ func TestAggregateArithmetic(t *testing.T) {
 	if s.TP != 3 || s.FP != 1 || s.FN != 1 || s.StructuralFN != 1 || s.EligibleFigures != 2 || s.ExactSets != 1 || s.ThresholdMatches["1"] != 2 || s.ThresholdMatches["2"] != 2 || s.ThresholdMatches["5"] != 3 || s.ThresholdMatches["10"] != 3 {
 		t.Fatalf("%#v", s)
 	}
+}
+
+func TestPrepareManifestRecordsOnlyFileFacts(t *testing.T) {
+	root := t.TempDir()
+	for _, id := range []string{"real-002", "real-001"} {
+		d := filepath.Join(root, id)
+		if err := os.Mkdir(d, 0700); err != nil {
+			t.Fatal(err)
+		}
+		pngFile(t, d, "figure.png")
+	}
+	a, err := PrepareManifest(root, "pilot-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := PrepareManifest(root, "pilot-001")
+	if err != nil || !reflect.DeepEqual(a, b) {
+		t.Fatal("prepare is not deterministic")
+	}
+	if len(a.Fixtures) != 2 || a.Fixtures[0].ID != "real-001" || a.Fixtures[1].ID != "real-002" {
+		t.Fatalf("%#v", a)
+	}
+	f := a.Fixtures[0]
+	if f.Path != "real-001/figure.png" || f.Format != "png" || f.Width != 20 || f.Height != 20 || f.EncodedBytes < 1 || len(f.SHA256) != 64 {
+		t.Fatalf("missing facts: %#v", f)
+	}
+	if f.ChartType != "" || f.PaletteType != "" || f.AnnotationMethod != "" || f.ProvenanceCategory != "" || f.PermissionStatus != "" || f.MayCommit {
+		t.Fatalf("semantic defaults must remain empty: %#v", f)
+	}
+	encoded, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(encoded, []byte(`"expected_unordered_data_colors":[]`)) {
+		t.Fatalf("draft arrays must be explicit: %s", encoded)
+	}
+}
+func TestWriteManifestDoesNotOverwrite(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "pilot-manifest.json")
+	m := Manifest{SchemaVersion: 1, PilotID: "x", AnnotationProtocol: "manual-two-pass-v1", Fixtures: []Fixture{}}
+	if err := WriteManifest(p, m); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = WriteManifest(p, m); err == nil {
+		t.Fatal("overwrote existing manifest")
+	}
+	after, _ := os.ReadFile(p)
+	if !bytes.Equal(before, after) {
+		t.Fatal("existing manifest changed")
+	}
+}
+func TestPrepareManifestRejectsUnsafeLayout(t *testing.T) {
+	t.Run("unexpected", func(t *testing.T) {
+		root := t.TempDir()
+		d := filepath.Join(root, "real-001")
+		_ = os.Mkdir(d, 0700)
+		pngFile(t, d, "figure.png")
+		_ = os.WriteFile(filepath.Join(d, "notes.txt"), []byte("x"), 0600)
+		if _, err := PrepareManifest(root, "x"); err == nil {
+			t.Fatal("accepted unexpected entry")
+		}
+	})
+	t.Run("multiple", func(t *testing.T) {
+		root := t.TempDir()
+		d := filepath.Join(root, "real-001")
+		_ = os.Mkdir(d, 0700)
+		pngFile(t, d, "figure.png")
+		_ = os.Rename(filepath.Join(d, "figure.png"), filepath.Join(d, "figure.jpg"))
+		pngFile(t, d, "figure.png")
+		if _, err := PrepareManifest(root, "x"); err == nil {
+			t.Fatal("accepted multiple images")
+		}
+	})
+	t.Run("symlink", func(t *testing.T) {
+		root := t.TempDir()
+		outside := t.TempDir()
+		pngFile(t, outside, "figure.png")
+		d := filepath.Join(root, "real-001")
+		_ = os.Mkdir(d, 0700)
+		if err := os.Symlink(filepath.Join(outside, "figure.png"), filepath.Join(d, "figure.png")); err == nil {
+			if _, err := PrepareManifest(root, "x"); err == nil {
+				t.Fatal("accepted symlink")
+			}
+		}
+	})
+	t.Run("signature", func(t *testing.T) {
+		root := t.TempDir()
+		d := filepath.Join(root, "real-001")
+		_ = os.Mkdir(d, 0700)
+		pngFile(t, d, "figure.jpg")
+		if _, err := PrepareManifest(root, "x"); err == nil {
+			t.Fatal("accepted extension/signature mismatch")
+		}
+	})
+	t.Run("unsafe-id", func(t *testing.T) {
+		root := t.TempDir()
+		d := filepath.Join(root, "Real 001")
+		_ = os.Mkdir(d, 0700)
+		pngFile(t, d, "figure.png")
+		if _, err := PrepareManifest(root, "x"); err == nil {
+			t.Fatal("accepted unsafe ID")
+		}
+	})
 }

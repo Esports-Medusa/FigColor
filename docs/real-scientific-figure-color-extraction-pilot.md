@@ -37,19 +37,31 @@ Accepted HEX is uppercase `#RRGGBB`. Use ordered colours only when order is obse
 
 `backend/cmd/realfigurepilot` loads strict JSON, validates unique IDs, safe relative paths, registered/unsupported chart types, PNG/JPEG format, provenance fields, canonical HEX, ordered/unordered semantics and continuous/discrete separation. It verifies recorded SHA-256 values, rejects symlinks/outside-root paths, calls the frozen extractor, sorts results by fixture ID, separates unavailable/hash-mismatch/unsupported/excluded/failed/eligible states, computes exact confusion only for eligible discrete annotations, and performs deterministic one-to-one greedy ΔE76 matching without candidate reuse.
 
+The `prepare` subcommand scans only the strict layout `inputs/<safe-fixture-id>/figure.png|jpg|jpeg`. It rejects symlinks, unsafe IDs, unexpected entries, multiple/missing images, signature/extension mismatch, and inputs outside the frozen decoder size/dimension limits. It deterministically fills only fixture ID, relative path, SHA-256, actual format, width, height, encoded bytes and `may_commit=false`. Chart type, palette type, annotations, provenance, permission and transformation remain empty so the draft cannot pass pilot validation until a human completes them. Existing manifest files are never overwritten.
+
 The harness writes only the explicitly selected local result file. It performs no HTTP or database operation. Unit tests use temporary generated images solely to test harness mechanics; they are not pilot inputs and produce no claimed real evidence.
 
-Prepared command:
+Manifest preparation command, run after adding or changing the complete intended input batch:
 
 ```bash
 cd backend
-GOCACHE=/tmp/figcolor-realpilot-go-cache go run ./cmd/realfigurepilot \
-  -manifest internal/feasibility/realpilot/testdata/pilot-manifest.template.json \
+GOCACHE=/tmp/figcolor-realpilot-go-cache go run ./cmd/realfigurepilot prepare \
   -input-root ../artifacts/palette-ingestion/real-figure-pilot/inputs \
-  -output ../artifacts/palette-ingestion/real-figure-pilot/results/preflight.json
+  -manifest ../artifacts/palette-ingestion/real-figure-pilot/pilot-manifest.json \
+  -pilot-id real-scientific-figure-pilot
 ```
 
-With the empty template this deterministically reports `prepared_no_inputs`; it is not a pilot run.
+If a draft already exists, choose a new output filename or deliberately remove/archive the old local draft first; `prepare` has no overwrite flag. After preparation, complete two-pass human annotation in that draft.
+
+Pilot execution command:
+
+```bash
+cd backend
+GOCACHE=/tmp/figcolor-realpilot-go-cache go run ./cmd/realfigurepilot run \
+  -manifest ../artifacts/palette-ingestion/real-figure-pilot/pilot-manifest.json \
+  -input-root ../artifacts/palette-ingestion/real-figure-pilot/inputs \
+  -output ../artifacts/palette-ingestion/real-figure-pilot/results/baseline.json
+```
 
 ## Missing-input checklist
 
@@ -68,7 +80,7 @@ The complete pilot must not run with fewer than eight eligible images. If fewer 
 
 ## Prepared tests and future metrics
 
-Tests cover malformed/unknown manifest fields, duplicate IDs, traversal, missing inputs, hash mismatch, unsupported chart type, ordered/unordered annotation, ambiguous/continuous denominator exclusion, deterministic ordering, one-to-one matching without candidate reuse and aggregate arithmetic. When inputs exist, the report must add per-figure and aggregate TP/FP/FN, precision/recall, exact sets, structural and near-background FNs, deterministic reruns, ΔE76 assignments and thresholds 1/2/5/10, semantic order where observable, and manually reviewed failure taxonomy.
+Tests cover deterministic preparation, factual metadata and explicit empty annotation fields, no-overwrite behavior, unsafe IDs/layouts, symlinks, multiple images, signature mismatch, malformed/unknown manifest fields, duplicate IDs, traversal, missing inputs, hash mismatch, unsupported chart type, ordered/unordered annotation, ambiguous/continuous denominator exclusion, deterministic ordering, one-to-one matching without candidate reuse and aggregate arithmetic. When inputs exist, the report must add per-figure and aggregate TP/FP/FN, precision/recall, exact sets, structural and near-background FNs, deterministic reruns, ΔE76 assignments and thresholds 1/2/5/10, semantic order where observable, and manually reviewed failure taxonomy.
 
 No decision-gate option A–F is selected. Current outcome is **G. Pilot evidence is insufficient; expand or improve annotation first**, specifically because eligible real inputs are absent rather than because extraction failed.
 
@@ -78,6 +90,7 @@ No eligible images, real extraction results, annotation review, chart/format com
 
 ## Verification
 
+- `prepare` command against the empty approved input root — passed and wrote a deterministic zero-fixture draft without running extraction;
 - prepared pilot command — returned `prepared_no_inputs`; ignored preflight JSON contained zero results and zero metrics;
 - `GOCACHE=/tmp/figcolor-realpilot-go-cache go test ./internal/feasibility/imagecolor -count=1` — passed;
 - `GOCACHE=/tmp/figcolor-realpilot-go-cache go test ./internal/feasibility/realpilot -count=1` — passed;
