@@ -65,16 +65,17 @@ async function testSuccessDuplicateProtectionAndMalformedResponse(): Promise<voi
   const pending = deferred<AdminPalette>()
   const state = createCandidatePublicationState()
   let calls = 0
+  let confirmations = 0
   const applied: AdminPalette[] = []
   const controller = createCandidatePublicationController({
     state, paletteID: () => 'candidate-1', eligibility: () => eligibility({ publishing: state.publishing }),
-    confirm: () => true, publish: async () => { calls++; return pending.promise },
+    confirm: () => { confirmations++; return true }, publish: async () => { calls++; return pending.promise },
     reload: async () => palette(), applyCanonical: (value) => { applied.push(value) }
   })
   const first = controller.attempt()
-  await Promise.resolve()
-  const second = await controller.attempt()
-  expect(state.publishing && second === 'duplicate' && calls === 1, 'concurrent triggers must produce one request')
+  const second = controller.attempt()
+  expect(await second === 'duplicate', 'same-tick second trigger must be rejected')
+  expect(confirmations === 1 && calls === 1, 'same-tick triggers must produce one confirmation and one request')
   pending.resolve(palette('published'))
   expect(await first === 'published', 'valid canonical response should publish')
   expect(applied[0]?.status === 'published' && !state.publishing && state.message.length > 0, 'success must apply canonical published state and clear loading')

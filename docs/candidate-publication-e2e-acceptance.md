@@ -16,7 +16,7 @@ The frozen WP6 schemas, JCS/fingerprint behavior, ingestion receipt contract, pu
 
 ## Executable frontend evidence
 
-Candidate publication orchestration is isolated in `CandidatePublication.logic.ts`. Behavior tests execute eligibility, dirty-form rejection, confirmation cancellation, one-request concurrency, canonical response validation, inline 422 issues, 401/403/409 status preservation, lost-response reconciliation, explicit retry, and the final published state. `.vue?raw` tests remain only for component wiring and structure.
+Candidate publication orchestration is isolated in `CandidatePublication.logic.ts`. A controller-local synchronous lock is acquired before the first `await`, so same-tick triggers produce one confirmation and one request. Behavior tests execute eligibility, dirty-form rejection, confirmation cancellation, exact same-tick concurrency, canonical response validation, inline 422 issues, 401/403/409 status preservation, lost-response reconciliation, explicit retry, and the final published state. `.vue?raw` tests remain only for component wiring and structure.
 
 ## PostgreSQL evidence
 
@@ -27,7 +27,7 @@ Candidate publication orchestration is isolated in `CandidatePublication.logic.t
 - Migrations: `001` through `020`, excluding the repository's intentionally absent `012`.
 - Target classification: temporary and isolated; not the development, system/default, staging, or production cluster.
 
-The aggregate harness runs PostgreSQL ingestion repository/service/HTTP tests before publication integration. Publication integration proves Admin filtered discovery, canonical detail data, edit persistence, publication-time validation, same palette ID, authored applicability and preview/receipt linkage preservation, public exclusion before commit, public list/detail visibility after commit, repeat conflict, private exclusion, validation rollback, injected SQL rollback, and one-success/one-conflict concurrency.
+The aggregate harness runs PostgreSQL ingestion repository/service/HTTP tests before publication integration. Publication integration proves service/database-level Admin filtered discovery, canonical detail data, edit persistence, publication-time validation, same palette ID, authored applicability and active primary preview/receipt linkage preservation, public exclusion before commit, public list/detail visibility after commit, repeat conflict, public-owned and private-owned exclusion, validation rollback, injected SQL rollback, and one-success/one-conflict concurrency. These Admin assertions are integration evidence, not browser UI E2E.
 
 The CLI ingestion suite separately executes real source-package scan, prepare, validation, deterministic proposal generation, request/receipt contracts, and submission behavior.
 
@@ -39,7 +39,7 @@ Focused tests prove guard rejection does not reach destructive SQL.
 
 ## Manual browser result
 
-Manual browser acceptance was not run because the available in-app browser runtime could not establish its sandbox session. Local backend/frontend processes and a dedicated browser fixture database were prepared, but no UI interaction or screenshot was claimed as passed.
+Manual browser acceptance was not run because the available in-app browser runtime could not establish its sandbox session. Local backend/frontend processes and a dedicated browser fixture database were prepared, but no UI interaction or screenshot was claimed as passed. Accordingly, this checkpoint is code-level E2E acceptance rather than complete browser UI E2E.
 
 ## Remaining boundaries
 

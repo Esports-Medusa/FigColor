@@ -51,46 +51,54 @@ export function isCanonicalPublication(expectedID: string, palette: AdminPalette
 }
 
 export function createCandidatePublicationController(dependencies: CandidatePublicationDependencies) {
+  let attemptInFlight = false
+
   async function attempt(): Promise<CandidatePublicationOutcome> {
+    if (attemptInFlight) return 'duplicate'
     const eligibility = dependencies.eligibility()
     if (eligibility.publishing || dependencies.state.publishing) return 'duplicate'
     if (!isCandidatePublicationEligible(eligibility)) return 'ineligible'
-    if (!await dependencies.confirm('Publish this candidate to the public catalog?')) return 'cancelled'
-
-    const id = dependencies.paletteID()
-    dependencies.state.publishing = true
-    dependencies.state.message = ''
-    dependencies.state.error = ''
-    dependencies.state.issues = []
-    dependencies.state.errorStatus = null
+    attemptInFlight = true
 
     try {
-      const published = await dependencies.publish(id)
-      if (!isCanonicalPublication(id, published)) {
-        throw new Error('The server returned an invalid publication response.')
-      }
-      dependencies.applyCanonical(published)
-      dependencies.state.message = 'Published to the public catalog.'
-      return 'published'
-    } catch (publicationError) {
-      try {
-        const canonical = await dependencies.reload(id)
-        if (isCanonicalPublication(id, canonical)) {
-          dependencies.applyCanonical(canonical)
-          dependencies.state.message = 'Published to the public catalog.'
-          return 'reconciled-published'
-        }
-      } catch {
-        // The original publication failure remains authoritative when reconciliation fails.
-      }
+      if (!await dependencies.confirm('Publish this candidate to the public catalog?')) return 'cancelled'
 
-      const error = publicationError as { message?: string; status?: number; issues?: ValidationIssue[] }
-      dependencies.state.error = error.message || 'Failed to publish candidate'
-      dependencies.state.errorStatus = typeof error.status === 'number' ? error.status : null
-      dependencies.state.issues = Array.isArray(error.issues) ? error.issues : []
-      return 'failed'
+      const id = dependencies.paletteID()
+      dependencies.state.publishing = true
+      dependencies.state.message = ''
+      dependencies.state.error = ''
+      dependencies.state.issues = []
+      dependencies.state.errorStatus = null
+
+      try {
+        const published = await dependencies.publish(id)
+        if (!isCanonicalPublication(id, published)) {
+          throw new Error('The server returned an invalid publication response.')
+        }
+        dependencies.applyCanonical(published)
+        dependencies.state.message = 'Published to the public catalog.'
+        return 'published'
+      } catch (publicationError) {
+        try {
+          const canonical = await dependencies.reload(id)
+          if (isCanonicalPublication(id, canonical)) {
+            dependencies.applyCanonical(canonical)
+            dependencies.state.message = 'Published to the public catalog.'
+            return 'reconciled-published'
+          }
+        } catch {
+          // The original publication failure remains authoritative when reconciliation fails.
+        }
+
+        const error = publicationError as { message?: string; status?: number; issues?: ValidationIssue[] }
+        dependencies.state.error = error.message || 'Failed to publish candidate'
+        dependencies.state.errorStatus = typeof error.status === 'number' ? error.status : null
+        dependencies.state.issues = Array.isArray(error.issues) ? error.issues : []
+        return 'failed'
+      }
     } finally {
       dependencies.state.publishing = false
+      attemptInFlight = false
     }
   }
 

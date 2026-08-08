@@ -30,12 +30,25 @@ func TestCandidatePublicationPostgres(t *testing.T) {
 	service := NewService(NewRepository())
 	validID := insertPublicationCandidate(t, db, "valid", "candidate", "public", nil)
 	t.Logf("candidate palette id: %s", validID)
-	var previewID string
-	if err := db.QueryRow(`INSERT INTO palette_preview_cases
-		(palette_id,chart_type,template_id,color_roles,preview_config,status)
-		VALUES($1,'bar_error','publication-archived','{}','{}','archived') RETURNING id`, validID).Scan(&previewID); err != nil {
+	previewCandidate := validPreviewCaseCandidate()
+	preview, err := service.CreatePreviewCase(validID, &CreatePreviewCaseRequest{
+		ChartType: previewCandidate.ChartType, TemplateID: previewCandidate.TemplateID,
+		TemplateVersion: previewCandidate.TemplateVersion, SchemaVersion: previewCandidate.SchemaVersion,
+		ColorRoles: previewCandidate.ColorRoles, PreviewConfig: previewCandidate.PreviewConfig,
+		SeedStrategy: previewCandidate.SeedStrategy, SeedValue: previewCandidate.SeedValue,
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
+	preview, err = service.PublishPreviewCase(preview.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview, err = service.SetPrimaryPreviewCase(preview.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previewID := preview.ID
 	insertPublicationIngestion(t, db, validID, `[{"severity":"warning","code":"ADVISORY","message":"reviewed"}]`)
 	adminCandidates, adminTotal, err := service.List(ListParams{Status: "candidate", Search: "Publication valid", Page: 1, PageSize: 1})
 	if err != nil || adminTotal != 1 || len(adminCandidates) != 1 || adminCandidates[0].ID != validID {
@@ -75,7 +88,7 @@ func TestCandidatePublicationPostgres(t *testing.T) {
 	if got, total, err := service.ListPublic(ListParams{Page: 1, PageSize: 20}); err != nil || total != 1 || len(got) != 1 || got[0].ID != validID {
 		t.Fatalf("public list mismatch: total=%d count=%d err=%v", total, len(got), err)
 	}
-	if got, err := service.GetPublicBySlug("publication-valid"); err != nil || got == nil || got.ID != validID {
+	if got, err := service.GetPublicBySlug("publication-valid"); err != nil || got == nil || got.ID != validID || got.PrimaryPreviewCase == nil || got.PrimaryPreviewCase.ID != previewID {
 		t.Fatalf("public detail mismatch: got=%v err=%v", got, err)
 	}
 	var linkedPaletteID, receiptPaletteID string
@@ -109,9 +122,13 @@ func TestCandidatePublicationPostgres(t *testing.T) {
 	if err := db.QueryRow(`SELECT id FROM users ORDER BY created_at LIMIT 1`).Scan(&privateOwner); err != nil {
 		t.Fatal(err)
 	}
-	privateID := insertPublicationCandidate(t, db, "private", "candidate", "private", &privateOwner)
+	ownedPublicID := insertPublicationCandidate(t, db, "owned-public", "candidate", "public", &privateOwner)
+	if _, err := service.Publish(ownedPublicID); !errors.Is(err, ErrPaletteNotAdminManageable) {
+		t.Fatalf("public user-owned publication err=%v", err)
+	}
+	privateID := insertPublicationCandidate(t, db, "private-owned", "candidate", "private", &privateOwner)
 	if _, err := service.Publish(privateID); !errors.Is(err, ErrPaletteNotAdminManageable) {
-		t.Fatalf("private publication err=%v", err)
+		t.Fatalf("private user-owned publication err=%v", err)
 	}
 
 	concurrentID := insertPublicationCandidate(t, db, "concurrent", "candidate", "public", nil)
@@ -164,7 +181,7 @@ func insertPublicationCandidate(t *testing.T, db *sql.DB, suffix, status, visibi
 		(slug,name,colors,color_count,type,chart_applicability,status,visibility,origin,owner_user_id)
 		VALUES($1,$2,$3,2,'categorical','[{"chart_type":"bar_error","suitability":"recommended"}]',$4,$5,'curated',$6) RETURNING id`,
 		"publication-"+suffix, "Publication "+suffix,
-		`[{"id":"c1","hex":"#112233","rgb":[17,34,51],"order":0},{"id":"c2","hex":"#445566","rgb":[68,85,102],"order":1}]`,
+		`[{"id":"color-1","hex":"#112233","rgb":[17,34,51],"order":0},{"id":"color-2","hex":"#445566","rgb":[68,85,102],"order":1}]`,
 		status, visibility, owner).Scan(&id)
 	if err != nil {
 		t.Fatal(err)
