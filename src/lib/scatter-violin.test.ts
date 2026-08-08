@@ -1,5 +1,9 @@
 import { getChartTemplateDefinition } from '@/lib/chart-types/registry'
+import { getPhase1ChartTypesForLegacyKey } from '@/lib/palette/schema'
+import { normalizeLegacyChartTypesToApplicability, SUPPORTED_PREVIEW_CHART_TYPES } from '@/lib/palette/applicability'
 import { renderPalettePreview } from '@/lib/renderers'
+import { normalizePalette } from '@/lib/palette'
+import scatterViolinSeedSource from '../../backend/dev/seed_scatter_violin_preview_palettes.sql?raw'
 import type { CanonicalPalette, PalettePreviewCase } from '@/types/palette'
 
 function expect(condition: boolean, message: string): void {
@@ -92,6 +96,11 @@ function violin(groupCount = 3, overrides: Partial<PalettePreviewCase> = {}): Pa
 function testRegistrationAndCompatibility(): void {
   expect(getChartTemplateDefinition('scatter_grouped', 'scatter_grouped_v1')?.id === 'scatter_grouped_v1', 'scatter should be registered')
   expect(getChartTemplateDefinition('violin_distribution', 'violin_distribution_v1')?.id === 'violin_distribution_v1', 'violin should be registered')
+  expect(SUPPORTED_PREVIEW_CHART_TYPES.includes('scatter_grouped'), 'scatter should be supported for applicability')
+  expect(SUPPORTED_PREVIEW_CHART_TYPES.includes('violin_distribution'), 'violin should be supported for applicability')
+  expect(getPhase1ChartTypesForLegacyKey('scatter')[0] === 'scatter_grouped', 'legacy scatter should map to scatter_grouped')
+  expect(getPhase1ChartTypesForLegacyKey('violin')[0] === 'violin_distribution', 'legacy violin should map to violin_distribution')
+  expect(normalizeLegacyChartTypesToApplicability(['scatter', 'violin']).map((item) => item.chart_type).join(',') === 'scatter_grouped,violin_distribution,boxplot_jitter', 'legacy applicability should add new canonical types while preserving violin compatibility')
 }
 
 function testRenderingAndDeterminism(): void {
@@ -153,6 +162,26 @@ function testFailures(): void {
   expect(!emptyResult.ok && emptyResult.code === 'PREVIEW_CASE_INVALID', 'empty scatter groups should fail validation')
 }
 
+function testPublicApiNormalizationAcceptsNewPreviewTypes(): void {
+  for (const previewCase of [
+    scatter(3, { status: 'published', is_primary: true }),
+    violin(3, { status: 'published', is_primary: true })
+  ]) {
+    const normalized = normalizePalette({
+      ...palette,
+      primary_preview_case: previewCase,
+      preview_cases: [previewCase]
+    })
+    expect(normalized.primary_preview_case?.chart_type === previewCase.chart_type, `${previewCase.chart_type} should survive public API normalization`)
+    expect(normalized.preview_cases[0]?.chart_type === previewCase.chart_type, `${previewCase.chart_type} should normalize in preview_cases`)
+  }
+}
+
+function testSeedMapsAllFivePaletteColorsToDataGroups(): void {
+  expect(scatterViolinSeedSource.includes('5 AS group_count'), 'scatter/violin dev seed should create five resolved data roles')
+  expect(scatterViolinSeedSource.includes("palette_rows.slug || '-color-' || group_index"), 'each seeded group should map its corresponding palette color')
+}
+
 function countOccurrences(value: string, needle: string): number {
   return value.split(needle).length - 1
 }
@@ -172,3 +201,5 @@ testRegistrationAndCompatibility()
 testRenderingAndDeterminism()
 testVariableGroupsAndColors()
 testFailures()
+testPublicApiNormalizationAcceptsNewPreviewTypes()
+testSeedMapsAllFivePaletteColorsToDataGroups()

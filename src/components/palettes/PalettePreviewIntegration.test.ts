@@ -1,6 +1,9 @@
 import paletteCard from '@/components/PaletteCard.vue?raw'
 import paletteDetailView from '@/views/PaletteDetailView.vue?raw'
+import favoritesView from '@/views/FavoritesView.vue?raw'
 import palettesView from '@/views/PalettesView.vue?raw'
+import adminPaletteForm from '@/views/admin/palettes/AdminPaletteForm.vue?raw'
+import paginationControls from '@/components/common/PaginationControls.vue?raw'
 import paletteChartPreview from './PaletteChartPreview.vue?raw'
 import paletteChartPreviewLogic from './PaletteChartPreview.logic.ts?raw'
 
@@ -16,7 +19,7 @@ function testPaletteCardUsesSharedPreviewAndPreservesStructure(): void {
     'PaletteCard should render the shared preview component with the loaded palette'
   )
   expect(
-    paletteCard.includes('<router-link :to="`/palettes/${palette.slug}`" class="palette-card">'),
+    paletteCard.includes("name: 'palette-detail'") && paletteCard.includes('params: { slug: palette.slug }'),
     'PaletteCard should preserve router-link navigation structure'
   )
   expect(
@@ -29,6 +32,20 @@ function testPaletteDetailUsesHeroSharedPreview(): void {
   expect(
     paletteDetailView.includes('<PaletteChartPreview :palette="palette" size="hero" />'),
     'PaletteDetailView should render the same preview component with hero size'
+  )
+}
+
+function testAdminPaletteFormUsesBrowsePreviewSystem(): void {
+  expect(
+    adminPaletteForm.includes('<PaletteChartPreview') &&
+      adminPaletteForm.includes(':palette="canonicalPaletteForPreview"') &&
+      adminPaletteForm.includes('<PalettePreview :colors="canonicalPaletteForPreview.colors" size="sm" />'),
+    'Admin palette editing should reuse the Browse chart preview and palette strip'
+  )
+  expect(
+    adminPaletteForm.includes('primary_preview_case: previewCases.value.find((previewCase) => previewCase.is_primary) ?? null') &&
+      adminPaletteForm.includes('preview_cases: previewCases.value'),
+    'Admin palette editing should supply loaded preview cases to the shared preview system'
   )
 }
 
@@ -64,7 +81,8 @@ function testPreviewAccessibilityTemplateWiring(): void {
     'PaletteChartPreview should expose public fallback accessible labels'
   )
   expect(
-    paletteChartPreview.includes('<div v-else class="fallback-frame" aria-hidden="true">'),
+    paletteChartPreview.includes('class="fallback-frame" aria-hidden="true"') &&
+      paletteChartPreview.includes('class="placeholder-frame" aria-hidden="true"'),
     'PaletteChartPreview decorative fallback swatches should remain hidden from assistive tech'
   )
 }
@@ -80,8 +98,14 @@ function testBrowseUsesLoadedPreviewPayloadsWithoutPerCardFetch(): void {
   )
   expect(!palettesView.includes('fetch('), 'Browse should not introduce per-card preview fetches')
   expect(
-    palettesView.includes('await loadPalettes()'),
-    'Browse should continue using the existing palette list load path'
+    palettesView.includes('loadPalettePage') &&
+      palettesView.includes('<PaginationControls') &&
+      paginationControls.includes('of {{ totalPages }}'),
+    'Browse should use paged palette loading with pagination metadata'
+  )
+  expect(
+    palettesView.includes('v-if="loadError"') && palettesView.includes('Could not load palettes.'),
+    'Browse should distinguish load failures from empty successful results'
   )
 }
 
@@ -100,9 +124,20 @@ function testBrowseLoadingSkeletonStability(): void {
   )
 }
 
+function testFavoritesUsesSharedPagination(): void {
+  expect(
+    favoritesView.includes('<PaginationControls') &&
+      favoritesView.includes('paginatedFavoritePalettes') &&
+      favoritesView.includes('Showing {{ paginationStart }}-{{ paginationEnd }}'),
+    'Favorites should page favorite palettes with the shared pagination controls'
+  )
+}
+
 testPaletteCardUsesSharedPreviewAndPreservesStructure()
 testPaletteDetailUsesHeroSharedPreview()
+testAdminPaletteFormUsesBrowsePreviewSystem()
 testPreviewComponentHasNoChartSpecificDispatch()
 testPreviewAccessibilityTemplateWiring()
 testBrowseUsesLoadedPreviewPayloadsWithoutPerCardFetch()
 testBrowseLoadingSkeletonStability()
+testFavoritesUsesSharedPagination()

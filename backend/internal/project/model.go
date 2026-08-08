@@ -2,16 +2,18 @@ package project
 
 import (
 	"time"
+
+	palettepkg "github.com/qiqi/figcolor/backend/internal/palette"
 )
 
 type PaperProject struct {
-	ID              string     `json:"id"`
-	UserID          *string    `json:"userId,omitempty"`
-	Name            string     `json:"name"`
-	Description     *string    `json:"description,omitempty"`
+	ID               string    `json:"id"`
+	UserID           *string   `json:"userId,omitempty"`
+	Name             string    `json:"name"`
+	Description      *string   `json:"description,omitempty"`
 	DefaultPaletteID *string   `json:"defaultPaletteId,omitempty"`
-	CreatedAt       time.Time  `json:"createdAt"`
-	UpdatedAt       time.Time  `json:"updatedAt"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 type CreateProjectRequest struct {
@@ -25,20 +27,29 @@ type UpdateProjectRequest struct {
 }
 
 type ProjectDetailResponse struct {
-	Project  *PaperProject     `json:"project"`
-	Palettes []ProjectPalette  `json:"palettes"`
+	Project  *PaperProject      `json:"project"`
+	Palettes []ProjectPalette   `json:"palettes"`
 	Figures  []FigureAssignment `json:"figures"`
 }
 
 type ProjectPalette struct {
-	ID            string       `json:"id"`
-	ProjectID     string       `json:"projectId"`
-	Name          string       `json:"name"`
-	BasePaletteID *string      `json:"basePaletteId,omitempty"`
-	IsDefault     bool         `json:"isDefault"`
-	Roles         []PaletteRole `json:"roles"`
-	CreatedAt     time.Time    `json:"createdAt"`
-	UpdatedAt     time.Time    `json:"updatedAt"`
+	ID             string                 `json:"id"`
+	ProjectID      string                 `json:"projectId"`
+	Name           string                 `json:"name"`
+	BasePaletteID  *string                `json:"basePaletteId,omitempty"`
+	IsDefault      bool                   `json:"isDefault"`
+	Roles          []PaletteRole          `json:"roles"`
+	PreviewPalette *ProjectPalettePreview `json:"previewPalette,omitempty"`
+	CreatedAt      time.Time              `json:"createdAt"`
+	UpdatedAt      time.Time              `json:"updatedAt"`
+}
+
+// ProjectPalettePreview carries the base palette identity and its published
+// primary preview through the authenticated project response. It deliberately
+// does not expose draft or secondary preview cases.
+type ProjectPalettePreview struct {
+	palettepkg.Palette
+	PrimaryPreviewCase *palettepkg.PublicPalettePreviewCase `json:"primary_preview_case"`
 }
 
 type PaletteRole struct {
@@ -57,18 +68,23 @@ type UpdateRoleColorRequest struct {
 	Color string `json:"color" binding:"required"`
 }
 
+type CreateProjectPaletteRequest struct {
+	BasePaletteID *string `json:"basePaletteId,omitempty"`
+	Name          *string `json:"name,omitempty"`
+}
+
 // FigureAssignment represents a figure in a project
 type FigureAssignment struct {
-	ID              string    `json:"id"`
-	ProjectID       string    `json:"projectId"`
-	PaletteID       string    `json:"paletteId"`
-	Name            string    `json:"name"`
-	Panel           *string   `json:"panel,omitempty"`
-	ChartType       string    `json:"chartType"`
-	SelectedRoleKeys []string `json:"selectedRoleKeys"`
-	Notes           *string   `json:"notes,omitempty"`
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
+	ID               string    `json:"id"`
+	ProjectID        string    `json:"projectId"`
+	PaletteID        string    `json:"paletteId"`
+	Name             string    `json:"name"`
+	Panel            *string   `json:"panel,omitempty"`
+	ChartType        string    `json:"chartType"`
+	SelectedRoleKeys []string  `json:"selectedRoleKeys"`
+	Notes            *string   `json:"notes,omitempty"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 // FigureSelectedRole represents a selected role for a figure
@@ -81,20 +97,20 @@ type FigureSelectedRole struct {
 
 // CreateFigureRequest is the request body for creating a figure
 type CreateFigureRequest struct {
-	Name            string   `json:"name" binding:"required"`
-	Panel           *string  `json:"panel,omitempty"`
-	ChartType       string   `json:"chartType" binding:"required"`
-	PaletteID       string   `json:"paletteId" binding:"required"`
+	Name             string   `json:"name" binding:"required"`
+	Panel            *string  `json:"panel,omitempty"`
+	ChartType        string   `json:"chartType" binding:"required"`
+	PaletteID        string   `json:"paletteId" binding:"required"`
 	SelectedRoleKeys []string `json:"selectedRoleKeys"`
-	Notes           *string  `json:"notes,omitempty"`
+	Notes            *string  `json:"notes,omitempty"`
 }
 
 // UpdateFigureRequest is the request body for updating a figure
 type UpdateFigureRequest struct {
-	Name            *string  `json:"name,omitempty"`
-	Panel           *string  `json:"panel,omitempty"`
-	ChartType       *string  `json:"chartType,omitempty"`
-	PaletteID       *string  `json:"paletteId,omitempty"`
+	Name             *string  `json:"name,omitempty"`
+	Panel            *string  `json:"panel,omitempty"`
+	ChartType        *string  `json:"chartType,omitempty"`
+	PaletteID        *string  `json:"paletteId,omitempty"`
 	SelectedRoleKeys []string `json:"selectedRoleKeys,omitempty"`
-	Notes           *string  `json:"notes,omitempty"`
+	Notes            *string  `json:"notes,omitempty"`
 }

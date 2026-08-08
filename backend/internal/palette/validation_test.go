@@ -372,3 +372,24 @@ func TestApplyCreateApplicabilityRulesRejectsConflictingChartTypes(t *testing.T)
 		t.Fatalf("issue code = %s, want CHART_TYPES_CONFLICT", validationErr.Issues[0].Code)
 	}
 }
+
+func TestChartTypeFilterConditionUsesApplicabilityBeforeLegacyChartTypes(t *testing.T) {
+	condition, nextArgIndex := chartTypeFilterCondition(3, 2)
+	if nextArgIndex != 7 {
+		t.Fatalf("next arg index = %d, want 7", nextArgIndex)
+	}
+	if condition != "((chart_applicability IS NULL AND ($3 = ANY(chart_types) OR $4 = ANY(chart_types))) OR (chart_applicability IS NOT NULL AND (chart_applicability @> $5::jsonb OR chart_applicability @> $6::jsonb)))" {
+		t.Fatalf("condition = %q", condition)
+	}
+	if got := chartApplicabilityContainsValue("bar_error"); got != `[{"chart_type":"bar_error"}]` {
+		t.Fatalf("contains JSON = %s, want chart_type-only containment JSON", got)
+	}
+	targets := chartTypeFilterTargets("line")
+	if len(targets) != 2 || targets[0] != "line" || targets[1] != "line_multiseries" {
+		t.Fatalf("line targets = %#v, want broad and Phase 1 target", targets)
+	}
+	canonicalTargets := chartTypeFilterTargets("heatmap_annotated")
+	if len(canonicalTargets) != 1 || canonicalTargets[0] != "heatmap_annotated" {
+		t.Fatalf("canonical heatmap targets = %#v, want exact Phase 1 target", canonicalTargets)
+	}
+}

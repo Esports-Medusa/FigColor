@@ -1,8 +1,20 @@
 <template>
   <div class="palette-detail-view">
+    <div v-if="isLoading && !palette" class="loading-state" aria-live="polite">
+      Loading palette...
+    </div>
+
+    <div v-if="apiError" class="error-state" role="alert">
+      {{ apiError }}
+    </div>
+
+    <div v-if="cachedDataWarning" class="warning-state" role="status">
+      {{ cachedDataWarning }}
+    </div>
+
     <div v-if="palette" class="palette-detail">
       <!-- Back Link -->
-      <router-link to="/palettes" class="back-link">
+      <router-link :to="{ name: 'palettes', query: route.query }" class="back-link">
         ← Back to Palettes
       </router-link>
 
@@ -121,24 +133,25 @@
       </section>
     </div>
 
-    <div v-else class="not-found">
+    <div v-else-if="!isLoading && !apiError" class="not-found">
       <h1>Palette Not Found</h1>
       <p>The palette you're looking for doesn't exist.</p>
-      <router-link to="/palettes" class="btn btn-primary">Back to Palettes</router-link>
+      <router-link :to="{ name: 'palettes', query: route.query }" class="btn btn-primary">Back to Palettes</router-link>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getPaletteBySlug } from '@/lib/palette'
+import { getPaletteBySlug, loadPaletteBySlug } from '@/lib/palette'
 import {
   resolvePaletteExportModel,
   toCssCustomProperties,
   toExportHexArray,
   toExportRgbTuples,
   toGgplotFillScale,
+  toJsonExport,
   toMatplotlibSnippet,
   toPythonList,
   toSeabornSnippet,
@@ -154,10 +167,10 @@ const route = useRoute()
 const router = useRouter()
 const { addFavorite, removeFavorite, loadFavorites, favoritePaletteIds } = useFavorites()
 
-const palette = computed(() => {
-  const slug = route.params.slug as string
-  return getPaletteBySlug(slug)
-})
+const palette = ref(getPaletteBySlug(route.params.slug as string) ?? null)
+const isLoading = ref(false)
+const apiError = ref('')
+const cachedDataWarning = ref('')
 
 const favoriteStatus = computed(() => {
   return palette.value ? favoritePaletteIds.value.includes(palette.value.id) : false
@@ -179,6 +192,29 @@ async function toggleFavorite() {
 onMounted(() => {
   loadFavorites()
 })
+
+watch(
+  () => route.params.slug as string,
+  async (slug) => {
+    palette.value = getPaletteBySlug(slug) ?? null
+    isLoading.value = true
+    apiError.value = ''
+    cachedDataWarning.value = ''
+    try {
+      palette.value = await loadPaletteBySlug(slug)
+    } catch (error) {
+      if (palette.value) {
+        cachedDataWarning.value = 'Showing cached palette data. Latest details could not be loaded.'
+      } else {
+        apiError.value = 'Unable to load this palette right now.'
+        console.error('[Palette Detail] failed to fetch palette from API:', error)
+      }
+    } finally {
+      isLoading.value = false
+    }
+  },
+  { immediate: true }
+)
 
 // Palette summary text
 const paletteSummary = computed(() => {
@@ -212,6 +248,7 @@ const codeTabsItems = computed(() => [
   { label: 'Seaborn', code: exportModel.value ? toSeabornSnippet(exportModel.value) : '' },
   { label: 'R', code: exportModel.value ? toRNamedVector(exportModel.value) : '' },
   { label: 'ggplot2', code: exportModel.value ? toGgplotFillScale(exportModel.value) : '' },
+  { label: 'JSON', code: exportModel.value ? toJsonExport(exportModel.value) : '' },
   { label: 'CSS', code: exportModel.value ? toCssCustomProperties(exportModel.value) : '' }
 ])
 
@@ -248,6 +285,32 @@ const dateFooter = computed(() => {
   padding: 2rem 0;
   max-width: 1040px;
   margin: 0 auto;
+}
+
+.loading-state,
+.error-state,
+.warning-state,
+.not-found {
+  padding: 2rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.loading-state {
+  color: #64748b;
+}
+
+.error-state {
+  margin-bottom: 1rem;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.warning-state {
+  margin-bottom: 1rem;
+  color: #92400e;
+  background: #fffbeb;
 }
 
 .back-link {

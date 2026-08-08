@@ -9,14 +9,14 @@
         :value="searchQuery"
         @input="$emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
       />
-      <button class="toggle-btn" @click="isExpanded = !isExpanded">
-        {{ isExpanded ? 'Collapse' : 'Expand Filters' }}
-        <span class="toggle-icon">{{ isExpanded ? '▲' : '▼' }}</span>
+      <button class="toggle-btn" @click="$emit('update:expanded', !expanded)">
+        {{ expanded ? 'Collapse' : 'Expand Filters' }}
+        <span class="toggle-icon">{{ expanded ? '▲' : '▼' }}</span>
       </button>
     </div>
 
     <!-- Filter Groups (collapsible) -->
-    <div v-show="isExpanded" class="filter-groups">
+    <div v-show="expanded" class="filter-groups">
       <!-- Journal Style -->
       <div class="filter-group">
         <span class="filter-label">Journal Style</span>
@@ -117,7 +117,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { 
   JOURNAL_STYLES, 
   CHART_TYPES, 
@@ -134,6 +133,7 @@ defineProps<{
   selectedUseCase: string
   selectedDiscipline: string
   selectedTag: string
+  expanded: boolean
 }>()
 
 defineEmits<{
@@ -144,9 +144,8 @@ defineEmits<{
   'update:selectedUseCase': [value: string]
   'update:selectedDiscipline': [value: string]
   'update:selectedTag': [value: string]
+  'update:expanded': [value: boolean]
 }>()
-
-const isExpanded = ref(false)
 
 const journalStyleOptions = ['All', ...JOURNAL_STYLES]
 const chartTypeOptions = ['All', ...CHART_TYPES]

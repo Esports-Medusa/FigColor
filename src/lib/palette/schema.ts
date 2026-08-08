@@ -79,6 +79,10 @@ export interface CanonicalPalette {
   slug: string
   name: string
   description?: string
+  owner_user_id?: string
+  visibility?: 'public' | 'private'
+  origin?: 'curated' | 'custom' | 'fork'
+  source_palette_id?: string
   status: PaletteStatus
   colors: PaletteColor[]
   color_count: number
@@ -158,6 +162,10 @@ export interface RawPaletteDTO extends LegacyPreviewFields {
   slug?: string
   name?: string
   description?: string
+  owner_user_id?: string
+  visibility?: string
+  origin?: string
+  source_palette_id?: string
   status?: string
   colors?: unknown
   color_count?: number
@@ -271,7 +279,7 @@ export interface PalettePreviewCase {
 }
 
 export function getLegacyChartType(palette: CanonicalPalette): string[] {
-  return [...palette.chart_types]
+  return getResolvedCompatibilityChartTypes(palette)
 }
 
 export function getLegacyDiscipline(palette: CanonicalPalette): string[] {
@@ -294,6 +302,45 @@ export function toLegacyPaletteCompatibility(palette: CanonicalPalette): Palette
     use_case: getLegacyUseCase(palette),
     avoid_case: getLegacyAvoidCase(palette)
   }
+}
+
+const LEGACY_CHART_TYPE_TO_PHASE_1: Record<string, ChartType[]> = {
+  bar: ['bar_error'],
+  barplot: ['bar_error'],
+  boxplot: ['boxplot_jitter'],
+  violin: ['violin_distribution', 'boxplot_jitter'],
+  scatter: ['scatter_grouped'],
+  line: ['line_multiseries'],
+  heatmap: ['heatmap_annotated']
+}
+
+export function getResolvedCompatibilityChartTypes(
+  palette: Pick<CanonicalPalette, 'chart_applicability' | 'chart_types'>
+): string[] {
+  if (palette.chart_applicability !== undefined) {
+    return palette.chart_applicability.map((item) => item.chart_type)
+  }
+
+  const result: ChartType[] = []
+  const seen = new Set<ChartType>()
+  for (const chartType of palette.chart_types) {
+    const mapped = LEGACY_CHART_TYPE_TO_PHASE_1[normalizeChartTypeKey(chartType)] ?? []
+    for (const phase1Type of mapped) {
+      if (!seen.has(phase1Type)) {
+        result.push(phase1Type)
+        seen.add(phase1Type)
+      }
+    }
+  }
+  return result.length > 0 ? result : [...palette.chart_types]
+}
+
+export function getPhase1ChartTypesForLegacyKey(chartType: string): ChartType[] {
+  return LEGACY_CHART_TYPE_TO_PHASE_1[normalizeChartTypeKey(chartType)] ?? []
+}
+
+function normalizeChartTypeKey(value: string): string {
+  return value.toLowerCase().replace(/[-\s]/g, '_').trim()
 }
 
 // ---------------------------------------------------------------------------

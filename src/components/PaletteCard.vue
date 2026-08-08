@@ -1,6 +1,9 @@
 <template>
   <div class="palette-card-wrapper">
-    <router-link :to="`/palettes/${palette.slug}`" class="palette-card">
+    <router-link
+      :to="{ name: 'palette-detail', params: { slug: palette.slug }, query: detailQuery }"
+      class="palette-card"
+    >
       <h3 class="palette-name">{{ palette.name }}</h3>
       <div class="chart-preview-wrapper">
         <PaletteChartPreview :palette="palette" size="card" />
@@ -34,6 +37,7 @@
 
 <script setup lang="ts">
 import type { CanonicalPalette, Palette } from '@/types/palette'
+import type { LocationQueryRaw } from 'vue-router'
 import PalettePreview from './PalettePreview.vue'
 import PaletteChartPreview from './palettes/PaletteChartPreview.vue'
 
@@ -42,6 +46,7 @@ type PaletteCardPalette = CanonicalPalette & Pick<Palette, 'chart_type'>
 interface Props {
   palette: PaletteCardPalette
   isFavorited?: boolean
+  detailQuery?: LocationQueryRaw
 }
 
 interface Emits {

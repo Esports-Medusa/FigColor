@@ -7,7 +7,7 @@
     :aria-label="previewAccessibleLabel || undefined"
   >
     <div v-if="svgMarkup" class="svg-frame" v-html="svgMarkup"></div>
-    <div v-else class="fallback-frame" aria-hidden="true">
+    <div v-else-if="fallbackColors.length > 0" class="fallback-frame" aria-hidden="true">
       <div class="fallback-plot">
         <span
           v-for="(color, index) in fallbackColors"
@@ -24,6 +24,9 @@
         ></span>
       </div>
     </div>
+    <div v-else class="placeholder-frame" aria-hidden="true">
+      <span></span>
+    </div>
   </div>
 </template>
 
@@ -39,15 +42,17 @@ interface Props {
   palette: CanonicalPalette
   previewCase?: PalettePreviewCase | null
   size?: 'card' | 'hero'
+  publicOnly?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   previewCase: undefined,
-  size: 'card'
+  size: 'card',
+  publicOnly: true
 })
 
 const selectedPreviewCase = computed(() =>
-  selectPalettePreviewCase(props.palette, props.previewCase, props.previewCase !== undefined)
+  selectPalettePreviewCase(props.palette, props.previewCase, props.previewCase !== undefined, props.publicOnly)
 )
 
 const previewModel = computed(() =>
@@ -160,5 +165,20 @@ const previewAccessibleLabel = computed(() => previewModel.value.accessibleLabel
 
 .size-hero .fallback-plot {
   gap: 0.75rem;
+}
+
+.placeholder-frame {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  background: #f8fafc;
+}
+
+.placeholder-frame span {
+  width: min(46%, 10rem);
+  height: 0.75rem;
+  border-radius: 999px;
+  background: #e5e7eb;
 }
 </style>

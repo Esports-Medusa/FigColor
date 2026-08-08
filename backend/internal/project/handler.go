@@ -16,7 +16,7 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(router *gin.RouterGroup, jwtSecret string, authMiddleware gin.HandlerFunc) {
-	// Public routes (no auth for browsing)
+	// Legacy public routes only expose projects without an owner.
 	router.GET("/projects", h.GetProjects)
 	router.GET("/projects/:projectId", h.GetProjectDetail)
 
@@ -29,6 +29,7 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, jwtSecret string, auth
 		me.GET("/projects/:projectId", h.GetMyProjectDetail)
 		me.PATCH("/projects/:projectId", h.UpdateProject)
 		me.DELETE("/projects/:projectId", h.DeleteProject)
+		me.POST("/projects/:projectId/palettes", h.CreateProjectPalette)
 		me.PATCH("/projects/:projectId/palettes/:paletteId/roles/:roleId", h.UpdateRoleColor)
 		me.GET("/projects/:projectId/figures", h.GetFigures)
 		me.POST("/projects/:projectId/figures", h.CreateFigure)
@@ -119,17 +120,13 @@ func (h *Handler) CreateProject(c *gin.Context) {
 func (h *Handler) GetProjectDetail(c *gin.Context) {
 	projectID := c.Param("projectId")
 
-	detail, err := h.service.GetProjectDetail(projectID, "")
+	detail, err := h.service.GetPublicProjectDetail(projectID)
 	if err != nil {
 		if err.Error() == "project not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if detail == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
 		return
 	}
 	c.JSON(http.StatusOK, detail)
@@ -264,7 +261,8 @@ func (h *Handler) UpdateRoleColor(c *gin.Context) {
 		return
 	}
 
-	err = h.service.UpdateRoleColor(roleID, req.Color)
+	paletteID := c.Param("paletteId")
+	err = h.service.UpdateRoleColor(projectID, paletteID, roleID, req.Color)
 	if err != nil {
 		if err.Error() == "role not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "role not found"})
@@ -317,6 +315,35 @@ func (h *Handler) GetFigures(c *gin.Context) {
 	c.JSON(http.StatusOK, figures)
 }
 
+// CreateProjectPalette godoc
+// @Summary Add a base palette to a project (auth required)
+func (h *Handler) CreateProjectPalette(c *gin.Context) {
+	userID := authctx.GetUserID(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+		return
+	}
+
+	projectID := c.Param("projectId")
+	if _, err := h.service.GetProjectByID(projectID, userID); err != nil {
+		c.JSON(statusFromProjectError(err), gin.H{"error": err.Error()})
+		return
+	}
+
+	var req CreateProjectPaletteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	palette, err := h.service.CreateProjectPalette(projectID, userID, req)
+	if err != nil {
+		c.JSON(statusFromProjectError(err), gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, palette)
+}
+
 // CreateFigure godoc
 // @Summary Create a new figure (auth required)
 func (h *Handler) CreateFigure(c *gin.Context) {
@@ -331,15 +358,7 @@ func (h *Handler) CreateFigure(c *gin.Context) {
 	// Check project ownership
 	_, err := h.service.GetProjectByID(projectID, userID)
 	if err != nil {
-		if err.Error() == "project not found" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "project not found"})
-			return
-		}
-		if err.Error() == "access denied" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(statusFromProjectError(err), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -351,11 +370,7 @@ func (h *Handler) CreateFigure(c *gin.Context) {
 
 	figure, err := h.service.CreateFigure(projectID, req)
 	if err != nil {
-		if err.Error() == "project not found" || err.Error() == "palette not found" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(statusFromProjectError(err), gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, figure)
@@ -394,7 +409,7 @@ func (h *Handler) UpdateFigure(c *gin.Context) {
 		return
 	}
 
-	err = h.service.UpdateFigure(figureID, req)
+	err = h.service.UpdateFigure(projectID, figureID, req)
 	if err != nil {
 		if err.Error() == "figure not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "figure not found"})
@@ -433,7 +448,7 @@ func (h *Handler) DeleteFigure(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteFigure(figureID)
+	err = h.service.DeleteFigure(projectID, figureID)
 	if err != nil {
 		if err.Error() == "figure not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "figure not found"})

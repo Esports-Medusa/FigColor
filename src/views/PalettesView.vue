@@ -10,6 +10,7 @@
       v-model:selectedUseCase="selectedUseCase"
       v-model:selectedDiscipline="selectedDiscipline"
       v-model:selectedTag="selectedTag"
+      v-model:expanded="filtersExpanded"
     />
 
     <div v-if="isLoading" class="loading-state" aria-label="Loading palettes">
@@ -37,107 +38,78 @@
 
     <div v-else>
       <div class="results-info">
-        <span class="results-count">Showing {{ filteredPalettes.length }} palettes</span>
+        <span class="results-count">
+          Showing {{ paginationStart }}-{{ paginationEnd }} of {{ totalPalettes }} palettes
+        </span>
       </div>
 
-      <div v-if="filteredPalettes.length > 0" class="palettes-grid">
+      <div v-if="loadError" class="error-state">
+        <p>Could not load palettes.</p>
+        <button class="retry-btn" :disabled="isPageLoading" @click="loadCurrentPage">Retry</button>
+      </div>
+
+      <div v-else-if="palettes.length > 0" class="palettes-grid">
         <PaletteCard
-          v-for="palette in filteredPalettes"
+          v-for="palette in palettes"
           :key="palette.id"
           :palette="palette"
           :is-favorited="isFavorited(palette.id)"
+          :detail-query="route.query"
           @toggle-favorite="handleToggleFavorite"
         />
       </div>
       <div v-else class="empty-state">
         <p>No palettes found. Try another keyword or filter.</p>
       </div>
+
+      <PaginationControls
+        :current-page="currentPage"
+        :total-pages="totalPages"
+        :disabled="isPageLoading"
+        aria-label="Palette pagination"
+        @go="goToPage"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { loadPalettes, getAllPalettes, normalizeText, paletteToSearchText } from '@/lib/palette'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { loadPalettePage } from '@/lib/palette'
 import type { Palette } from '@/types/palette'
 import PaletteCard from '@/components/PaletteCard.vue'
 import PaletteFilterPanel from '@/components/PaletteFilterPanel.vue'
+import PaginationControls from '@/components/common/PaginationControls.vue'
 import { useFavorites } from '@/composables/useFavorites'
+import { createPalettesBrowseQuery, readPalettesBrowseState } from './palettesBrowseState'
 
 const router = useRouter()
+const route = useRoute()
 const { isFavorited, addFavorite, removeFavorite, loadFavorites } = useFavorites()
 
-const searchQuery = ref('')
-const selectedJournalStyle = ref('')
-const selectedChartType = ref('')
-const selectedColorCount = ref<number | ''>('')
-const selectedUseCase = ref('')
-const selectedDiscipline = ref('')
-const selectedTag = ref('')
+const initialBrowseState = readPalettesBrowseState(route.query)
+const searchQuery = ref(initialBrowseState.search)
+const selectedJournalStyle = ref(initialBrowseState.journalStyle)
+const selectedChartType = ref(initialBrowseState.chartType)
+const selectedColorCount = ref<number | ''>(initialBrowseState.colorCount)
+const selectedUseCase = ref(initialBrowseState.useCase)
+const selectedDiscipline = ref(initialBrowseState.discipline)
+const selectedTag = ref(initialBrowseState.tag)
+const filtersExpanded = ref(initialBrowseState.filtersExpanded)
 const isLoading = ref(true)
+const isPageLoading = ref(false)
+const palettes = ref<Palette[]>([])
+const totalPalettes = ref(0)
+const currentPage = ref(initialBrowseState.page)
+const loadError = ref<string | null>(null)
+const pageSize = 20
 const loadingSkeletonCount = 6
+let requestSequence = 0
 
-const filteredPalettes = computed(() => {
-  const allPalettes = getAllPalettes()
-  console.log('[Browse] all palettes count:', allPalettes.length)
-  
-  const filtered = allPalettes.filter((palette) => {
-    // Search filter
-    if (searchQuery.value.trim()) {
-      if (!matchesSearch(palette, searchQuery.value.trim())) {
-        return false
-      }
-    }
-
-    // Journal Style filter
-    if (selectedJournalStyle.value) {
-      if (!palette.journal_style.includes(selectedJournalStyle.value)) {
-        return false
-      }
-    }
-
-    // Chart Type filter
-    if (selectedChartType.value) {
-      if (!palette.chart_type.includes(selectedChartType.value)) {
-        return false
-      }
-    }
-
-    // Color Count filter
-    if (selectedColorCount.value !== '') {
-      if (palette.color_count !== selectedColorCount.value) {
-        return false
-      }
-    }
-
-    // Use Case filter
-    if (selectedUseCase.value) {
-      if (!palette.use_case.includes(selectedUseCase.value)) {
-        return false
-      }
-    }
-
-    // Discipline filter
-    if (selectedDiscipline.value) {
-      if (!palette.discipline.includes(selectedDiscipline.value)) {
-        return false
-      }
-    }
-
-    // Tags filter
-    if (selectedTag.value) {
-      if (!palette.tags.includes(selectedTag.value)) {
-        return false
-      }
-    }
-
-    return true
-  })
-
-  console.log('[Browse] filtered palettes:', filtered.length)
-  return filtered
-})
+const totalPages = computed(() => Math.max(1, Math.ceil(totalPalettes.value / pageSize)))
+const paginationStart = computed(() => totalPalettes.value === 0 ? 0 : (currentPage.value - 1) * pageSize + 1)
+const paginationEnd = computed(() => Math.min(currentPage.value * pageSize, totalPalettes.value))
 
 async function handleToggleFavorite(paletteId: string) {
   if (isFavorited(paletteId)) {
@@ -152,14 +124,81 @@ async function handleToggleFavorite(paletteId: string) {
 
 onMounted(async () => {
   loadFavorites()
-  await loadPalettes()
+  await loadCurrentPage()
   isLoading.value = false
 })
 
-function matchesSearch(palette: Palette, keyword: string): boolean {
-  const searchText = paletteToSearchText(palette)
-  const normalizedKeyword = normalizeText(keyword)
-  return searchText.includes(normalizedKeyword)
+watch(
+  [
+    searchQuery,
+    selectedJournalStyle,
+    selectedChartType,
+    selectedColorCount,
+    selectedUseCase,
+    selectedDiscipline,
+    selectedTag
+  ],
+  async () => {
+    currentPage.value = 1
+    await replaceBrowseQuery()
+    await loadCurrentPage()
+  }
+)
+
+watch(filtersExpanded, () => {
+  void replaceBrowseQuery()
+})
+
+async function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) {
+    return
+  }
+  currentPage.value = page
+  await replaceBrowseQuery()
+  await loadCurrentPage()
+}
+
+async function replaceBrowseQuery() {
+  await router.replace({
+    name: 'palettes',
+    query: createPalettesBrowseQuery({
+      search: searchQuery.value,
+      journalStyle: selectedJournalStyle.value,
+      chartType: selectedChartType.value,
+      colorCount: selectedColorCount.value,
+      useCase: selectedUseCase.value,
+      discipline: selectedDiscipline.value,
+      tag: selectedTag.value,
+      page: currentPage.value,
+      filtersExpanded: filtersExpanded.value
+    })
+  })
+}
+
+async function loadCurrentPage() {
+  const requestId = requestSequence + 1
+  requestSequence = requestId
+  isPageLoading.value = true
+  const result = await loadPalettePage({
+    page: currentPage.value,
+    pageSize,
+    search: searchQuery.value,
+    journalStyle: selectedJournalStyle.value,
+    chartType: selectedChartType.value,
+    colorCount: selectedColorCount.value,
+    useCase: selectedUseCase.value,
+    discipline: selectedDiscipline.value,
+    tag: selectedTag.value
+  })
+  if (requestId !== requestSequence) {
+    return
+  }
+  palettes.value = result.palettes
+  totalPalettes.value = result.total
+  loadError.value = result.error
+  currentPage.value = Math.min(result.page, Math.max(1, result.totalPages))
+  await replaceBrowseQuery()
+  isPageLoading.value = false
 }
 </script>
 
@@ -204,6 +243,40 @@ function matchesSearch(palette: Palette, keyword: string): boolean {
 
 .empty-state p {
   color: #666;
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem;
+  text-align: center;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.error-state p {
+  color: #b42318;
+}
+
+.retry-btn {
+  height: 2.25rem;
+  padding: 0 0.875rem;
+  border: 1px solid #d8e1ec;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retry-btn:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 
 .loading-state {

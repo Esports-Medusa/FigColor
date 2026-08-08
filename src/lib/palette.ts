@@ -14,13 +14,39 @@ import type {
   ValidationIssue
 } from '@/types/palette'
 import { toLegacyPaletteCompatibility } from '@/types/palette'
+import { chartFilterMatchesPalette, validateChartApplicability } from '@/lib/palette/applicability'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
-let palettesCache: Palette[] | null = null
-let cacheLoaded = false
+// Only the complete, unfiltered public catalog belongs in this cache.
+// Browse page results are returned to the calling view and never stored here.
+let allPalettesCache: Palette[] | null = null
+let allPalettesLoaded = false
+const paletteDetailCacheBySlug = new Map<string, Palette>()
+let lastPalettesLoadError: string | null = null
 
 export type NormalizedPalette = Palette
+
+export interface PalettePageRequest {
+  page?: number
+  pageSize?: number
+  search?: string
+  journalStyle?: string
+  chartType?: string
+  colorCount?: number | ''
+  useCase?: string
+  discipline?: string
+  tag?: string
+}
+
+export interface PalettePageResult {
+  palettes: Palette[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+  error: string | null
+}
 
 export interface PaletteNormalizationValidationResult {
   valid: boolean
@@ -44,9 +70,12 @@ export function normalizePalette(raw: RawPaletteDTO): Palette {
 }
 
 export function normalizePaletteToCanonical(raw: RawPaletteDTO): CanonicalPalette {
-  const previewValidationIssues = validateRawPalettePreviewCases(raw)
-  if (previewValidationIssues.length > 0) {
-    throw new PaletteNormalizationError(previewValidationIssues)
+  const validationIssues = [
+    ...validateRawPaletteApplicability(raw),
+    ...validateRawPalettePreviewCases(raw)
+  ]
+  if (validationIssues.length > 0) {
+    throw new PaletteNormalizationError(validationIssues)
   }
 
   const colors = normalizeColors(raw.colors)
@@ -60,6 +89,10 @@ export function normalizePaletteToCanonical(raw: RawPaletteDTO): CanonicalPalett
     slug: raw.slug ?? '',
     name: raw.name ?? '',
     description: raw.description,
+    owner_user_id: raw.owner_user_id,
+    visibility: normalizeVisibility(raw.visibility),
+    origin: normalizeOrigin(raw.origin),
+    source_palette_id: raw.source_palette_id,
     status: normalizeStatus(raw.status),
     colors,
     color_count: colors.length,
@@ -108,6 +141,7 @@ export function normalizeColors(input: unknown): PaletteColor[] {
 export function validatePaletteNormalizationInput(raw: RawPaletteDTO): PaletteNormalizationValidationResult {
   const issues: ValidationIssue[] = [
     ...validateRawPaletteColors(raw.colors),
+    ...validateRawPaletteApplicability(raw),
     ...validateRawPalettePreviewCases(raw)
   ]
 
@@ -191,18 +225,31 @@ export function getLegacyChartType(palette: Pick<CanonicalPalette, 'chart_types'
   return [...palette.chart_types]
 }
 
-async function fetchPalettesFromAPI(): Promise<Palette[]> {
-  console.log('[Browse] fetching palettes from API...')
-
+async function fetchPalettesFromAPI(request: PalettePageRequest = {}): Promise<PalettePageResult> {
   try {
-    const response = await fetch(`${API_BASE}/palettes`)
+    const page = normalizePositivePaginationInteger(request.page, 1)
+    const pageSize = normalizePositivePaginationInteger(request.pageSize, 20)
+    const query = new URLSearchParams({
+      page: String(page),
+      page_size: String(pageSize)
+    })
+
+    appendQueryParam(query, 'search', request.search)
+    appendQueryParam(query, 'journal_style', request.journalStyle)
+    appendQueryParam(query, 'chart_type', request.chartType)
+    appendQueryParam(query, 'use_case', request.useCase)
+    appendQueryParam(query, 'discipline', request.discipline)
+    appendQueryParam(query, 'tag', request.tag)
+    if (request.colorCount !== '' && request.colorCount !== undefined) {
+      query.set('color_count', String(request.colorCount))
+    }
+
+    const response = await fetch(`${API_BASE}/palettes?${query.toString()}`)
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
 
     const data = await response.json()
-    console.log('[Browse] raw API response:', data)
-
     let rawPalettes: RawPaletteDTO[] = []
     if (Array.isArray(data)) {
       rawPalettes = data
@@ -212,43 +259,113 @@ async function fetchPalettesFromAPI(): Promise<Palette[]> {
       rawPalettes = data.items
     }
 
-    console.log('[Browse] raw palettes count:', rawPalettes.length)
+    const publicRawPalettes = rawPalettes.filter(isPublicCatalogPalettePayload)
+    const filteredOutCount = rawPalettes.length - publicRawPalettes.length
+    const normalized = publicRawPalettes.map(normalizePalette)
+    const resolvedPage = normalizePositivePaginationInteger(isRecord(data) ? data.page : undefined, page)
+    const resolvedPageSize = normalizePositivePaginationInteger(isRecord(data) ? data.page_size : undefined, pageSize)
+    const rawTotal = normalizeNonNegativePaginationInteger(isRecord(data) ? data.total : undefined, rawPalettes.length)
+    const total = Math.max(0, rawTotal - filteredOutCount)
+    const totalPages = normalizePositivePaginationInteger(
+      isRecord(data) ? data.total_pages : undefined,
+      Math.max(1, Math.ceil(total / resolvedPageSize))
+    )
 
-    const normalized = rawPalettes.map(normalizePalette)
-    console.log('[Browse] normalized palettes:', normalized)
-
-    return normalized
+    return {
+      palettes: normalized,
+      total,
+      page: resolvedPage,
+      pageSize: resolvedPageSize,
+      totalPages,
+      error: null
+    }
   } catch (error) {
     console.error('[Browse] failed to fetch palettes from API:', error)
-    return []
+    return {
+      palettes: [],
+      total: 0,
+      page: normalizePositivePaginationInteger(request.page, 1),
+      pageSize: normalizePositivePaginationInteger(request.pageSize, 20),
+      totalPages: 1,
+      error: paletteLoadErrorMessage(error)
+    }
   }
+}
+
+export async function loadPalettePage(request: PalettePageRequest = {}): Promise<PalettePageResult> {
+  return fetchPalettesFromAPI(request)
 }
 
 export async function loadPalettes(): Promise<Palette[]> {
-  if (!cacheLoaded) {
-    palettesCache = await fetchPalettesFromAPI()
-    cacheLoaded = true
+  if (!allPalettesLoaded) {
+    const pageSize = 50
+    const firstPage = await fetchPalettesFromAPI({ page: 1, pageSize })
+    if (firstPage.error) {
+      allPalettesCache = []
+      allPalettesLoaded = true
+      lastPalettesLoadError = firstPage.error
+      return []
+    }
+    const allPalettes = [...firstPage.palettes]
+    for (let page = 2; page <= firstPage.totalPages; page += 1) {
+      const nextPage = await fetchPalettesFromAPI({ page, pageSize })
+      if (nextPage.error) {
+        allPalettesCache = []
+        allPalettesLoaded = true
+        lastPalettesLoadError = nextPage.error
+        return []
+      }
+      allPalettes.push(...nextPage.palettes)
+    }
+    allPalettesCache = allPalettes
+    allPalettesLoaded = true
+    allPalettes.forEach((palette) => paletteDetailCacheBySlug.set(palette.slug, palette))
+    lastPalettesLoadError = null
   }
-  return palettesCache || []
+  return allPalettesCache || []
 }
 
 export function getAllPalettes(): Palette[] {
-  if (!cacheLoaded) {
+  if (!allPalettesLoaded) {
     console.warn('[Browse] getAllPalettes called before loadPalettes - this may return empty array')
     return []
   }
-  return palettesCache as Palette[]
+  return allPalettesCache as Palette[]
 }
 
 export async function reloadPalettes(): Promise<Palette[]> {
-  cacheLoaded = false
-  palettesCache = null
+  allPalettesLoaded = false
+  allPalettesCache = null
+  lastPalettesLoadError = null
   return loadPalettes()
 }
 
+export function getPalettesLoadError(): string | null {
+  return lastPalettesLoadError
+}
+
 export function getPaletteBySlug(slug: string): Palette | undefined {
-  const palettes = getAllPalettes()
-  return palettes.find((palette) => palette.slug === slug)
+  return paletteDetailCacheBySlug.get(slug) ??
+    allPalettesCache?.find((palette) => palette.slug === slug)
+}
+
+export async function loadPaletteBySlug(slug: string): Promise<Palette | null> {
+  const response = await fetch(`${API_BASE}/palettes/${encodeURIComponent(slug)}`)
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null
+    }
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+
+  const raw = await response.json()
+  const payload = normalizePublicPaletteDetailPayload(raw)
+  if (!isPublicCatalogPalettePayload(payload)) {
+    return null
+  }
+  const normalized = normalizePalette(payload)
+  upsertPaletteCache(normalized)
+  return normalized
 }
 
 export function filterPalettes(filters: PaletteFilters): Palette[] {
@@ -256,7 +373,7 @@ export function filterPalettes(filters: PaletteFilters): Palette[] {
 
   return palettes.filter((palette) => {
     if (filters.chart_type && filters.chart_type.length > 0) {
-      const hasChartType = filters.chart_type.some((ct) => palette.chart_type.includes(ct))
+      const hasChartType = filters.chart_type.some((ct) => chartFilterMatchesPalette(palette, ct))
       if (!hasChartType) return false
     }
     if (filters.journal_style && filters.journal_style.length > 0) {
@@ -312,6 +429,30 @@ export function matchesArrayField(values: string[], selected: string): boolean {
   return values.includes(selected)
 }
 
+function appendQueryParam(query: URLSearchParams, key: string, value: string | undefined): void {
+  const trimmed = value?.trim()
+  if (trimmed) {
+    query.set(key, trimmed)
+  }
+}
+
+function normalizePositivePaginationInteger(value: unknown, fallback: number): number {
+  return normalizePaginationInteger(value, fallback, 1)
+}
+
+function normalizeNonNegativePaginationInteger(value: unknown, fallback: number): number {
+  return normalizePaginationInteger(value, fallback, 0)
+}
+
+function normalizePaginationInteger(value: unknown, fallback: number, minimum: number): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return Number.isInteger(numeric) && numeric >= minimum ? numeric : fallback
+}
+
+function paletteLoadErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Failed to load palettes.'
+}
+
 function parseRawColors(input: unknown): RawPaletteColorDTO[] {
   if (typeof input === 'string') {
     try {
@@ -339,10 +480,65 @@ function normalizeStringArray(input: unknown): string[] {
     : []
 }
 
+function normalizePublicPaletteDetailPayload(raw: unknown): RawPaletteDTO {
+  if (!isRecord(raw)) {
+    return {}
+  }
+
+  if (isRecord(raw.palette)) {
+    return {
+      ...raw.palette,
+      chart_applicability: Array.isArray(raw.chart_applicability)
+        ? raw.chart_applicability as ChartTypeApplicability[]
+        : raw.palette.chart_applicability as ChartTypeApplicability[] | null | undefined,
+      primary_preview_case: isRecord(raw.resolved_primary_preview)
+        ? raw.resolved_primary_preview as unknown as RawPalettePreviewCase
+        : raw.palette.primary_preview_case as RawPalettePreviewCase | null | undefined,
+      preview_cases: Array.isArray(raw.preview_cases)
+        ? raw.preview_cases as RawPalettePreviewCase[]
+        : raw.palette.preview_cases as RawPalettePreviewCase[] | undefined
+    }
+  }
+
+  return raw as RawPaletteDTO
+}
+
+function upsertPaletteCache(palette: Palette): void {
+  paletteDetailCacheBySlug.set(palette.slug, palette)
+  if (!allPalettesLoaded || !allPalettesCache) {
+    return
+  }
+
+  const existingIndex = allPalettesCache.findIndex((cached) => cached.id === palette.id || cached.slug === palette.slug)
+  if (existingIndex >= 0) {
+    allPalettesCache = allPalettesCache.map((cached, index) => index === existingIndex ? palette : cached)
+  } else {
+    allPalettesCache = [...allPalettesCache, palette]
+  }
+}
+
 function normalizeStatus(input: unknown): PaletteStatus {
   return input === 'candidate' || input === 'published' || input === 'archived'
     ? input
     : 'draft'
+}
+
+function normalizeVisibility(input: unknown): CanonicalPalette['visibility'] | undefined {
+  return input === 'public' || input === 'private' ? input : undefined
+}
+
+function normalizeOrigin(input: unknown): CanonicalPalette['origin'] | undefined {
+  return input === 'curated' || input === 'custom' || input === 'fork' ? input : undefined
+}
+
+function isPublicCatalogPalettePayload(raw: RawPaletteDTO): boolean {
+  if (raw.visibility !== undefined && raw.visibility !== 'public') {
+    return false
+  }
+  if (raw.status !== undefined && raw.status !== 'published') {
+    return false
+  }
+  return true
 }
 
 function normalizePaletteType(input: unknown): PaletteType {
@@ -374,6 +570,20 @@ function normalizeChartApplicability(
     return undefined
   }
   return input.map((item) => ({ ...item }))
+}
+
+function validateRawPaletteApplicability(raw: RawPaletteDTO): ValidationIssue[] {
+  if (raw.chart_applicability === undefined || raw.chart_applicability === null) {
+    return []
+  }
+  if (!Array.isArray(raw.chart_applicability)) {
+    return [{
+      path: 'chart_applicability',
+      code: 'MALFORMED_CHART_APPLICABILITY',
+      message: 'chart_applicability must be null or an array.'
+    }]
+  }
+  return validateChartApplicability(raw.chart_applicability)
 }
 
 function normalizePreviewCases(input: RawPalettePreviewCase[] | undefined): PalettePreviewCase[] {
@@ -554,7 +764,9 @@ function isPreviewChartType(input: unknown): input is PalettePreviewCase['chart_
   return input === 'bar_error' ||
     input === 'boxplot_jitter' ||
     input === 'line_multiseries' ||
-    input === 'heatmap_annotated'
+    input === 'heatmap_annotated' ||
+    input === 'scatter_grouped' ||
+    input === 'violin_distribution'
 }
 
 function isPreviewSeedStrategy(input: unknown): input is PalettePreviewCase['seed_strategy'] {
@@ -577,4 +789,8 @@ function collectLegacyPreviewFields(raw: RawPaletteDTO): LegacyPreviewFields | u
   return Object.values(legacyPreview).some((value) => value !== undefined)
     ? legacyPreview
     : undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

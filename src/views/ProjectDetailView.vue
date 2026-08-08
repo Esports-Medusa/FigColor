@@ -37,6 +37,11 @@
               <h3>{{ palette.name }}</h3>
               <span v-if="palette.isDefault" class="default-badge">Default</span>
             </div>
+            <PaletteChartPreview
+              v-if="projectPreviewPalettes.get(palette.id)"
+              :palette="projectPreviewPalettes.get(palette.id)!"
+              size="card"
+            />
             <div class="palette-roles">
               <div
                 v-for="role in palette.roles"
@@ -100,6 +105,7 @@
       :show="showFigureForm"
       :palettes="palettes"
       :editingFigure="editingFigure"
+      :submitError="figureFormError"
       @close="closeFigureForm"
       @submit="createFigure"
       @update="updateFigure"
@@ -117,7 +123,7 @@
     <AddPaletteModal
       v-if="showAddPaletteModal"
       :projectId="project.id"
-      :existingPaletteIds="palettes.map(p => p.id)"
+      :existingPaletteIds="palettes.flatMap(p => [p.id, p.basePaletteId].filter((id): id is string => !!id))"
       @close="showAddPaletteModal = false"
       @add="onPaletteAdd"
     />
@@ -129,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, toRaw } from 'vue'
+import { computed, ref, onMounted, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { ProjectDetail, ProjectPalette, FigureAssignment, CreateFigureRequest } from '@/types/project'
 import { projectApi } from '@/lib/projectApi'
@@ -137,6 +143,8 @@ import FigureForm from '@/components/project/FigureForm.vue'
 import FigureAssignmentCard from '@/components/project/FigureAssignmentCard.vue'
 import PaletteEditModal from '@/components/project/PaletteEditModal.vue'
 import AddPaletteModal from '@/components/project/AddPaletteModal.vue'
+import PaletteChartPreview from '@/components/palettes/PaletteChartPreview.vue'
+import { resolveProjectPalettePreview } from '@/components/project/ProjectPalettePreview.logic'
 
 const route = useRoute()
 const router = useRouter()
@@ -151,6 +159,14 @@ const showFigureForm = ref(false)
 const editingFigure = ref<FigureAssignment | null>(null)
 const editingPalette = ref<ProjectPalette | null>(null)
 const showAddPaletteModal = ref(false)
+const figureFormError = ref('')
+
+const projectPreviewPalettes = computed(() => new Map(
+  palettes.value.flatMap((palette) => {
+    const preview = resolveProjectPalettePreview(palette)
+    return preview ? [[palette.id, preview] as const] : []
+  })
+))
 
 // Delete palette inline confirm state
 const paletteToDelete = ref<string | null>(null)
@@ -168,6 +184,7 @@ async function loadProject() {
   const projectId = route.params.projectId as string
   
   try {
+    error.value = null
     const detail = await projectApi.getMyProjectDetail(projectId)
     project.value = detail?.project ?? null
     palettes.value = detail?.palettes ?? []
@@ -188,12 +205,13 @@ async function createFigure(data: CreateFigureRequest) {
   const projectId = route.params.projectId as string
   
   try {
-    const newFigure = await projectApi.createFigure(projectId, data)
-    figures.value.push(newFigure)
+    figureFormError.value = ''
+    await projectApi.createFigure(projectId, data)
+    await loadProject()
     showFigureForm.value = false
-  } catch (e) {
+  } catch (e: any) {
     console.error('Failed to create figure:', e)
-    alert('Failed to create figure')
+    figureFormError.value = e?.message || 'Failed to create figure'
   }
 }
 
@@ -210,6 +228,7 @@ function editFigure(figure: FigureAssignment) {
 function closeFigureForm() {
   showFigureForm.value = false
   editingFigure.value = null
+  figureFormError.value = ''
 }
 
 async function updateFigure(data: CreateFigureRequest) {
@@ -270,7 +289,7 @@ function onPaletteUpdate(updatedPalette: ProjectPalette) {
   // If a color role was deleted, remove it from selectedRoleKeys
   const updatedRoleKeys = new Set(updatedPalette.roles.map(r => r.key))
   figures.value = figures.value.map(f => {
-    if (f.paletteId === updatedPalette.id) {
+    if (f.paletteId === updatedPalette.id || f.paletteId === updatedPalette.basePaletteId) {
       const validRoleKeys = f.selectedRoleKeys.filter((key: string) => updatedRoleKeys.has(key))
       if (validRoleKeys.length !== f.selectedRoleKeys.length) {
         return { ...f, selectedRoleKeys: validRoleKeys }
@@ -289,16 +308,17 @@ function doDeletePalette(paletteId: string) {
   if (!paletteId) return
   
   // Check if any figures are using this palette
-  const figuresUsingPalette = figures.value.filter(f => f.paletteId === paletteId)
+  const palette = palettes.value.find(p => p.id === paletteId)
+  const figuresUsingPalette = figures.value.filter(f => f.paletteId === paletteId || f.paletteId === palette?.basePaletteId)
   
   // Find remaining palettes after deletion
   const remainingPalettes = palettes.value.filter(p => p.id !== paletteId)
-  const fallbackPaletteId = remainingPalettes.length > 0 ? remainingPalettes[0].id : ''
+  const fallbackPaletteId = remainingPalettes.length > 0 ? (remainingPalettes[0].basePaletteId || remainingPalettes[0].id) : ''
   
   // Update figures that were using this palette
   if (figuresUsingPalette.length > 0) {
     figures.value = figures.value.map(f => {
-      if (f.paletteId === paletteId) {
+      if (f.paletteId === paletteId || f.paletteId === palette?.basePaletteId) {
         return {
           ...f,
           paletteId: fallbackPaletteId,

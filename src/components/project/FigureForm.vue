@@ -2,6 +2,9 @@
   <div v-if="show" class="modal-overlay" @click.self="close">
     <div class="modal">
       <h2>{{ editingFigure ? 'Edit Figure' : 'Create New Figure' }}</h2>
+      <div v-if="submitError || formError" class="form-error" role="alert">
+        {{ submitError || formError }}
+      </div>
       <form @submit.prevent="submit">
         <div class="form-group">
           <label for="name">Figure Name *</label>
@@ -108,6 +111,7 @@ const props = defineProps<{
   show: boolean
   palettes: ProjectPalette[]
   editingFigure?: FigureAssignment | null
+  submitError?: string
 }>()
 
 const emit = defineEmits<{
@@ -125,6 +129,7 @@ const form = ref({
   selectedRoleKeys: [] as string[],
   notes: ''
 })
+const formError = ref('')
 
 const selectedPalette = computed(() => {
   return props.palettes?.find(p => p.id === form.value.paletteId)
@@ -142,18 +147,19 @@ watch(() => props.show, (newVal) => {
 
 watch(() => props.editingFigure, (newFigure) => {
   if (newFigure) {
+    const projectPalette = findProjectPaletteForFigurePaletteId(newFigure.paletteId)
     // Use shallow copy to avoid mutating the reactive proxy
     // Sync selectedColorIds from selectedRoleKeys if not set
     const colorIds = newFigure.selectedColorIds?.length 
       ? newFigure.selectedColorIds 
       : newFigure.selectedRoleKeys
-          .map(key => selectedPalette.value?.roles.find(r => r.key === key)?.id)
+          .map(key => projectPalette?.roles.find(r => r.key === key)?.id)
           .filter((id): id is string => !!id)
     form.value = {
       name: newFigure.name,
       panel: newFigure.panel || '',
       chartType: newFigure.chartType,
-      paletteId: newFigure.paletteId,
+      paletteId: projectPalette?.id || '',
       selectedColorIds: colorIds,
       selectedRoleKeys: [...(newFigure.selectedRoleKeys || [])],
       notes: newFigure.notes || ''
@@ -163,6 +169,7 @@ watch(() => props.editingFigure, (newFigure) => {
 
 function onPaletteChange() {
   form.value.selectedRoleKeys = []
+  formError.value = ''
 }
 
 function resetForm() {
@@ -183,6 +190,15 @@ function close() {
 
 function submit() {
   if (!isValid.value) return
+  formError.value = ''
+  if (!selectedPalette.value) {
+    formError.value = 'Select a palette before creating a figure.'
+    return
+  }
+  if (!selectedPalette.value.basePaletteId) {
+    formError.value = 'This project palette does not have a basePaletteId yet, so it cannot be used for figures.'
+    return
+  }
    
   // Sync selectedColorIds from selectedRoleKeys (for backward compatibility)
   // When using selectedRoleKeys, also populate selectedColorIds
@@ -194,7 +210,7 @@ function submit() {
     name: form.value.name.trim(),
     panel: form.value.panel.trim() || undefined,
     chartType: form.value.chartType,
-    paletteId: form.value.paletteId,
+    paletteId: selectedPalette.value.basePaletteId,
     selectedColorIds: colorIds,
     selectedRoleKeys: form.value.selectedRoleKeys,
     notes: form.value.notes.trim() || undefined
@@ -205,6 +221,10 @@ function submit() {
   } else {
     emit('submit', data)
   }
+}
+
+function findProjectPaletteForFigurePaletteId(paletteId: string): ProjectPalette | undefined {
+  return props.palettes?.find((palette) => palette.id === paletteId || palette.basePaletteId === paletteId)
 }
 </script>
 
@@ -232,6 +252,16 @@ function submit() {
 .modal h2 {
   margin-top: 0;
   margin-bottom: 1.5rem;
+}
+
+.form-error {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.9rem;
 }
 
 .form-group {

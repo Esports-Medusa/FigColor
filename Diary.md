@@ -52,6 +52,15 @@ This file records project decisions and the reasons behind them. Add a new entry
   5. Implement `bar_error` as the first complete vertical slice.
   6. Generate `exported_core_colors` and copy blocks from palette colours and color role mappings instead of maintaining them as separate editable sources.
 
+## 2026-07-18 - Keep Project Default Palettes Out of the Public Catalog
+
+- Decision: Store official and user/project palettes in the shared `palettes` table, but separate them with `owner_user_id`, `visibility`, `origin`, and `source_palette_id`. Public catalog reads must require `visibility = 'public'` and `status = 'published'`. Project-created Default Palettes are user-owned private palettes linked through `project_palettes`.
+- Context: Project creation generated a "Default Palette" row in `palettes` with `published` status. Because public browsing only filtered by status, user/project defaults appeared in Browse Palettes and public detail routes.
+- Reason: A single palette table keeps renderer, preview, Figure, and project association logic simple, while explicit ownership and visibility prevent private project data from leaking into public catalog views. The database default for `visibility` is private so future missed INSERT fields fail closed.
+- Alternatives considered: Move user palettes to a separate `user_palettes` table, or hide Default Palette by name in the frontend. A separate table would complicate foreign keys and rendering with polymorphic palette references; frontend name filtering would mask symptoms while leaving public API leakage.
+- Trade-offs: Shared storage requires every public repository/service path to carry visibility filters and needs migration guards for historical project-generated rows. In return, the data model avoids duplicate palette schemas and remains compatible with current project and Figure references.
+- Follow-up: Implement full fork editing and palette versioning later; keep `created_by` as audit metadata and `owner_user_id` as the permission boundary.
+
 ## 2026-07-10 - Non-Blocking Follow-Up: Tighten Bar Error Replacement Archive Controls
 
 - Decision: Record a non-blocking UX follow-up for the `bar_error_v1` admin replacement workflow.
@@ -750,6 +759,224 @@ git commit -m "feat: add scientific preview renderers" -- \
 ### Final Recommendation
 
 Proceed with policy commits first, especially the `node_modules` and `dist` untracking commits, before reviewing WP functional work. This removes generated churn from later reviews and leaves `package.json` / `package-lock.json` as the dependency baseline.
+
+## 2026-07-17 - Phase 1 local acceptance/debug palette seed
+
+### Context
+
+After Phase 1 scientific preview verification, a local database seed was requested to support manual acceptance and debugging of the four Phase 1 chart types:
+
+- `bar_error`
+- `boxplot_jitter`
+- `line_multiseries`
+- `heatmap_annotated`
+
+### Decision
+
+Created `backend/dev/seed_phase1_preview_palettes.sql` as a development seed script, not a production migration.
+
+These 40 generated palette records are only for local acceptance checks and debugging. They must not be treated as curated production palette data, product content, or a required production migration.
+
+### Seed Contents
+
+The script creates or refreshes 40 published palettes:
+
+| Chart type | Count | Slug range |
+|------------|------:|------------|
+| `bar_error` | 10 | `phase1-bar-error-mock-01` to `phase1-bar-error-mock-10` |
+| `boxplot_jitter` | 10 | `phase1-boxplot-jitter-mock-01` to `phase1-boxplot-jitter-mock-10` |
+| `line_multiseries` | 10 | `phase1-line-multiseries-mock-01` to `phase1-line-multiseries-mock-10` |
+| `heatmap_annotated` | 10 | `phase1-heatmap-annotated-mock-01` to `phase1-heatmap-annotated-mock-10` |
+
+Each generated palette has:
+
+- `status = published`
+- 5 stable `colors[].id` values
+- `chart_applicability` covering Phase 1 chart filters
+- one published primary preview case
+- Phase 1 template metadata
+- preview `color_roles` that reference palette `color_id` values
+
+### Execution
+
+The seed was applied locally with:
+
+```bash
+psql 'postgres://localhost:5432/figcolor?sslmode=disable' -f backend/dev/seed_phase1_preview_palettes.sql
+```
+
+### Verification
+
+The seed output confirmed 10 published primary preview cases for each Phase 1 chart type.
+
+Additional local verification checked preview role references:
+
+- total preview role `color_id` references: 170
+- missing palette color references: 0
+
+### Notes
+
+- The script is intentionally idempotent and can be re-run to refresh the local acceptance/debug dataset.
+- The data uses deterministic slugs and stable color IDs.
+- This seed should remain under `backend/dev/` unless a separate production-content decision is made.
+
+## 2026-07-17 - Palette Browse backend paging/filtering fix
+
+### Context
+
+The public Palette Browse page exposed two related issues during Phase 1 acceptance:
+
+- The dev seed contains 40 published scientific preview palettes, but Browse only displayed 20 because the public list endpoint was paginated.
+- Chart filters such as `line`, `bar`, `boxplot`, `violin`, and `heatmap` were being applied on the already-loaded client-side page, so the UI did not reliably reflect filtering across the complete dataset.
+
+### Fix
+
+Implemented formal server-side filtering and pagination for the public palettes list.
+
+- Public query params now include search, chart type, journal style, color count, use case, discipline, and tag filters.
+- Repository listing applies all filters in SQL before `COUNT`, `LIMIT`, and `OFFSET`.
+- Public chart filters map legacy broad UI values to Phase 1 chart applicability values, for example `line` to `line_multiseries`.
+- Browse now calls a paged palette API helper and renders pagination from response metadata instead of using a fixed large page-size request and filtering locally.
+
+### Verification
+
+Added tests covering:
+
+- Public handler parsing of paging and filter query params.
+- Public chart filter SQL condition generation for broad and Phase 1 chart-type targets.
+- Frontend paged loading across more than 40 palettes.
+- Filter totals being computed before pagination.
+
+Local verification commands:
+
+```bash
+npm test
+cd backend && go test ./internal/palette
+```
+
+### Follow-up: Empty Results vs Load Failure
+
+After reviewing the paged palette loader, we identified an important UX distinction:
+
+- A successful request can legitimately return zero palettes.
+- A failed request can also leave the UI with zero palettes.
+
+These states must not be collapsed into the same "No palettes found" experience.
+
+The frontend palette data layer now keeps load failure state separate from the palette array:
+
+- `PalettePageResult.error` is `null` for successful responses, including successful empty responses.
+- Failed page loads return an empty palette array plus an error message instead of rejecting.
+- `loadPalettes()` still resolves safely, but records the last failure through `getPalettesLoadError()`.
+- Browse renders a dedicated load failure state with retry instead of showing the empty-results message.
+
+Additional tests cover:
+
+- Numeric pagination metadata parsing from API responses.
+- Missing `total_pages` fallback behavior.
+- Failed `loadPalettes()` calls resolving without unhandled promise rejection while preserving error state.
+- Successful empty responses staying distinct from failed responses.
+
+Verified with:
+
+```bash
+npm test
+npm run build
+cd backend && go test ./internal/palette
+```
+
+## 2026-07-18 - My Projects figure palette ID fix
+
+### Context
+
+Creating a Figure from My Projects failed with a database error:
+
+```text
+figure_assignments_palette_id_fkey
+```
+
+The root cause was an ID semantics mismatch. A project palette object contains both:
+
+- `id`: the `project_palettes` association record ID.
+- `basePaletteId`: the real `palettes.id` catalog palette ID.
+
+The running database constraint for `figure_assignments.palette_id` targets `palettes.id`, but the Figure creation flow was sending the project palette association ID.
+
+### Fix
+
+- Figure creation now submits `ProjectPalette.basePaletteId` as `CreateFigureRequest.paletteId`.
+- The backend validates before writing that the base palette exists and is available in the current project.
+- Misusing a project palette ID now returns a clear 422 instead of falling through to a database 500.
+- Custom project palettes without `basePaletteId` are explicitly rejected for Figure creation and recorded as a later design item.
+- Add Palette now persists selected catalog palettes through a real project palette API instead of only pushing a local temporary object.
+- Figure creation success refreshes the project detail and closes the modal; failures display backend errors inside the modal instead of using `alert`.
+- Added migration `016_figure_assignments_base_palette_fk.sql` to backfill old project palettes, convert existing Figure assignments to base palette IDs, and enforce `figure_assignments.palette_id -> palettes(id)`.
+
+### Verification
+
+Local database migration was applied successfully:
+
+- Backfilled 7 project palettes with base palette IDs.
+- Converted 3 existing Figure assignments from project palette IDs to base palette IDs.
+- Confirmed `figure_assignments_palette_id_fkey` now references `palettes(id)`.
+- Confirmed no project palettes are missing `base_palette_id` locally.
+- Confirmed no Figure assignments point to a missing base palette locally.
+
+Verified with:
+
+```bash
+npm test
+npx vue-tsc --noEmit
+npm run build
+cd backend && go test ./internal/project ./internal/palette
+```
+
+Follow-up note: custom project palette persistence still needs a separate data-model design before custom palettes can be used for Figures.
+
+## 2026-07-19 - Isolate Default Palettes from Admin Review
+
+- Decision: Treat Admin Palette Review as an official public-catalog management surface only. Admin list, edit, publish, unpublish, archive, and delete operations must be limited to palettes where `visibility = 'public'` and `owner_user_id IS NULL`. Project-created Default Palettes and other user-owned palettes are private resources and must not enter the Admin Review workflow, even when their lifecycle `status` is `published`.
+- Context: Project creation stores a reusable "Default Palette" row in the shared `palettes` table so Figures and project palette roles can reference normal palette records. Some historical Default Palette rows had `status = 'published'`, which made them appear in Admin Review when Admin queries treated `published` as the main public-management boundary.
+- Reason: `status` describes publication lifecycle, not ownership or visibility. A private user-owned palette can be published in the sense of being usable inside its owner's project, but it is still not an official catalog palette. Admin Review needs an ownership/visibility boundary so private project data is neither visible nor mutable through public catalog management tools.
+- Alternatives considered: Hide rows named "Default Palette" in the frontend, split project palettes into a separate table, or only add a service-layer filter. Name filtering was rejected because it is brittle and does not protect API access. A separate table would duplicate palette storage and complicate renderer/figure references. Service-only filtering was strengthened with repository-level SQL guards for Admin writes.
+- Trade-offs: The shared `palettes` table remains simple for rendering and project references, but every catalog-management path must consistently apply the public-catalog boundary. Repository SQL guards duplicate service intent, but provide defense in depth for publish/unpublish/delete style mutations.
+- Follow-up: Keep Default Palette creation private by default: `owner_user_id = project owner`, `visibility = 'private'`, `origin = 'custom'`, `status = 'draft'`, and `published_at = NULL`. Future user palette features should continue to use `owner_user_id` and `visibility` as permission boundaries instead of relying on `status`.
+
+Verification evidence:
+
+```text
+SELECT COUNT(*) FILTER (WHERE name = 'Default Palette') AS defaults,
+       COUNT(*) FILTER (
+         WHERE name = 'Default Palette'
+           AND visibility = 'public'
+           AND owner_user_id IS NULL
+       ) AS admin_visible_defaults
+FROM palettes;
+
+defaults = 9
+admin_visible_defaults = 0
+```
+
+Local API verification for the Admin Review boundary:
+
+```text
+GET /api/admin/palettes?page=1&page_size=100
+defaultPalettes = 0
+
+POST /api/admin/palettes/:defaultPaletteId/publish
+404 {"error":"palette not found"}
+
+POST /api/admin/palettes/:defaultPaletteId/unpublish
+404 {"error":"palette not found"}
+```
+
+Regression checks:
+
+```bash
+cd backend && go test ./...
+npm test
+npm run build
+```
 
 ## 2026-08-04 - Freeze WP6 Candidate-Ingestion HTTP Contracts
 
