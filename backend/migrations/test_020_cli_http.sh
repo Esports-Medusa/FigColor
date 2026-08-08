@@ -164,6 +164,25 @@ if FIGCOLOR_ADMIN_TOKEN="$expired_token" "$NODE_BIN" "$root_dir/scripts/palette-
 [[ "$("$CURL_BIN" --silent -o /dev/null -w '%{http_code}' "http://127.0.0.1:${server_port}/api/palettes/${first_slug}")" == "404" ]]
 [[ "$("$CURL_BIN" --silent -o /dev/null -w '%{http_code}' "http://127.0.0.1:${server_port}/api/palettes/${loss_slug}")" == "404" ]]
 
+echo 'CLI HTTP E2E: Admin edit, Publish, and Reject terminal outcomes'
+first_preview_id="$($NODE_BIN -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1])).packages[0].receipt;const id=r.preview_case_ids[0];if(!id)process.exit(1);process.stdout.write(id)" "$test_root/first-submit.json")"
+"$CURL_BIN" --silent --fail-with-body -X PATCH -H 'Content-Type: application/json' -H "Authorization: Bearer ${admin_token}" -d '{"name":"WP8 published candidate"}' "http://127.0.0.1:${server_port}/api/admin/palettes/${first_palette_id}" >"$test_root/first-edit.json"
+"$NODE_BIN" -e "const p=JSON.parse(require('fs').readFileSync(process.argv[1]));if(p.id!==process.argv[2]||p.name!=='WP8 published candidate'||p.status!=='candidate'||p.visibility!=='public')process.exit(1)" "$test_root/first-edit.json" "$first_palette_id"
+[[ "$(db -Atqc "SELECT COUNT(*) FROM palette_ingestion_records WHERE palette_id='${first_palette_id}' AND processing_state='succeeded' AND receipt->>'palette_id'='${first_palette_id}'")" == "1" ]]
+[[ "$("$CURL_BIN" --silent -o /dev/null -w '%{http_code}' "http://127.0.0.1:${server_port}/api/palettes/${first_slug}")" == "404" ]]
+"$CURL_BIN" --silent --fail-with-body -X POST -H "Authorization: Bearer ${admin_token}" "http://127.0.0.1:${server_port}/api/admin/preview-cases/${first_preview_id}/publish" >"$test_root/preview-published.json"
+"$CURL_BIN" --silent --fail-with-body -X POST -H "Authorization: Bearer ${admin_token}" "http://127.0.0.1:${server_port}/api/admin/preview-cases/${first_preview_id}/set-primary" >"$test_root/preview-primary.json"
+"$CURL_BIN" --silent --fail-with-body -X POST -H "Authorization: Bearer ${admin_token}" "http://127.0.0.1:${server_port}/api/admin/palettes/${first_palette_id}/publish" >"$test_root/palette-published.json"
+"$NODE_BIN" -e "const p=JSON.parse(require('fs').readFileSync(process.argv[1]));if(p.id!==process.argv[2]||p.status!=='published'||!p.published_at)process.exit(1)" "$test_root/palette-published.json" "$first_palette_id"
+"$CURL_BIN" --silent --fail "http://127.0.0.1:${server_port}/api/palettes/${first_slug}" >"$test_root/public-published.json"
+"$NODE_BIN" -e "const p=JSON.parse(require('fs').readFileSync(process.argv[1]));const forbidden=['ingestion_metadata','validation_issues','duplicate_evidence','source_reference','normalized_content_hash','request_fingerprint','receipt','pipeline_version','schema_version'];if(p.id!==process.argv[2]||p.primary_preview_case?.id!==process.argv[3]||forbidden.some(k=>Object.hasOwn(p,k)))process.exit(1)" "$test_root/public-published.json" "$first_palette_id" "$first_preview_id"
+
+"$CURL_BIN" --silent --fail-with-body -X POST -H "Authorization: Bearer ${admin_token}" "http://127.0.0.1:${server_port}/api/admin/palettes/${loss_palette_id}/reject" >"$test_root/palette-rejected.json"
+"$NODE_BIN" -e "const p=JSON.parse(require('fs').readFileSync(process.argv[1]));if(p.id!==process.argv[2]||p.status!=='archived'||!p.archived_at)process.exit(1)" "$test_root/palette-rejected.json" "$loss_palette_id"
+[[ "$(db -Atqc "SELECT COUNT(*) FROM palette_ingestion_records WHERE palette_id='${loss_palette_id}' AND processing_state='succeeded' AND receipt->>'palette_id'='${loss_palette_id}'")" == "1" ]]
+[[ "$(db -Atqc "SELECT COUNT(*) FROM palette_preview_cases WHERE palette_id='${loss_palette_id}' AND status='archived' AND is_primary=false")" == "1" ]]
+[[ "$("$CURL_BIN" --silent -o /dev/null -w '%{http_code}' "http://127.0.0.1:${server_port}/api/palettes/${loss_slug}")" == "404" ]]
+
 [[ "$(db -Atqc 'SELECT COUNT(*) FROM palettes')" == "2" ]]
 [[ "$(db -Atqc 'SELECT COUNT(*) FROM palette_preview_cases')" == "2" ]]
-echo 'Node CLI -> authenticated HTTP -> PostgreSQL first-write/replay/visibility integration: PASS'
+echo 'Node CLI -> authenticated HTTP -> PostgreSQL -> Admin edit/Publish/Reject integration: PASS'
