@@ -1,8 +1,19 @@
 # FigColor Semi-Automated Palette Ingestion Pipeline — Implementation Plan
 
-> Status: Codex-ready draft v0.9 (WP1 follow-up hardening complete; WP4 supplied-field subset passed; full WP4 remains in progress: 2026-08-02)
-> Purpose: Codex implementation guide
-> Scope: Batch ingestion, assisted extraction, canonical transformation, automatic validation, candidate creation, and one human review through the existing Admin Review publication workflow
+> **Status: Archived historical implementation record.**
+>
+> The authoritative current boundary is
+> [`docs/palette-ingestion-closeout.md`](../docs/palette-ingestion-closeout.md).
+> Only the offline `manual_colors` workflow is supported. Image extraction,
+> OCR/AI, source acquisition, automatic inference, and automatic Preview Case
+> generation are deferred.
+>
+> Imperative language and unfinished work packages below document historical
+> design intent. They do not authorize further implementation. No work package
+> may be resumed without a separately approved replacement plan.
+>
+> Historical purpose: Codex implementation guide
+> Historical scope: Batch ingestion and previously proposed assisted acquisition
 
 ## 1. Goal
 
