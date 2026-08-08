@@ -4,13 +4,25 @@
       <div class="header-left">
         <h1>{{ isEditing ? 'Edit Palette' : 'New Palette' }}</h1>
         <p class="subtitle">{{ isEditing ? `Editing "${form.name || 'palette'}"` : 'Create a new color palette' }}</p>
+        <span v-if="isCandidate" class="status-badge candidate">Candidate</span>
       </div>
       <button class="btn btn-secondary" @click="router.push('/admin/palettes')">
         ← Back
       </button>
     </div>
 
-    <div class="form-layout">
+    <div v-if="loading" class="loading">Loading palette...</div>
+    <div v-else-if="formError" class="error" role="alert">
+      <p>{{ formError }}</p>
+      <ul v-if="formValidationIssues.length">
+        <li v-for="issue in formValidationIssues" :key="`${issue.path}:${issue.code}`">
+          {{ issue.path }}: {{ issue.message }}
+        </li>
+      </ul>
+      <button v-if="isEditing" class="btn btn-secondary" type="button" @click="loadPalette">Retry</button>
+    </div>
+
+    <div v-else class="form-layout">
       <!-- Main Form -->
       <div class="form-section">
         <div class="form-group">
@@ -182,7 +194,7 @@
             </select>
           </div>
 
-          <div class="form-group">
+          <div v-if="!isCandidate" class="form-group">
             <label for="status">Status</label>
             <select id="status" v-model="form.status">
               <option value="draft">Draft</option>
@@ -226,17 +238,17 @@
           </div>
         </div>
 
-        <BarErrorPreviewEditor
-          v-if="isEditing"
+        <AdminPreviewCaseEditor
           :palette="canonicalPaletteForPreview"
           :preview-cases="previewCases"
           :request-in-progress="previewRequestInProgress"
           :backend-issues="previewBackendIssues"
+          :local-only="!isEditing"
           @save-draft="handlePreviewDraftSave"
           @publish="handlePreviewPublish"
-          @replace-published="requestPreviewReplacement"
           @set-primary="handlePreviewSetPrimary"
           @archive="handlePreviewArchive"
+          @delete-draft="handlePreviewDeleteDraft"
         />
         <p v-if="previewWorkflowMessage" class="helper-text">{{ previewWorkflowMessage }}</p>
 
@@ -244,28 +256,41 @@
           <button class="btn btn-primary" @click="savePalette" :disabled="saving || !isValid">
             {{ saving ? 'Saving...' : 'Save Palette' }}
           </button>
-          <button class="btn btn-secondary" @click="saveAsDraft" :disabled="saving">
+          <button v-if="!isCandidate" class="btn btn-secondary" @click="saveAsDraft" :disabled="saving">
             Save as Draft
           </button>
-          <button class="btn btn-info" @click="saveAsCandidate" :disabled="saving || !isValid">
+          <button v-if="!isCandidate" class="btn btn-info" @click="saveAsCandidate" :disabled="saving || !isValid">
             Save as Candidate
           </button>
-          <button 
-            v-if="isEditing" 
-            class="btn btn-success" 
-            @click="handlePublish" 
-            :disabled="saving || form.status === 'published'"
+          <button
+            v-if="isCandidate"
+            class="btn btn-success"
+            @click="publishCandidate"
+            :disabled="saving || candidateTransitionActive !== null || hasUnsavedChanges"
           >
-            Publish
+            {{ publishing ? 'Publishing...' : 'Publish to public catalog' }}
           </button>
-          <button 
-            v-if="isEditing && form.status === 'published'" 
-            class="btn btn-warning" 
-            @click="handleUnpublish" 
-            :disabled="saving"
-          >
-            Unpublish
-          </button>
+          <button
+            v-if="isCandidate && importedCandidateEligible"
+            class="btn btn-danger"
+            @click="rejectCandidate"
+            :disabled="saving || candidateTransitionActive !== null || hasUnsavedChanges"
+          >{{ rejecting ? 'Rejecting...' : 'Reject imported candidate' }}</button>
+        </div>
+        <p v-if="isCandidate && hasUnsavedChanges" class="helper-text">Save your changes before publishing.</p>
+        <p v-if="publicationMessage" class="helper-text">{{ publicationMessage }}</p>
+        <div v-if="publicationError" class="error" role="alert">
+          <p>{{ publicationError }}</p>
+          <ul v-if="publicationIssues.length">
+            <li v-for="issue in publicationIssues" :key="`${issue.path}:${issue.code}`">
+              {{ issue.path }}: {{ issue.message }}
+            </li>
+          </ul>
+        </div>
+        <p v-if="rejectionMessage" class="helper-text">{{ rejectionMessage }}</p>
+        <div v-if="rejectionError" class="error" role="alert">
+          <p>{{ rejectionError }}</p>
+          <ul v-if="rejectionIssues.length"><li v-for="issue in rejectionIssues" :key="`${issue.path}:${issue.code}`">{{ issue.path }}: {{ issue.message }}</li></ul>
         </div>
       </div>
 
@@ -273,15 +298,15 @@
       <div class="preview-section">
         <div class="preview-card">
           <h3>Palette Preview</h3>
-          <div class="palette-preview" :style="{ background: previewGradient }">
-            <div class="preview-colors">
-              <div
-                v-for="(color, index) in parsedColors"
-                :key="index"
-                class="preview-color"
-                :style="{ background: color.hex }"
-              ></div>
-            </div>
+          <div class="chart-preview-wrapper">
+            <PaletteChartPreview
+              :palette="canonicalPaletteForPreview"
+              size="card"
+              :public-only="false"
+            />
+          </div>
+          <div class="palette-strip-wrapper">
+            <PalettePreview :colors="canonicalPaletteForPreview.colors" size="sm" />
           </div>
 
           <div v-if="parsedColors.length > 0" class="color-details">
@@ -298,32 +323,27 @@
       </div>
     </div>
 
-    <ConfirmDialog
-      v-if="replacementConfirmDraft"
-      title="Archive Published Preview"
-      :message="replacementConfirmMessage"
-      confirm-text="Archive and create draft"
-      @confirm="confirmPreviewReplacement"
-      @cancel="cancelPreviewReplacement"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, toRefs } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { 
   getPalette, 
   createPalette, 
   updatePalette, 
   publishPalette,
-  unpublishPalette,
+  rejectPalette,
+  getCandidateRejectionEligibility,
   parseColorsInput, 
   preservePaletteColorIds,
   isValidHex,
   generateSlug,
   CreatePaletteRequest,
-  PaletteColor
+  PaletteColor,
+  AdminPaletteApiError,
+  type AdminPalette
 } from '@/api/admin'
 import type {
   CanonicalPalette,
@@ -333,20 +353,21 @@ import type {
   PalettePreviewCase,
   ValidationIssue
 } from '@/types/palette'
-import { PHASE_1_CHART_TYPES, normalizeLegacyChartTypesToApplicability } from '@/lib/palette/applicability'
-import BarErrorPreviewEditor from '@/components/admin/previews/BarErrorPreviewEditor.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import { normalizeLegacyChartTypesToApplicability } from '@/lib/palette/applicability'
+import { CHART_TYPE_DEFINITIONS } from '@/lib/chart-types/registry'
+import AdminPreviewCaseEditor from './AdminPreviewCaseEditor.vue'
+import PalettePreview from '@/components/PalettePreview.vue'
+import PaletteChartPreview from '@/components/palettes/PaletteChartPreview.vue'
 import {
-  type EditableBarErrorDraft
-} from '@/lib/chart-types/bar-error/admin'
-import {
-  publishBarErrorSavedDraft,
-  replacePublishedBarErrorWithDraft,
-  saveBarErrorDraftRevision
-} from '@/lib/chart-types/bar-error/lifecycle'
+  createCandidatePublicationController,
+  createCandidatePublicationState
+} from './CandidatePublication.logic'
+import { createCandidateRejectionController, createCandidateRejectionState } from './CandidateRejection.logic'
+import { createCandidateTransitionCoordinator, type CandidateTransition } from './CandidateTransition.logic'
 import {
   archiveAdminPreviewCase,
   createAdminPreviewCase,
+  deleteAdminPreviewCase,
   listAdminPreviewCases,
   publishAdminPreviewCase,
   setPrimaryAdminPreviewCase,
@@ -361,25 +382,43 @@ const isEditing = computed(() => !!route.params.id)
 const paletteId = computed(() => route.params.id as string)
 
 const saving = ref(false)
+const publicationState = reactive(createCandidatePublicationState())
+const rejectionState = reactive(createCandidateRejectionState())
+const candidateTransitionActive = ref<CandidateTransition | null>(null)
+const candidateTransitionCoordinator = createCandidateTransitionCoordinator((active) => {
+  candidateTransitionActive.value = active
+})
+const importedCandidateEligible = ref(false)
+const {
+  publishing,
+  message: publicationMessage,
+  error: publicationError,
+  issues: publicationIssues
+} = toRefs(publicationState)
+const { rejecting, message: rejectionMessage, error: rejectionError, issues: rejectionIssues } = toRefs(rejectionState)
+const savedPayload = ref('')
+const loading = ref(false)
+const formError = ref('')
+const formValidationIssues = ref<ValidationIssue[]>([])
 const colorsError = ref('')
 const previewCases = ref<PalettePreviewCase[]>([])
 const previewRequestInProgress = ref(false)
 const previewBackendIssues = ref<ValidationIssue[]>([])
 const previewWorkflowMessage = ref('')
-const replacementConfirmDraft = ref<EditableBarErrorDraft | null>(null)
-const replacementConfirmPreviewCaseId = ref<string | null>(null)
 
 const availableChartTypes = [
   'line', 'bar', 'scatter', 'boxplot', 'violin', 
   'heatmap', 'area', 'stacked_bar', 'survival_curve', 'volcano_plot'
 ]
 
-const phase1ChartTypes = PHASE_1_CHART_TYPES
+const phase1ChartTypes = CHART_TYPE_DEFINITIONS.map((definition) => definition.chartType)
 const chartTypeLabels: Record<ChartType, string> = {
   bar_error: 'Bar with error bars',
   boxplot_jitter: 'Boxplot with jitter',
   line_multiseries: 'Multi-series line',
-  heatmap_annotated: 'Annotated heatmap'
+  heatmap_annotated: 'Annotated heatmap',
+  scatter_grouped: 'Grouped scatter',
+  violin_distribution: 'Violin distribution'
 }
 const suitabilityOptions: Array<{ value: ChartSuitability; label: string }> = [
   { value: 'best_fit', label: 'Best fit' },
@@ -420,6 +459,8 @@ const form = reactive({
 const colorsInput = ref('')
 const loadedColors = ref<PaletteColor[]>([])
 const loadedPaletteType = ref('')
+const loadedStatus = ref<AdminPalette['status'] | null>(null)
+const isCandidate = computed(() => isEditing.value && loadedStatus.value === 'candidate')
 const chartApplicabilityMode = ref<'legacy' | 'authored'>('legacy')
 const clearApplicabilityOnSave = ref(false)
 const disciplineInput = ref('')
@@ -436,14 +477,6 @@ const parsedColors = computed(() => {
   }
 })
 
-const previewGradient = computed(() => {
-  if (parsedColors.value.length === 0) return '#e5e7eb'
-  const stops = parsedColors.value.map((c, i) => 
-    `${c.hex} ${(i / Math.max(parsedColors.value.length - 1, 1)) * 100}%`
-  ).join(', ')
-  return `linear-gradient(90deg, ${stops})`
-})
-
 const isValid = computed(() => {
   return form.name.trim() !== '' &&
     form.type !== '' &&
@@ -451,6 +484,7 @@ const isValid = computed(() => {
     parsedColors.value.every(c => isValidHex(c.hex)) &&
     !applicabilityError.value
 })
+const hasUnsavedChanges = computed(() => Boolean(savedPayload.value) && JSON.stringify(buildPalettePayload()) !== savedPayload.value)
 
 const applicabilityError = computed(() => {
   if (chartApplicabilityMode.value !== 'authored') return ''
@@ -487,14 +521,13 @@ const paletteTypeOptions = computed(() => {
 })
 
 const canonicalPaletteForPreview = computed<CanonicalPalette>(() => ({
-  id: paletteId.value,
+  id: paletteId.value || `unsaved:${form.slug || generateSlug(form.name) || 'palette'}`,
   slug: form.slug || generateSlug(form.name),
   name: form.name || 'Palette',
   status: form.status as 'draft' | 'candidate' | 'published' | 'archived',
   colors: form.colors
-    .filter((color): color is PaletteColor & { id: string } => typeof color.id === 'string' && color.id.trim() !== '')
     .map((color, index) => ({
-      id: color.id,
+      id: typeof color.id === 'string' && color.id.trim() ? color.id : `draft-color-${index + 1}`,
       hex: color.hex,
       rgb: color.rgb,
       label: color.label,
@@ -518,22 +551,9 @@ const canonicalPaletteForPreview = computed<CanonicalPalette>(() => ({
   version: form.version || undefined,
   created_at: '',
   updated_at: '',
-  primary_preview_case: null,
-  preview_cases: []
+  primary_preview_case: previewCases.value.find((previewCase) => previewCase.is_primary) ?? null,
+  preview_cases: previewCases.value
 }))
-
-const replacementConfirmPreviewCase = computed(() =>
-  replacementConfirmPreviewCaseId.value
-    ? previewCases.value.find((previewCase) => previewCase.id === replacementConfirmPreviewCaseId.value) ?? null
-    : null
-)
-
-const replacementConfirmMessage = computed(() => {
-  const primaryWarning = replacementConfirmPreviewCase.value?.is_primary
-    ? ' This preview is currently primary, so the public chart preview may temporarily fall back until the replacement draft is published and set primary.'
-    : ''
-  return `Archive the published bar error preview and create a new draft from your current local edits?${primaryWarning}`
-})
 
 watch(parsedColors, (newColors) => {
   form.colors = newColors
@@ -564,7 +584,9 @@ function updateColorsFromInput() {
 
 async function loadPalette() {
   if (!paletteId.value) return
-  
+  loading.value = true
+  formError.value = ''
+  formValidationIssues.value = []
   try {
     const palette = await getPalette(paletteId.value)
     form.name = palette.name
@@ -597,6 +619,10 @@ async function loadPalette() {
     form.source_note = palette.source_note || ''
     form.version = palette.version || ''
     form.status = palette.status || 'draft'
+    loadedStatus.value = palette.status
+    importedCandidateEligible.value = palette.status === 'candidate'
+      ? await getCandidateRejectionEligibility(paletteId.value)
+      : false
     form.color_count = palette.color_count
     loadedColors.value = palette.colors || []
 
@@ -611,9 +637,11 @@ async function loadPalette() {
     avoidCaseInput.value = palette.avoid_case?.join(', ') || ''
     tagsInput.value = palette.tags?.join(', ') || ''
     await loadPreviewCases()
+    savedPayload.value = JSON.stringify(buildPalettePayload())
   } catch (e: any) {
-    alert('Failed to load palette: ' + e.message)
-    router.push('/admin/palettes')
+    formError.value = e.message || 'Failed to load palette'
+  } finally {
+    loading.value = false
   }
 }
 
@@ -696,7 +724,7 @@ function buildPalettePayload(): CreatePaletteRequest {
     source_image: form.source_image || undefined,
     source_note: form.source_note || undefined,
     version: form.version || undefined,
-    status: form.status
+    status: isCandidate.value ? undefined : form.status
   }
 
   if (chartApplicabilityMode.value === 'authored') {
@@ -716,23 +744,37 @@ function buildPalettePayload(): CreatePaletteRequest {
 
 async function savePalette() {
   if (!isValid.value) {
-    alert('Please fill in all required fields')
+    formError.value = 'Please correct the highlighted validation errors.'
     return
   }
 
   saving.value = true
+  formError.value = ''
+  formValidationIssues.value = []
   try {
     const data = buildPalettePayload()
 
     if (isEditing.value) {
-      await updatePalette(paletteId.value, data)
+      const wasCandidate = isCandidate.value
+      const saved = await updatePalette(paletteId.value, data)
+      if (wasCandidate && (
+        saved.status !== 'candidate' ||
+        saved.visibility !== 'public' ||
+        saved.owner_user_id != null
+      )) {
+        throw new Error('The server returned an invalid candidate ownership or status boundary.')
+      }
+      form.status = saved.status
+      loadedStatus.value = saved.status
+      savedPayload.value = JSON.stringify(buildPalettePayload())
     } else {
       await createPalette(data)
     }
 
     router.push('/admin/palettes')
   } catch (e: any) {
-    alert(e.message || 'Failed to save palette')
+    formError.value = e.message || 'Failed to save palette'
+    formValidationIssues.value = e instanceof AdminPaletteApiError ? e.issues : []
   } finally {
     saving.value = false
   }
@@ -748,37 +790,56 @@ async function saveAsCandidate() {
   await savePalette()
 }
 
-async function handlePublish() {
-  if (!isEditing.value) return
-  saving.value = true
-  try {
-    // First save current form
-    const data = buildPalettePayload()
-    await updatePalette(paletteId.value, data)
-    // Then publish
-    await publishPalette(paletteId.value)
-    form.status = 'published'
-    alert('Palette published successfully!')
-  } catch (e: any) {
-    alert(e.message || 'Failed to publish palette')
-  } finally {
-    saving.value = false
-  }
+async function publishCandidate() {
+  await candidatePublicationController.attempt()
 }
 
-async function handleUnpublish() {
-  if (!isEditing.value) return
-  saving.value = true
-  try {
-    await unpublishPalette(paletteId.value)
-    form.status = 'draft'
-    alert('Palette unpublished successfully!')
-  } catch (e: any) {
-    alert(e.message || 'Failed to unpublish palette')
-  } finally {
-    saving.value = false
+const candidatePublicationController = createCandidatePublicationController({
+  state: publicationState,
+  paletteID: () => paletteId.value,
+  eligibility: () => ({
+    editing: isEditing.value,
+    authenticatedAdmin: true, // This form is mounted only behind AuthRequired + AdminRequired.
+    canonicalStatus: loadedStatus.value,
+    dirty: hasUnsavedChanges.value,
+    publishing: candidateTransitionActive.value !== null
+  }),
+  confirm: (message) => window.confirm(message),
+  publish: publishPalette,
+  reload: getPalette,
+  transitionCoordinator: candidateTransitionCoordinator,
+  applyCanonical: (palette) => {
+    form.status = palette.status
+    loadedStatus.value = palette.status
   }
+})
+
+async function rejectCandidate() {
+  await candidateRejectionController.attempt()
 }
+
+const candidateRejectionController = createCandidateRejectionController({
+  state: rejectionState,
+  paletteID: () => paletteId.value,
+  eligibility: () => ({
+    editing: isEditing.value,
+    authenticatedAdmin: true,
+    importedCandidate: importedCandidateEligible.value,
+    canonicalStatus: loadedStatus.value,
+    dirty: hasUnsavedChanges.value,
+    conflictingAction: candidateTransitionActive.value !== null
+  }),
+  confirm: (message) => window.confirm(message),
+  reject: rejectPalette,
+  reload: getPalette,
+  transitionCoordinator: candidateTransitionCoordinator,
+  applyCanonical: async (palette) => {
+    form.status = palette.status
+    loadedStatus.value = palette.status
+    importedCandidateEligible.value = false
+    await loadPreviewCases(false)
+  }
+})
 
 async function loadPreviewCases(clearMessage = true) {
   if (!isEditing.value) return
@@ -796,80 +857,39 @@ async function loadPreviewCases(clearMessage = true) {
   previewWorkflowMessage.value = result.message
 }
 
-async function handlePreviewDraftSave(draft: EditableBarErrorDraft) {
+async function handlePreviewDraftSave(previewCase: PalettePreviewCase) {
+  const existingDraft = previewCases.value.find((candidate) =>
+    candidate.status === 'draft' &&
+    candidate.chart_type === previewCase.chart_type &&
+    candidate.template_id === previewCase.template_id &&
+    candidate.template_version === previewCase.template_version
+  )
   await runPreviewMutation(
-    () => saveBarErrorDraftRevision(paletteId.value, previewCases.value, draft, {
-      create: createAdminPreviewCase,
-      update: updateAdminPreviewCase
-    }),
-    'Draft saved.'
+    () => existingDraft
+      ? updateAdminPreviewCase(existingDraft.id, previewCasePayload(previewCase))
+      : createAdminPreviewCase(paletteId.value, previewCasePayload(previewCase)),
+    existingDraft ? 'Draft updated.' : 'Draft created.'
   )
 }
 
-async function handlePreviewPublish(draft: EditableBarErrorDraft) {
+async function handlePreviewPublish(previewCase: PalettePreviewCase) {
+  const draft = previewCases.value.find((candidate) =>
+    candidate.status === 'draft' &&
+    candidate.chart_type === previewCase.chart_type &&
+    candidate.template_id === previewCase.template_id &&
+    candidate.template_version === previewCase.template_version
+  )
+  if (!draft) {
+    previewWorkflowMessage.value = 'Save a draft before publishing.'
+    return
+  }
   await runPreviewMutation(
-    () => publishBarErrorSavedDraft(previewCases.value, draft, {
-      update: updateAdminPreviewCase,
-      publish: publishAdminPreviewCase
-    }),
+    async () => {
+      const updateResult = await updateAdminPreviewCase(draft.id, previewCasePayload(previewCase))
+      return updateResult.ok ? publishAdminPreviewCase(draft.id) : updateResult
+    },
     'Preview published.'
   )
-}
-
-function requestPreviewReplacement(previewCaseId: string, draft: EditableBarErrorDraft) {
-  replacementConfirmPreviewCaseId.value = previewCaseId
-  replacementConfirmDraft.value = draft
-}
-
-async function confirmPreviewReplacement() {
-  if (!replacementConfirmPreviewCaseId.value || !replacementConfirmDraft.value) return
-
-  const previewCaseId = replacementConfirmPreviewCaseId.value
-  const draft = replacementConfirmDraft.value
-  replacementConfirmPreviewCaseId.value = null
-  replacementConfirmDraft.value = null
-  await runPreviewReplacement(previewCaseId, draft)
-}
-
-function cancelPreviewReplacement() {
-  replacementConfirmPreviewCaseId.value = null
-  replacementConfirmDraft.value = null
-}
-
-async function runPreviewReplacement(previewCaseId: string, draft: EditableBarErrorDraft) {
-  previewRequestInProgress.value = true
-  previewBackendIssues.value = []
-  previewWorkflowMessage.value = ''
-
-  try {
-    const result = await replacePublishedBarErrorWithDraft(
-      paletteId.value,
-      previewCaseId,
-      draft,
-      {
-        archive: archiveAdminPreviewCase,
-        create: createAdminPreviewCase
-      }
-    )
-
-    if (!result.ok) {
-      if (result.stage === 'archive_failed') {
-        previewBackendIssues.value = result.archiveResult.ok ? [] : result.archiveResult.issues ?? []
-        previewWorkflowMessage.value = result.archiveResult.ok ? '' : result.archiveResult.message
-        return
-      }
-
-      previewBackendIssues.value = result.createResult.ok ? [] : result.createResult.issues ?? []
-      previewWorkflowMessage.value = result.createResult.ok ? '' : result.createResult.message
-      await loadPreviewCases(false)
-      return
-    }
-
-    previewWorkflowMessage.value = 'Published preview archived and replacement draft created.'
-    await loadPreviewCases(false)
-  } finally {
-    previewRequestInProgress.value = false
-  }
 }
 
 async function handlePreviewSetPrimary(previewCaseId: string) {
@@ -879,6 +899,19 @@ async function handlePreviewSetPrimary(previewCaseId: string) {
   )
 }
 
+function previewCasePayload(previewCase: PalettePreviewCase) {
+  return {
+    chart_type: previewCase.chart_type,
+    template_id: previewCase.template_id,
+    template_version: previewCase.template_version,
+    schema_version: previewCase.schema_version,
+    color_roles: previewCase.color_roles,
+    preview_config: previewCase.preview_config,
+    seed_strategy: previewCase.seed_strategy,
+    seed_value: previewCase.seed_value
+  }
+}
+
 async function handlePreviewArchive(previewCaseId: string) {
   await runPreviewMutation(
     () => archiveAdminPreviewCase(previewCaseId),
@@ -886,8 +919,15 @@ async function handlePreviewArchive(previewCaseId: string) {
   )
 }
 
+async function handlePreviewDeleteDraft(previewCaseId: string) {
+  await runPreviewMutation(
+    () => deleteAdminPreviewCase(previewCaseId),
+    'Draft preview deleted.'
+  )
+}
+
 async function runPreviewMutation(
-  mutate: () => Promise<AdminPreviewMutationResult<PalettePreviewCase>>,
+  mutate: () => Promise<AdminPreviewMutationResult<PalettePreviewCase | null>>,
   successMessage: string
 ) {
   previewRequestInProgress.value = true
@@ -973,21 +1013,27 @@ onMounted(() => {
   margin-bottom: 1rem;
 }
 
-.palette-preview {
-  height: 80px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+.chart-preview-wrapper {
+  height: 160px;
+  margin-bottom: 0.75rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.palette-strip-wrapper {
+  height: 12px;
   margin-bottom: 1.5rem;
+  border-radius: 999px;
   overflow: hidden;
 }
 
-.preview-colors {
-  display: flex;
-  height: 100%;
-}
-
-.preview-color {
-  flex: 1;
+.palette-strip-wrapper :deep(.palette-preview) {
+  height: 12px;
+  min-height: 12px;
+  max-height: 12px;
+  border-radius: 999px;
+  box-shadow: none;
 }
 
 .color-details h4 {

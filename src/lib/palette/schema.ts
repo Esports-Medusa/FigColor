@@ -23,12 +23,15 @@ export type ChartFamily =
   | 'distribution'
   | 'line'
   | 'heatmap'
+  | 'scatter'
 
 export type ChartType =
   | 'bar_error'
   | 'boxplot_jitter'
   | 'line_multiseries'
   | 'heatmap_annotated'
+  | 'scatter_grouped'
+  | 'violin_distribution'
 
 export type PreviewCaseStatus = 'draft' | 'published' | 'archived'
 

@@ -75,6 +75,18 @@ export function requireEnumProperty<T extends string>(
     : [registryIssue(`${path}.${key}`, code, `${path}.${key} must be one of: ${allowed.join(', ')}.`)]
 }
 
+export function rejectUnknownProperties(
+  value: unknown,
+  allowed: readonly string[],
+  path: string,
+  code: 'INVALID_COLOR_ROLES' | 'INVALID_PREVIEW_CONFIG'
+): ValidationIssue[] {
+  if (!isRecord(value)) return []
+  return Object.keys(value)
+    .filter((key) => !allowed.includes(key))
+    .map((key) => registryIssue(`${path}.${key}`, code, `${path}.${key} is not supported.`))
+}
+
 export function combineIssues(issues: ValidationIssue[]): ValidationResult {
   return issues.length > 0 ? invalidResult(issues) : validResult()
 }

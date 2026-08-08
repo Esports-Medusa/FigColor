@@ -1,12 +1,11 @@
 package palette
 
-// PublicPaletteDTO is the public palette response shape. The primary preview
-// case is also included in preview_cases so clients can either access it
-// directly or preserve repository order for future multi-preview surfaces.
+// PublicPaletteDTO is the public palette response shape. Public consumers only
+// receive the published primary preview case; draft, archived and secondary
+// preview cases remain admin-only.
 type PublicPaletteDTO struct {
 	Palette
-	PrimaryPreviewCase *PublicPalettePreviewCase  `json:"primary_preview_case"`
-	PreviewCases       []PublicPalettePreviewCase `json:"preview_cases"`
+	PrimaryPreviewCase *PublicPalettePreviewCase `json:"primary_preview_case"`
 }
 
 type PublicPalettePreviewCase struct {
@@ -29,24 +28,22 @@ func buildPublicPaletteDTO(palette *Palette, previewCases []*PalettePreviewCase)
 		return nil
 	}
 
-	publicPreviewCases := make([]PublicPalettePreviewCase, 0, len(previewCases))
 	var primary *PublicPalettePreviewCase
 	for _, previewCase := range previewCases {
-		if previewCase == nil || previewCase.Status != PreviewCaseStatusPublished {
+		if previewCase == nil ||
+			previewCase.Status != PreviewCaseStatusPublished ||
+			!previewCase.IsPrimary {
 			continue
 		}
 
 		publicPreviewCase := publicPalettePreviewCaseDTO(previewCase)
-		publicPreviewCases = append(publicPreviewCases, publicPreviewCase)
-		if publicPreviewCase.IsPrimary && primary == nil {
-			primary = &publicPreviewCases[len(publicPreviewCases)-1]
-		}
+		primary = &publicPreviewCase
+		break
 	}
 
 	return &PublicPaletteDTO{
 		Palette:            *palette,
 		PrimaryPreviewCase: primary,
-		PreviewCases:       publicPreviewCases,
 	}
 }
 

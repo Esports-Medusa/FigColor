@@ -10,9 +10,18 @@ const testModules = [
   '/src/lib/deterministic.test.ts',
   '/src/lib/exports/exports.test.ts',
   '/src/lib/palette.resolve-colors.test.ts',
+  '/src/lib/preview-vocabulary-consistency.test.ts',
+  '/src/lib/renderers/dataRoles.test.ts',
   '/src/lib/renderers.test.ts',
+  '/src/lib/scatter-violin.test.ts',
   '/src/components/palettes/PaletteChartPreview.test.ts',
-  '/src/components/palettes/PalettePreviewIntegration.test.ts'
+  '/src/components/palettes/PalettePreviewIntegration.test.ts',
+  '/src/views/admin/palettes/AdminPalettesList.test.ts',
+  '/src/views/admin/palettes/AdminCandidateReview.test.ts',
+  '/src/views/admin/palettes/CandidatePublication.logic.test.ts',
+  '/src/views/admin/palettes/CandidateRejection.logic.test.ts',
+  '/src/views/admin/palettes/CandidateTransition.logic.test.ts',
+  '/src/views/admin/palettes/AdminPreviewCaseEditor.test.ts'
 ]
 
 const server = await createServer({ logLevel: 'error' })

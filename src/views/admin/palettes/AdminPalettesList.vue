@@ -12,28 +12,25 @@
 
     <!-- Filters -->
     <div class="filters">
-      <select v-model="filters.status" @change="loadPalettes">
+      <input
+        v-model.trim="filters.search"
+        type="search"
+        aria-label="Search palettes"
+        placeholder="Search palettes"
+        @keyup.enter="handleFiltersChanged"
+      />
+      <select v-model="filters.status" @change="handleFiltersChanged">
         <option value="">All Status</option>
         <option value="draft">Draft</option>
         <option value="candidate">Candidate</option>
         <option value="published">Published</option>
         <option value="archived">Archived</option>
       </select>
-      <select v-model="filters.type" @change="loadPalettes">
-        <option value="">All Types</option>
-        <option value="categorical">Categorical</option>
-        <option value="sequential">Sequential</option>
-        <option value="diverging">Diverging</option>
-        <option value="qualitative">Qualitative</option>
-        <option value="heatmap">Heatmap</option>
-      </select>
-      <select v-model="filters.chart_type" @change="loadPalettes">
+      <select v-model="filters.chartType" aria-label="Chart Type" @change="handleFiltersChanged">
         <option value="">All Chart Types</option>
-        <option value="line">Line</option>
-        <option value="bar">Bar</option>
-        <option value="scatter">Scatter</option>
-        <option value="heatmap">Heatmap</option>
-        <option value="area">Area</option>
+        <option v-for="chartOption in chartTypeOptions" :key="chartOption.value" :value="chartOption.value">
+          {{ chartOption.label }}
+        </option>
       </select>
     </div>
 
@@ -41,80 +38,92 @@
     <div v-if="loading" class="loading">Loading palettes...</div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-else-if="error" class="error" role="alert">
+      <p>{{ error }}</p>
+      <button class="btn btn-secondary" type="button" @click="loadPalettes">Retry</button>
+    </div>
 
     <!-- Palettes Table -->
-    <div v-else-if="palettes.length > 0" class="table-container">
-      <table class="palettes-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Colors</th>
-            <th>Chart Types</th>
-            <th>Status</th>
-            <th>Updated</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="palette in palettes" :key="palette.id">
-            <td class="name-cell">
-              <span class="palette-preview" :style="{ background: getPreviewGradient(palette.colors) }"></span>
-              {{ palette.name }}
-            </td>
-            <td>{{ palette.type }}</td>
-            <td>{{ palette.color_count }}</td>
-            <td>
-              <span v-for="ct in palette.chart_types?.slice(0, 2)" :key="ct" class="tag">
-                {{ ct }}
-              </span>
-              <span v-if="palette.chart_types?.length > 2">+{{ palette.chart_types.length - 2 }}</span>
-            </td>
-            <td>
-              <span :class="['status-badge', palette.status]">{{ palette.status }}</span>
-            </td>
-            <td>{{ formatDate(palette.updated_at) }}</td>
-            <td class="actions-cell">
-              <button class="btn-icon" @click="editPalette(palette.id)" title="Edit">
-                ✎
-              </button>
-              <button 
-                v-if="palette.status !== 'published'" 
-                class="btn-icon success" 
-                @click="publishPalette(palette)"
-                title="Publish">
-                ↑
-              </button>
-              <button 
-                v-if="palette.status === 'published'" 
-                class="btn-icon warning" 
-                @click="unpublishPalette(palette)"
-                title="Unpublish">
-                ↓
-              </button>
-              <button class="btn-icon danger" @click="deletePalette(palette)" title="Delete">
-                ✕
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <div v-else>
+      <div class="results-info">
+        <span class="results-count">
+          Showing {{ paginationStart }}-{{ paginationEnd }} of {{ total }} palettes
+        </span>
+      </div>
 
-    <!-- Empty State -->
-    <div v-else class="empty-state">
-      <p>No palettes found.</p>
-      <button class="btn btn-primary" @click="router.push('/admin/palettes/new')">
-        Create your first palette
-      </button>
-    </div>
+      <div v-if="palettes.length > 0" class="table-container">
+        <table class="palettes-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Colors</th>
+              <th>Chart Types</th>
+              <th>Status</th>
+              <th>Updated</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="palette in palettes" :key="palette.id">
+              <td class="name-cell">
+                <span class="palette-preview" :style="{ background: getPreviewGradient(palette.colors) }"></span>
+                {{ palette.name }}
+              </td>
+              <td>{{ palette.type }}</td>
+              <td>{{ palette.color_count }}</td>
+              <td>
+                <span v-for="ct in palette.chart_types?.slice(0, 2)" :key="ct" class="tag">
+                  {{ ct }}
+                </span>
+                <span v-if="palette.chart_types?.length > 2">+{{ palette.chart_types.length - 2 }}</span>
+              </td>
+              <td>
+                <span :class="['status-badge', palette.status]">{{ statusLabel(palette.status) }}</span>
+              </td>
+              <td>{{ formatDate(palette.updated_at) }}</td>
+              <td class="actions-cell">
+                <button class="btn-icon" @click="editPalette(palette.id)" title="Edit">
+                  ✎
+                </button>
+                <button
+                  v-if="palette.status === 'draft'"
+                  class="btn-icon success"
+                  @click="publishPalette(palette)"
+                  title="Publish">
+                  ↑
+                </button>
+                <button
+                  v-if="palette.status === 'published'"
+                  class="btn-icon warning"
+                  @click="unpublishPalette(palette)"
+                  title="Unpublish">
+                  ↓
+                </button>
+                <button class="btn-icon danger" @click="deletePalette(palette)" title="Delete">
+                  ✕
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="pagination">
-      <button :disabled="page === 1" @click="page--; loadPalettes()">Previous</button>
-      <span>Page {{ page }} of {{ totalPages }}</span>
-      <button :disabled="page === totalPages" @click="page++; loadPalettes()">Next</button>
+      <!-- Empty State -->
+      <div v-else class="empty-state">
+        <p>{{ emptyStateMessage }}</p>
+        <button v-if="!hasActiveFilters" class="btn btn-primary" @click="router.push('/admin/palettes/new')">
+          Create your first palette
+        </button>
+      </div>
+
+      <PaginationControls
+        :current-page="page"
+        :total-pages="totalPages"
+        :disabled="loading"
+        aria-label="Admin palette pagination"
+        @go="goToPage"
+      />
     </div>
 
     <!-- Confirm Dialog -->
@@ -122,6 +131,7 @@
       v-if="showConfirm"
       :title="confirmAction.title"
       :message="confirmAction.message"
+      :confirm-text="confirmAction.confirmText"
       @confirm="confirmAction.handler"
       @cancel="showConfirm = false"
     />
@@ -138,7 +148,10 @@ import {
   deletePalette as apiDeletePalette,
   AdminPalette 
 } from '@/api/admin'
+import { CHART_TYPE_DEFINITIONS } from '@/lib/chart-types/registry'
+import type { ChartType } from '@/types/palette'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import PaginationControls from '@/components/common/PaginationControls.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -152,20 +165,45 @@ const total = ref(0)
 
 const filters = reactive({
   status: (route.query.status as string) || '',
-  type: '',
-  chart_type: '',
-  journal_style: '',
-  discipline: ''
+  search: (route.query.search as string) || '',
+  chartType: ''
 })
+
+const chartTypeLabels: Record<ChartType, string> = {
+  bar_error: 'Bar Error',
+  boxplot_jitter: 'Boxplot Jitter',
+  line_multiseries: 'Line Multiseries',
+  heatmap_annotated: 'Heatmap Annotated',
+  scatter_grouped: 'Grouped Scatter',
+  violin_distribution: 'Violin Distribution'
+}
+
+const chartTypeOptions = CHART_TYPE_DEFINITIONS.map((definition) => ({
+  value: definition.chartType,
+  label: chartTypeLabels[definition.chartType]
+}))
 
 const showConfirm = ref(false)
 const confirmAction = ref({
   title: '',
   message: '',
+  confirmText: 'Confirm',
   handler: () => {}
 })
 
-const totalPages = computed(() => Math.ceil(total.value / pageSize))
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+const paginationStart = computed(() => total.value === 0 ? 0 : (page.value - 1) * pageSize + 1)
+const paginationEnd = computed(() => Math.min(page.value * pageSize, total.value))
+const hasActiveFilters = computed(() => Boolean(filters.status || filters.search || filters.chartType))
+const emptyStateMessage = computed(() => {
+  if (filters.status === 'candidate' && !filters.search && !filters.chartType) return 'No candidates found.'
+  if (hasActiveFilters.value) return 'No palettes match the current filters.'
+  return 'No palettes found.'
+})
+
+function statusLabel(status: AdminPalette['status']): string {
+  return status === 'candidate' ? 'Candidate' : status.charAt(0).toUpperCase() + status.slice(1)
+}
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
@@ -184,20 +222,37 @@ async function loadPalettes() {
   try {
     const response = await getPalettes({
       status: filters.status || undefined,
-      type: filters.type || undefined,
-      chart_type: filters.chart_type || undefined,
-      journal_style: filters.journal_style || undefined,
-      discipline: filters.discipline || undefined,
+      search: filters.search || undefined,
+      chart_type: filters.chartType || undefined,
       page: page.value,
       page_size: pageSize
     })
     palettes.value = response.items || []
     total.value = response.total || 0
+    const resolvedPage = Math.min(response.page || page.value, totalPages.value)
+    if (resolvedPage !== page.value) {
+      page.value = resolvedPage
+      await loadPalettes()
+      return
+    }
   } catch (e: any) {
     error.value = e.message || 'Failed to load palettes'
   } finally {
     loading.value = false
   }
+}
+
+function handleFiltersChanged() {
+  page.value = 1
+  void loadPalettes()
+}
+
+async function goToPage(targetPage: number) {
+  if (targetPage < 1 || targetPage > totalPages.value || targetPage === page.value) {
+    return
+  }
+  page.value = targetPage
+  await loadPalettes()
 }
 
 function editPalette(id: string) {
@@ -208,6 +263,7 @@ async function publishPalette(palette: AdminPalette) {
   confirmAction.value = {
     title: 'Publish Palette',
     message: `Are you sure you want to publish "${palette.name}"? It will be visible to all users.`,
+    confirmText: 'Yes, publish',
     handler: async () => {
       try {
         await apiPublishPalette(palette.id)
@@ -225,6 +281,7 @@ async function unpublishPalette(palette: AdminPalette) {
   confirmAction.value = {
     title: 'Unpublish Palette',
     message: `Are you sure you want to unpublish "${palette.name}"? It will no longer be visible to users.`,
+    confirmText: 'Yes, unpublish',
     handler: async () => {
       try {
         await apiUnpublishPalette(palette.id)
@@ -242,6 +299,7 @@ async function deletePalette(palette: AdminPalette) {
   confirmAction.value = {
     title: 'Delete Palette',
     message: `Are you sure you want to delete "${palette.name}"? This action cannot be undone.`,
+    confirmText: 'Yes, delete',
     handler: async () => {
       try {
         await apiDeletePalette(palette.id)
@@ -299,6 +357,18 @@ onMounted(() => {
   font-size: 0.875rem;
   background: white;
   min-width: 150px;
+}
+
+.results-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.results-count {
+  font-size: 0.875rem;
+  color: #666;
 }
 
 .loading, .error, .empty-state {
@@ -444,31 +514,6 @@ onMounted(() => {
 
 .btn-icon.danger:hover {
   background: #fee2e2;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.pagination button {
-  padding: 0.5rem 1rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: white;
-  cursor: pointer;
-}
-
-.pagination button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination button:hover:not(:disabled) {
-  background: #f3f4f6;
 }
 
 .btn {

@@ -128,7 +128,7 @@ func writePreviewCaseError(c *gin.Context, err error) {
 	}
 
 	switch {
-	case errors.Is(err, ErrPreviewCaseNotFound), errors.Is(err, ErrPaletteNotFound):
+	case errors.Is(err, ErrPreviewCaseNotFound), errors.Is(err, ErrPaletteNotFound), errors.Is(err, ErrPaletteNotAdminManageable):
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 	case errors.Is(err, ErrInvalidPreviewCaseLifecycleTransition):
 		c.JSON(http.StatusConflict, gin.H{"error": "invalid lifecycle transition"})

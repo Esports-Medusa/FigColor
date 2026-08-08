@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "generation": "Repository-owned Go raster primitives; images generated at test runtime and not retained.",
+  "fixtures": [
+    {"id":"bar-error","chart_type":"bar_error","palette_type":"categorical","expected_ordered_data_colors":["#2878B8","#E0583C","#50A868"],"expected_structural_colors":["#2D2D2D","#CDCDCD"],"background":"#F8F8F4","geometry":"bars, capped error bars, axes and grid","transformation":"native-raster","semantic_order_observable":true},
+    {"id":"boxplot-jitter","chart_type":"boxplot_jitter","palette_type":"categorical","expected_ordered_data_colors":["#6A51A3","#D95F8D","#E6AB02","#1B9E77","#4D4D4D"],"expected_structural_colors":["#2D2D2D","#CDCDCD"],"background":"#FCFAF2","geometry":"filled boxes, whiskers, caps, median lines and jitter points","transformation":"small-overlapping-jitter","semantic_order_observable":false},
+    {"id":"line-downsampled","chart_type":"line_multiseries","palette_type":"categorical","expected_ordered_data_colors":["#1F77B4","#FF7F0E","#2CA02C","#D62728","#9467BD","#17BECF"],"expected_structural_colors":["#2D2D2D","#CDCDCD"],"background":"#FAFAFA","geometry":"six thin piecewise-linear series paths","transformation":"render at 2x then 2x2 box-filter downsample","semantic_order_observable":false},
+    {"id":"heatmap-annotated","chart_type":"heatmap_annotated","palette_type":"diverging","expected_ordered_data_colors":["#2166AC","#67A9CF","#F7F7F7","#EF8A62","#B2182B"],"expected_structural_colors":["#2D2D2D","#CDCDCD","#F5F5F5"],"background":"#FFFFFF","geometry":"three rows of filled cells with contrasting plus-shaped annotations","transformation":"cell-text-annotations","semantic_order_observable":true},
+    {"id":"scatter-alpha","chart_type":"scatter_grouped","palette_type":"categorical","expected_ordered_data_colors":["#1F77B4","#FF7F0E","#2CA02C"],"expected_structural_colors":["#2D2D2D","#CDCDCD"],"background":"#F7F7F5","geometry":"three groups of small circular points plus explicit overlap","transformation":"small-overlapping-points-alpha; transparent pixels composited to configured #FFFFFF backdrop","semantic_order_observable":false},
+    {"id":"violin-filled","chart_type":"violin_distribution","palette_type":"sequential","expected_ordered_data_colors":["#E8F1F8","#9ECAE1","#6BAED6","#3182BD","#08519C"],"expected_structural_colors":["#2D2D2D","#CDCDCD"],"background":"#FFFDFC","geometry":"five symmetric density-shaped filled regions with median lines","transformation":"violin-shaped-filled-regions","semantic_order_observable":false}
+  ]
+}

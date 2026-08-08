@@ -27,6 +27,10 @@ type Palette struct {
 	ID                 string                    `json:"id"`
 	Slug               string                    `json:"slug"`
 	Name               string                    `json:"name"`
+	OwnerUserID        *string                   `json:"owner_user_id,omitempty"` // Permission owner for private palettes.
+	Visibility         string                    `json:"visibility"`
+	Origin             string                    `json:"origin"`
+	SourcePaletteID    *string                   `json:"source_palette_id,omitempty"`
 	Colors             json.RawMessage           `json:"colors"` // []PaletteColor
 	ColorCount         int                       `json:"color_count"`
 	Type               string                    `json:"type"` // categorical, sequential, diverging, mixed, qualitative, heatmap
@@ -43,7 +47,7 @@ type Palette struct {
 	SourceNote         string                    `json:"source_note,omitempty"`
 	Status             string                    `json:"status"` // draft, candidate, published, archived
 	Version            string                    `json:"version,omitempty"`
-	CreatedBy          *string                   `json:"created_by,omitempty"`
+	CreatedBy          *string                   `json:"created_by,omitempty"` // Audit actor; do not use for ownership checks.
 	CreatedAt          time.Time                 `json:"created_at"`
 	UpdatedAt          time.Time                 `json:"updated_at"`
 	PublishedAt        *time.Time                `json:"published_at,omitempty"`
@@ -78,13 +82,15 @@ func (o *OptionalChartApplicability) UnmarshalJSON(data []byte) error {
 
 // PaletteListParams represents query parameters for listing palettes
 type PaletteListParams struct {
-	Status       string
-	Type         string
-	ChartType    string
-	JournalStyle string
-	Discipline   string
-	Page         int
-	PageSize     int
+	Status            string
+	Visibility        string
+	PublicCatalogOnly bool
+	Type              string
+	ChartType         string
+	JournalStyle      string
+	Discipline        string
+	Page              int
+	PageSize          int
 }
 
 // PaletteStats represents statistics for the dashboard
@@ -100,6 +106,10 @@ type PaletteStats struct {
 type CreatePaletteRequest struct {
 	Name               string                     `json:"name" binding:"required"`
 	Slug               string                     `json:"slug"`
+	OwnerUserID        *string                    `json:"owner_user_id,omitempty"`
+	Visibility         string                     `json:"visibility,omitempty"`
+	Origin             string                     `json:"origin,omitempty"`
+	SourcePaletteID    *string                    `json:"source_palette_id,omitempty"`
 	Colors             json.RawMessage            `json:"colors" binding:"required"`
 	ColorCount         int                        `json:"color_count"`
 	Type               string                     `json:"type" binding:"required"`
@@ -122,6 +132,10 @@ type CreatePaletteRequest struct {
 type UpdatePaletteRequest struct {
 	Name               *string                    `json:"name,omitempty"`
 	Slug               *string                    `json:"slug,omitempty"`
+	OwnerUserID        *string                    `json:"owner_user_id,omitempty"`
+	Visibility         *string                    `json:"visibility,omitempty"`
+	Origin             *string                    `json:"origin,omitempty"`
+	SourcePaletteID    *string                    `json:"source_palette_id,omitempty"`
 	Colors             json.RawMessage            `json:"colors,omitempty"`
 	ColorCount         *int                       `json:"color_count,omitempty"`
 	Type               *string                    `json:"type,omitempty"`

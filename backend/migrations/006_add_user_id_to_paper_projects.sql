@@ -5,10 +5,7 @@
 ALTER TABLE paper_projects DROP CONSTRAINT IF EXISTS fk_paper_projects_user;
 
 -- Add user_id column (nullable first to avoid breaking existing data)
-ALTER TABLE paper_projects ADD COLUMN user_id UUID;
-
--- Clear any existing NULL values (development data)
-UPDATE paper_projects SET user_id = gen_random_uuid() WHERE user_id IS NULL;
+ALTER TABLE paper_projects ADD COLUMN IF NOT EXISTS user_id UUID;
 
 -- For development: assign all existing projects to a default user
 -- We create a default anonymous user first
@@ -18,7 +15,7 @@ ON CONFLICT (email) DO NOTHING;
 
 -- Update all existing projects to belong to anonymous user
 UPDATE paper_projects SET user_id = '00000000-0000-0000-0000-000000000000' 
-WHERE user_id IS NULL OR user_id = '00000000-0000-0000-0000-000000000000';
+WHERE user_id IS NULL;
 
 -- Set NOT NULL constraint
 ALTER TABLE paper_projects ALTER COLUMN user_id SET NOT NULL;

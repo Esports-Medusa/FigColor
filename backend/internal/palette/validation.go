@@ -53,10 +53,12 @@ var legacyPaletteTypes = map[string]bool{
 }
 
 const (
-	ChartTypeBarError         = "bar_error"
-	ChartTypeBoxplotJitter    = "boxplot_jitter"
-	ChartTypeLineMultiseries  = "line_multiseries"
-	ChartTypeHeatmapAnnotated = "heatmap_annotated"
+	ChartTypeBarError           = "bar_error"
+	ChartTypeBoxplotJitter      = "boxplot_jitter"
+	ChartTypeLineMultiseries    = "line_multiseries"
+	ChartTypeHeatmapAnnotated   = "heatmap_annotated"
+	ChartTypeScatterGrouped     = "scatter_grouped"
+	ChartTypeViolinDistribution = "violin_distribution"
 
 	ChartSuitabilityBestFit     = "best_fit"
 	ChartSuitabilityRecommended = "recommended"
@@ -67,10 +69,12 @@ const (
 )
 
 var allowedChartTypes = map[string]bool{
-	ChartTypeBarError:         true,
-	ChartTypeBoxplotJitter:    true,
-	ChartTypeLineMultiseries:  true,
-	ChartTypeHeatmapAnnotated: true,
+	ChartTypeBarError:           true,
+	ChartTypeBoxplotJitter:      true,
+	ChartTypeLineMultiseries:    true,
+	ChartTypeHeatmapAnnotated:   true,
+	ChartTypeScatterGrouped:     true,
+	ChartTypeViolinDistribution: true,
 }
 
 var allowedChartSuitabilities = map[string]bool{

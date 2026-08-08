@@ -27,7 +27,7 @@ func (r *Repository) getByID(q previewCaseQueryer, id string, forUpdate bool) (*
 	var colors, chartApplicability, accessibility []byte
 	var chartTypes, journalStyle, discipline, useCase, avoidCase, tags []string
 	var sourceType, sourceImage, sourceNote, version sql.NullString
-	var createdBy sql.NullString
+	var ownerUserID, sourcePaletteID, createdBy sql.NullString
 	var publishedAt, archivedAt sql.NullTime
 	lockClause := ""
 	if forUpdate {
@@ -35,7 +35,8 @@ func (r *Repository) getByID(q previewCaseQueryer, id string, forUpdate bool) (*
 	}
 
 	err := q.QueryRow(`
-		SELECT id, slug, name, colors, color_count, type,
+		SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id,
+			colors, color_count, type,
 			chart_types, chart_applicability, journal_style, discipline, use_case, avoid_case, tags,
 			accessibility, source_type, source_image, source_note,
 			status, version, created_by, created_at, updated_at,
@@ -46,6 +47,10 @@ func (r *Repository) getByID(q previewCaseQueryer, id string, forUpdate bool) (*
 		&palette.ID,
 		&palette.Slug,
 		&palette.Name,
+		&ownerUserID,
+		&palette.Visibility,
+		&palette.Origin,
+		&sourcePaletteID,
 		&colors,
 		&palette.ColorCount,
 		&palette.Type,
@@ -77,6 +82,12 @@ func (r *Repository) getByID(q previewCaseQueryer, id string, forUpdate bool) (*
 	}
 
 	palette.Colors = colors
+	if ownerUserID.Valid {
+		palette.OwnerUserID = &ownerUserID.String
+	}
+	if sourcePaletteID.Valid {
+		palette.SourcePaletteID = &sourcePaletteID.String
+	}
 	palette.ChartTypes = chartTypes
 	if err := scanChartApplicability(chartApplicability, &palette); err != nil {
 		return nil, err
@@ -128,11 +139,12 @@ func (r *Repository) GetBySlug(slug string) (*Palette, error) {
 	var colors, chartApplicability, accessibility []byte
 	var chartTypes, journalStyle, discipline, useCase, avoidCase, tags []string
 	var sourceType, sourceImage, sourceNote, version sql.NullString
-	var createdBy sql.NullString
+	var ownerUserID, sourcePaletteID, createdBy sql.NullString
 	var publishedAt, archivedAt sql.NullTime
 
 	err := database.DB.QueryRow(`
-		SELECT id, slug, name, colors, color_count, type,
+		SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id,
+			colors, color_count, type,
 			chart_types, chart_applicability, journal_style, discipline, use_case, avoid_case, tags,
 			accessibility, source_type, source_image, source_note,
 			status, version, created_by, created_at, updated_at,
@@ -143,6 +155,10 @@ func (r *Repository) GetBySlug(slug string) (*Palette, error) {
 		&palette.ID,
 		&palette.Slug,
 		&palette.Name,
+		&ownerUserID,
+		&palette.Visibility,
+		&palette.Origin,
+		&sourcePaletteID,
 		&colors,
 		&palette.ColorCount,
 		&palette.Type,
@@ -174,6 +190,12 @@ func (r *Repository) GetBySlug(slug string) (*Palette, error) {
 	}
 
 	palette.Colors = colors
+	if ownerUserID.Valid {
+		palette.OwnerUserID = &ownerUserID.String
+	}
+	if sourcePaletteID.Valid {
+		palette.SourcePaletteID = &sourcePaletteID.String
+	}
 	palette.ChartTypes = chartTypes
 	if err := scanChartApplicability(chartApplicability, &palette); err != nil {
 		return nil, err
@@ -213,14 +235,20 @@ func (r *Repository) GetBySlug(slug string) (*Palette, error) {
 
 // ListParams represents query parameters for listing palettes
 type ListParams struct {
-	Status        string
-	Type          string
-	ChartType     string
-	JournalStyle  string
-	Discipline    string
-	Page          int
-	PageSize      int
-	PublishedOnly bool // For public API
+	Status            string
+	Visibility        string
+	PublicCatalogOnly bool
+	Type              string
+	ChartType         string
+	JournalStyle      string
+	Discipline        string
+	UseCase           string
+	Tag               string
+	Search            string
+	ColorCount        int
+	Page              int
+	PageSize          int
+	PublishedOnly     bool // For public API
 }
 
 // List retrieves palettes with optional filtering
@@ -243,15 +271,31 @@ func (r *Repository) List(params ListParams) ([]*Palette, int, error) {
 		args = append(args, params.Status)
 		argIndex++
 	}
+	if params.Visibility != "" {
+		conditions = append(conditions, fmt.Sprintf("visibility = $%d", argIndex))
+		args = append(args, params.Visibility)
+		argIndex++
+	}
+	if params.PublicCatalogOnly {
+		conditions = append(conditions, "visibility = 'public'")
+		conditions = append(conditions, "owner_user_id IS NULL")
+	}
 	if params.Type != "" {
 		conditions = append(conditions, fmt.Sprintf("type = $%d", argIndex))
 		args = append(args, params.Type)
 		argIndex++
 	}
 	if params.ChartType != "" {
-		conditions = append(conditions, fmt.Sprintf("$%d = ANY(chart_types)", argIndex))
-		args = append(args, params.ChartType)
-		argIndex++
+		targets := chartTypeFilterTargets(params.ChartType)
+		condition, nextArgIndex := chartTypeFilterCondition(argIndex, len(targets))
+		conditions = append(conditions, condition)
+		for _, target := range targets {
+			args = append(args, target)
+		}
+		for _, target := range targets {
+			args = append(args, chartApplicabilityContainsValue(target))
+		}
+		argIndex = nextArgIndex
 	}
 	if params.JournalStyle != "" {
 		conditions = append(conditions, fmt.Sprintf("$%d = ANY(journal_style)", argIndex))
@@ -262,6 +306,36 @@ func (r *Repository) List(params ListParams) ([]*Palette, int, error) {
 		conditions = append(conditions, fmt.Sprintf("$%d = ANY(discipline)", argIndex))
 		args = append(args, params.Discipline)
 		argIndex++
+	}
+	if params.UseCase != "" {
+		conditions = append(conditions, fmt.Sprintf("$%d = ANY(use_case)", argIndex))
+		args = append(args, params.UseCase)
+		argIndex++
+	}
+	if params.Tag != "" {
+		conditions = append(conditions, fmt.Sprintf("$%d = ANY(tags)", argIndex))
+		args = append(args, params.Tag)
+		argIndex++
+	}
+	if params.ColorCount > 0 {
+		conditions = append(conditions, fmt.Sprintf("color_count = $%d", argIndex))
+		args = append(args, params.ColorCount)
+		argIndex++
+	}
+	if strings.TrimSpace(params.Search) != "" {
+		conditions = append(conditions, fmt.Sprintf(`(
+			name ILIKE $%d OR
+			slug ILIKE $%d OR
+			$%d = ANY(chart_types) OR
+			EXISTS (SELECT 1 FROM unnest(journal_style) AS item WHERE item ILIKE $%d) OR
+			EXISTS (SELECT 1 FROM unnest(discipline) AS item WHERE item ILIKE $%d) OR
+			EXISTS (SELECT 1 FROM unnest(use_case) AS item WHERE item ILIKE $%d) OR
+			EXISTS (SELECT 1 FROM unnest(tags) AS item WHERE item ILIKE $%d) OR
+			colors::text ILIKE $%d
+		)`, argIndex, argIndex, argIndex+1, argIndex, argIndex, argIndex, argIndex, argIndex))
+		searchPattern := "%" + strings.TrimSpace(params.Search) + "%"
+		args = append(args, searchPattern, strings.TrimSpace(params.Search))
+		argIndex += 2
 	}
 	if params.PublishedOnly {
 		conditions = append(conditions, "status = 'published'")
@@ -282,7 +356,8 @@ func (r *Repository) List(params ListParams) ([]*Palette, int, error) {
 
 	// Fetch palettes
 	query := fmt.Sprintf(`
-		SELECT id, slug, name, colors, color_count, type,
+		SELECT id, slug, name, owner_user_id, visibility, origin, source_palette_id,
+			colors, color_count, type,
 			chart_types, chart_applicability, journal_style, discipline, use_case, avoid_case, tags,
 			accessibility, source_type, source_image, source_note,
 			status, version, created_by, created_at, updated_at,
@@ -307,13 +382,17 @@ func (r *Repository) List(params ListParams) ([]*Palette, int, error) {
 		var colors, chartApplicability, accessibility []byte
 		var chartTypes, journalStyle, discipline, useCase, avoidCase, tags []string
 		var sourceType, sourceImage, sourceNote, version sql.NullString
-		var createdBy sql.NullString
+		var ownerUserID, sourcePaletteID, createdBy sql.NullString
 		var publishedAt, archivedAt sql.NullTime
 
 		err := rows.Scan(
 			&palette.ID,
 			&palette.Slug,
 			&palette.Name,
+			&ownerUserID,
+			&palette.Visibility,
+			&palette.Origin,
+			&sourcePaletteID,
 			&colors,
 			&palette.ColorCount,
 			&palette.Type,
@@ -341,6 +420,12 @@ func (r *Repository) List(params ListParams) ([]*Palette, int, error) {
 		}
 
 		palette.Colors = colors
+		if ownerUserID.Valid {
+			palette.OwnerUserID = &ownerUserID.String
+		}
+		if sourcePaletteID.Valid {
+			palette.SourcePaletteID = &sourcePaletteID.String
+		}
 		palette.ChartTypes = chartTypes
 		if err := scanChartApplicability(chartApplicability, &palette); err != nil {
 			return nil, 0, err
@@ -409,6 +494,14 @@ func (r *Repository) Create(req *CreatePaletteRequest, createdBy string) (*Palet
 	if status == "" {
 		status = "draft"
 	}
+	visibility := req.Visibility
+	if visibility == "" {
+		visibility = "private"
+	}
+	origin := req.Origin
+	if origin == "" {
+		origin = "custom"
+	}
 
 	accessibilityJSON, _ := json.Marshal(req.Accessibility)
 	if req.Accessibility == nil {
@@ -427,15 +520,20 @@ func (r *Repository) Create(req *CreatePaletteRequest, createdBy string) (*Palet
 	}
 	err = database.DB.QueryRow(`
 		INSERT INTO palettes (
-			slug, name, colors, color_count, type,
+			slug, name, owner_user_id, visibility, origin, source_palette_id,
+			colors, color_count, type,
 			chart_types, chart_applicability, journal_style, discipline, use_case, avoid_case, tags,
 			accessibility, source_type, source_image, source_note,
 			status, version, created_by, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
 		RETURNING id
 	`,
 		req.Slug,
 		req.Name,
+		req.OwnerUserID,
+		visibility,
+		origin,
+		req.SourcePaletteID,
 		req.Colors,
 		req.ColorCount,
 		req.Type,
@@ -464,6 +562,42 @@ func (r *Repository) Create(req *CreatePaletteRequest, createdBy string) (*Palet
 	return r.GetByID(paletteID)
 }
 
+// CreateCandidateTx is the narrow caller-owned transaction adapter for the
+// ingestion aggregate. The caller must provide an already validated,
+// server-owned candidate request. This method never commits.
+func (r *Repository) CreateCandidateTx(tx *sql.Tx, req *CreatePaletteRequest, createdBy string) (*Palette, error) {
+	accessibilityJSON, err := json.Marshal(req.Accessibility)
+	if err != nil {
+		return nil, err
+	}
+	if req.Accessibility == nil {
+		accessibilityJSON = []byte(`{"colorblind_safe": false, "print_friendly": false, "dark_background": false}`)
+	}
+	chartApplicabilityJSON, err := chartApplicabilityJSONValue(req.ChartApplicability)
+	if err != nil {
+		return nil, err
+	}
+	var createdByPtr *string
+	if createdBy != "" {
+		createdByPtr = &createdBy
+	}
+	var id string
+	err = tx.QueryRow(`
+		INSERT INTO palettes (
+			slug,name,owner_user_id,visibility,origin,source_palette_id,colors,color_count,type,
+			chart_types,chart_applicability,journal_style,discipline,use_case,avoid_case,tags,
+			accessibility,source_type,source_image,source_note,status,version,created_by
+		) VALUES ($1,$2,NULL,'public','curated',NULL,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'candidate',$17,$18)
+		RETURNING id`, req.Slug, req.Name, req.Colors, req.ColorCount, req.Type,
+		pq.Array(req.ChartTypes), chartApplicabilityJSON, pq.Array(req.JournalStyle), pq.Array(req.Discipline),
+		pq.Array(req.UseCase), pq.Array(req.AvoidCase), pq.Array(req.Tags), accessibilityJSON,
+		req.SourceType, req.SourceImage, req.SourceNote, req.Version, createdByPtr).Scan(&id)
+	if err != nil {
+		return nil, fmt.Errorf("create ingestion candidate: %w", err)
+	}
+	return r.GetPaletteByIDTx(tx, id)
+}
+
 // Update modifies an existing palette
 func (r *Repository) Update(id string, req *UpdatePaletteRequest) (*Palette, error) {
 	now := time.Now()
@@ -481,6 +615,26 @@ func (r *Repository) Update(id string, req *UpdatePaletteRequest) (*Palette, err
 	if req.Slug != nil {
 		setClauses = append(setClauses, fmt.Sprintf("slug = $%d", argIndex))
 		args = append(args, *req.Slug)
+		argIndex++
+	}
+	if req.OwnerUserID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("owner_user_id = $%d", argIndex))
+		args = append(args, *req.OwnerUserID)
+		argIndex++
+	}
+	if req.Visibility != nil {
+		setClauses = append(setClauses, fmt.Sprintf("visibility = $%d", argIndex))
+		args = append(args, *req.Visibility)
+		argIndex++
+	}
+	if req.Origin != nil {
+		setClauses = append(setClauses, fmt.Sprintf("origin = $%d", argIndex))
+		args = append(args, *req.Origin)
+		argIndex++
+	}
+	if req.SourcePaletteID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("source_palette_id = $%d", argIndex))
+		args = append(args, *req.SourcePaletteID)
 		argIndex++
 	}
 	if req.Colors != nil {
@@ -584,11 +738,20 @@ func (r *Repository) Update(id string, req *UpdatePaletteRequest) (*Palette, err
 		UPDATE palettes 
 		SET %s 
 		WHERE id = $%d
+		  AND visibility = 'public'
+		  AND owner_user_id IS NULL
 	`, strings.Join(setClauses, ", "), argIndex)
 
-	_, err := database.DB.Exec(query, args...)
+	result, err := database.DB.Exec(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update palette: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect update result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return nil, ErrPaletteNotAdminManageable
 	}
 
 	return r.GetByID(id)
@@ -597,13 +760,22 @@ func (r *Repository) Update(id string, req *UpdatePaletteRequest) (*Palette, err
 // Publish sets status to 'published' and sets published_at
 func (r *Repository) Publish(id string) (*Palette, error) {
 	now := time.Now()
-	_, err := database.DB.Exec(`
+	result, err := database.DB.Exec(`
 		UPDATE palettes 
 		SET status = 'published', published_at = $1, updated_at = $1 
 		WHERE id = $2
+		  AND visibility = 'public'
+		  AND owner_user_id IS NULL
 	`, now, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to publish palette: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect publish result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return nil, ErrPaletteNotAdminManageable
 	}
 	return r.GetByID(id)
 }
@@ -611,13 +783,22 @@ func (r *Repository) Publish(id string) (*Palette, error) {
 // Unpublish sets status to 'draft' (not candidate per spec) and clears published_at
 func (r *Repository) Unpublish(id string) (*Palette, error) {
 	now := time.Now()
-	_, err := database.DB.Exec(`
+	result, err := database.DB.Exec(`
 		UPDATE palettes 
 		SET status = 'draft', published_at = NULL, updated_at = $1 
 		WHERE id = $2
+		  AND visibility = 'public'
+		  AND owner_user_id IS NULL
 	`, now, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unpublish palette: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect unpublish result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return nil, ErrPaletteNotAdminManageable
 	}
 	return r.GetByID(id)
 }
@@ -625,22 +806,38 @@ func (r *Repository) Unpublish(id string) (*Palette, error) {
 // Archive sets status to 'archived' and sets archived_at (soft delete)
 func (r *Repository) Archive(id string) (*Palette, error) {
 	now := time.Now()
-	_, err := database.DB.Exec(`
+	result, err := database.DB.Exec(`
 		UPDATE palettes 
 		SET status = 'archived', archived_at = $1, updated_at = $1 
 		WHERE id = $2
+		  AND visibility = 'public'
+		  AND owner_user_id IS NULL
 	`, now, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to archive palette: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect archive result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return nil, ErrPaletteNotAdminManageable
 	}
 	return r.GetByID(id)
 }
 
 // Delete permanently removes a palette (admin only, use Archive for soft delete)
 func (r *Repository) Delete(id string) error {
-	_, err := database.DB.Exec("DELETE FROM palettes WHERE id = $1", id)
+	result, err := database.DB.Exec("DELETE FROM palettes WHERE id = $1 AND visibility = 'public' AND owner_user_id IS NULL", id)
 	if err != nil {
 		return fmt.Errorf("failed to delete palette: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to inspect delete result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrPaletteNotAdminManageable
 	}
 	return nil
 }
@@ -686,4 +883,53 @@ func chartApplicabilityJSONValue(input OptionalChartApplicability) (interface{},
 		return nil, fmt.Errorf("failed to encode chart applicability: %w", err)
 	}
 	return encoded, nil
+}
+
+func chartTypeFilterCondition(argIndex int, targetCount int) (string, int) {
+	if targetCount < 1 {
+		targetCount = 1
+	}
+	legacyConditions := make([]string, 0, targetCount)
+	applicabilityConditions := make([]string, 0, targetCount)
+	for index := 0; index < targetCount; index++ {
+		legacyConditions = append(legacyConditions, fmt.Sprintf("$%d = ANY(chart_types)", argIndex+index))
+		applicabilityConditions = append(applicabilityConditions, fmt.Sprintf("chart_applicability @> $%d::jsonb", argIndex+targetCount+index))
+	}
+
+	return fmt.Sprintf(
+		"((chart_applicability IS NULL AND (%s)) OR (chart_applicability IS NOT NULL AND (%s)))",
+		strings.Join(legacyConditions, " OR "),
+		strings.Join(applicabilityConditions, " OR "),
+	), argIndex + targetCount*2
+}
+
+func chartApplicabilityContainsValue(chartType string) string {
+	encoded, err := json.Marshal([]map[string]string{{"chart_type": chartType}})
+	if err != nil {
+		return "[]"
+	}
+	return string(encoded)
+}
+
+func chartTypeFilterTargets(chartType string) []string {
+	normalized := strings.ToLower(strings.TrimSpace(chartType))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	normalized = strings.ReplaceAll(normalized, " ", "_")
+
+	switch normalized {
+	case "bar", "barplot":
+		return []string{"bar", "bar_error"}
+	case "boxplot":
+		return []string{"boxplot", "boxplot_jitter"}
+	case "violin":
+		return []string{"violin", "violin_distribution", "boxplot_jitter"}
+	case "scatter":
+		return []string{"scatter", "scatter_grouped"}
+	case "line":
+		return []string{"line", "line_multiseries"}
+	case "heatmap":
+		return []string{"heatmap", "heatmap_annotated"}
+	default:
+		return []string{normalized}
+	}
 }

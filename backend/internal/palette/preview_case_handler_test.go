@@ -38,6 +38,55 @@ func TestPreviewCaseMalformedCreateBody(t *testing.T) {
 	}
 }
 
+func TestCandidatePublicationHTTPFailures(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{name: "validation", err: NewValidationError([]ValidationIssue{validationIssue("colors", "COLORS_INVALID", "Colors invalid.")}), status: http.StatusUnprocessableEntity},
+		{name: "conflict", err: ErrPalettePublicationConflict, status: http.StatusConflict, code: "PUBLICATION_CONFLICT"},
+		{name: "private", err: ErrPaletteNotAdminManageable, status: http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &fakePaletteHandlerService{publish: func(string) (*Palette, error) { return nil, tt.err }}
+			rec := performPreviewCaseRequest(fake, http.MethodPost, "/api/admin/palettes/palette-1/publish", nil)
+			if rec.Code != tt.status {
+				t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+			}
+			if tt.code != "" {
+				var body struct {
+					Code string `json:"code"`
+				}
+				if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Code != tt.code {
+					t.Fatalf("body=%s", rec.Body.String())
+				}
+			}
+		})
+	}
+}
+
+func TestImportedCandidateRejectionHTTP(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		fake := &fakePaletteHandlerService{reject: func(id string) (*Palette, error) {
+			return &Palette{ID: id, Status: "archived", Visibility: "public"}, nil
+		}}
+		rec := performPreviewCaseRequest(fake, http.MethodPost, "/api/admin/palettes/palette-1/reject", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+	t.Run("conflict", func(t *testing.T) {
+		fake := &fakePaletteHandlerService{reject: func(string) (*Palette, error) { return nil, ErrPaletteRejectionConflict }}
+		rec := performPreviewCaseRequest(fake, http.MethodPost, "/api/admin/palettes/palette-1/reject", nil)
+		if rec.Code != http.StatusConflict || !bytes.Contains(rec.Body.Bytes(), []byte("REJECTION_CONFLICT")) {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
 func TestPreviewCaseCreateValidationFailure(t *testing.T) {
 	fake := &fakePaletteHandlerService{
 		createPreviewCase: func(paletteID string, req *CreatePreviewCaseRequest) (*PalettePreviewCase, error) {
@@ -285,6 +334,9 @@ func TestPublicPaletteListReturnsPublicPreviewDTO(t *testing.T) {
 			if !params.PublishedOnly {
 				t.Fatal("public list did not request published-only palettes")
 			}
+			if params.Visibility != "public" {
+				t.Fatalf("visibility = %q, want public", params.Visibility)
+			}
 			return []*PublicPaletteDTO{publicDTO}, 1, nil
 		},
 	}
@@ -304,6 +356,44 @@ func TestPublicPaletteListReturnsPublicPreviewDTO(t *testing.T) {
 	}
 	if body.Palettes[0].PrimaryPreviewCase.Status != PreviewCaseStatusPublished {
 		t.Fatalf("primary status = %q, want published", body.Palettes[0].PrimaryPreviewCase.Status)
+	}
+}
+
+func TestPublicPaletteListParsesPagingAndFilters(t *testing.T) {
+	fake := &fakePaletteHandlerService{
+		listPublic: func(params ListParams) ([]*PublicPaletteDTO, int, error) {
+			if !params.PublishedOnly {
+				t.Fatal("public list did not request published-only palettes")
+			}
+			if params.Visibility != "public" {
+				t.Fatalf("visibility = %q, want public", params.Visibility)
+			}
+			if params.Page != 3 || params.PageSize != 12 {
+				t.Fatalf("paging = page %d page_size %d, want 3/12", params.Page, params.PageSize)
+			}
+			if params.Search != "mock" ||
+				params.ChartType != "line" ||
+				params.JournalStyle != "nature" ||
+				params.Discipline != "genomics" ||
+				params.UseCase != "omics" ||
+				params.Tag != "publication_ready" ||
+				params.ColorCount != 5 {
+				t.Fatalf("params = %#v, want parsed public filters", params)
+			}
+			return []*PublicPaletteDTO{}, 41, nil
+		},
+	}
+
+	rec := performPreviewCaseRequest(fake, http.MethodGet, "/api/palettes?page=3&page_size=12&search=mock&chart_type=line&journal_style=nature&discipline=genomics&use_case=omics&tag=publication_ready&color_count=5", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["total"] != float64(41) || body["page"] != float64(3) || body["page_size"] != float64(12) || body["total_pages"] != float64(4) {
+		t.Fatalf("response metadata = %#v", body)
 	}
 }
 
@@ -332,8 +422,12 @@ func TestPublicPaletteDetailReturnsPublicPreviewDTO(t *testing.T) {
 	if body.PrimaryPreviewCase == nil || body.PrimaryPreviewCase.ID != "preview-primary" {
 		t.Fatalf("primary = %#v, want preview-primary", body.PrimaryPreviewCase)
 	}
-	if len(body.PreviewCases) != 1 {
-		t.Fatalf("preview cases = %d, want draft excluded", len(body.PreviewCases))
+	var raw map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("decode raw body: %v", err)
+	}
+	if _, exists := raw["preview_cases"]; exists {
+		t.Fatalf("public detail exposed preview_cases collection: %s", rec.Body.String())
 	}
 }
 
@@ -432,6 +526,8 @@ func handlerPreviewCase(id string, status string, isPrimary bool) *PalettePrevie
 }
 
 type fakePaletteHandlerService struct {
+	publish                   func(id string) (*Palette, error)
+	reject                    func(id string) (*Palette, error)
 	listPreviewCasesByPalette func(paletteID string, includeArchived bool) ([]*PalettePreviewCase, error)
 	getPreviewCaseByID        func(id string) (*PalettePreviewCase, error)
 	createPreviewCase         func(paletteID string, req *CreatePreviewCaseRequest) (*PalettePreviewCase, error)
@@ -463,7 +559,19 @@ func (f *fakePaletteHandlerService) Update(id string, req *UpdatePaletteRequest)
 	return nil, errors.New("unused")
 }
 func (f *fakePaletteHandlerService) Publish(id string) (*Palette, error) {
+	if f.publish != nil {
+		return f.publish(id)
+	}
 	return nil, errors.New("unused")
+}
+func (f *fakePaletteHandlerService) Reject(id string) (*Palette, error) {
+	if f.reject != nil {
+		return f.reject(id)
+	}
+	return nil, errors.New("unused")
+}
+func (f *fakePaletteHandlerService) CanReject(id string) (bool, error) {
+	return false, errors.New("unused")
 }
 func (f *fakePaletteHandlerService) Unpublish(id string) (*Palette, error) {
 	return nil, errors.New("unused")

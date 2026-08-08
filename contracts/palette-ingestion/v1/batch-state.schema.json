@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://figcolor.local/contracts/palette-ingestion/v1/batch-state.schema.json",
+  "title": "FigColor Palette Ingestion Batch State v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pipeline_version", "batch_id", "packages"],
+  "properties": {
+    "schema_version": {"const": 1}, "pipeline_version": {"type": "string"}, "batch_id": {"type": "string"},
+    "packages": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["source_key", "status", "issues"], "properties": {"source_key": {"type": "string"}, "status": {"enum": ["discovered", "validation_failed", "prepared", "validated", "dry_run", "prepared_for_submission", "submission_pending_or_unknown", "submitted", "already_submitted", "submission_failed_terminal", "authentication_failed", "authorization_failed", "local_validation_failed"]}, "issues": {"type": "array"}}}},
+    "report_path": {"type": "string"},
+    "report_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

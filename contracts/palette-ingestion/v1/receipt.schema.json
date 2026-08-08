@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://figcolor.local/contracts/palette-ingestion/v1/import-receipt.schema.json",
+  "title": "FigColor Candidate Import Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["proposal_id", "normalized_content_hash", "request_fingerprint", "palette_id", "slug", "status", "preview_case_ids"],
+  "properties": {
+    "proposal_id": {"type": "string"}, "normalized_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "request_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "palette_id": {"type": "string"}, "slug": {"type": "string"}, "status": {"const": "candidate"},
+    "preview_case_ids": {"type": "array", "items": {"type": "string"}}, "admin_review_path": {"type": "string"}
+  }
+}

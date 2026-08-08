@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://figcolor.local/contracts/palette-ingestion/v1/error-response.schema.json",
+  "title": "FigColor Candidate Ingestion Error Response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message"],
+  "properties": {
+    "code": {"enum": ["INVALID_JSON", "INVALID_INGESTION_REQUEST", "UNSUPPORTED_SCHEMA_VERSION", "UNSUPPORTED_PIPELINE_VERSION", "UNSUPPORTED_MEDIA_TYPE", "REQUEST_BODY_TOO_LARGE", "INVALID_IDEMPOTENCY_KEY", "IDEMPOTENCY_IN_PROGRESS", "IDEMPOTENCY_PAYLOAD_MISMATCH", "PROPOSAL_ID_CONFLICT", "EXACT_CONTENT_DUPLICATE", "INGESTION_RETRYABLE_FAILURE", "INGESTION_FAILED", "INGESTION_OUTCOME_UNKNOWN", "INTERNAL_ERROR"]},
+    "message": {"type": "string", "minLength": 1, "maxLength": 512}
+  }
+}

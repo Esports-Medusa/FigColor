@@ -750,3 +750,48 @@ git commit -m "feat: add scientific preview renderers" -- \
 ### Final Recommendation
 
 Proceed with policy commits first, especially the `node_modules` and `dist` untracking commits, before reviewing WP functional work. This removes generated churn from later reviews and leaves `package.json` / `package-lock.json` as the dependency baseline.
+
+## 2026-08-04 - Freeze WP6 Candidate-Ingestion HTTP Contracts
+
+- Decision: Keep the canonical request as the three-field top-level object and place required `validation_issues` and `duplicate_evidence` arrays plus optional `source_reference` inside `ingestion_metadata`. All present evidence participates in the complete-request RFC 8785 JCS SHA-256 fingerprint. Freeze `palette-ingest-wp5-reporting.1` as the sole v1 pipeline version, require `request_fingerprint` in the stable receipt, return the raw receipt on success, and use strict `{code,message}` error bodies.
+- Context: The HTTP implementation could not start while evidence transport, receipt shape, error mapping, and version compatibility were ambiguous. The Node builder and Go strict decoder also needed a narrow compatibility change before the Schema could make evidence required.
+- Reason: One canonical body and one fingerprint prevent side-channel evidence drift. Raw stable receipts make replay byte-stable, and exact version allowlisting fails closed when the producer contract changes.
+- Alternatives considered: Add a transport envelope, pass evidence in headers, default evidence in the future handler, retain arbitrary non-empty pipeline versions, or expose the service-result wrapper. Each would create a second identity boundary or an unstable public contract.
+- Trade-offs: Evidence-only changes now intentionally produce idempotency fingerprint conflicts. Node and Go retain small language-specific version adapters, so the shared complete-request fixture is the mandatory drift guard.
+- Follow-up: Implement the separately authorized authenticated/admin-only HTTP boundary from these frozen Schemas. Do not alter evidence identity, raw receipt semantics, or the status/code/Retry-After table in that implementation slice.
+
+## 2026-08-06 - Freeze WP6 Ingestion HTTP Transport and Auth Exception
+
+- Decision: Limit `POST /api/admin/palette-candidates` bodies to exactly 262144 bytes, accept only `application/json` with no parameters or one UTF-8 charset parameter, and retain the shared Auth/AdminRequired `{error: ...}` response as the explicit pre-handler 401/403 exception to the post-auth ingestion `{code,message}` Schema.
+- Context: Handler implementation was blocked because the byte limit, media-type parameter behavior, and relationship between shared auth responses and the ingestion error Schema were not uniquely defined.
+- Reason: Bounded reads protect memory independently of Content-Length, standard media parsing avoids ambiguous prefix logic, and preserving the shared middleware contract avoids changing unrelated APIs or creating a second admin stack.
+- Alternatives considered: Reuse an unrelated upload limit, accept all JSON-like media types, add ingestion-only authentication codes, wrap shared middleware responses, or globally change Auth/AdminRequired. Each would weaken the frozen boundary or expand scope.
+- Trade-offs: Ingestion 401/403 bodies intentionally differ from post-auth ingestion errors. Tests must assert the boundary explicitly and prove rejected identities never reach the handler or persistence.
+- Follow-up: Keep the future Node client out of this slice and require it to pass the final authoritative validation report explicitly to `buildIngestionRequest(proposal, vocabularies, validationReport)` so duplicate findings cannot be omitted.
+
+## 2026-08-07 - Freeze WP6 Node Submission Transport
+
+- Decision: The Node ingestion submit client uses a 30000 ms request timeout, accepts at most 65536 raw response bytes while reading at most 65537 bytes for overflow detection, disables automatic redirects and rejects every 3xx, and requires HTTPS except for exact loopback hostnames `localhost`, `127.0.0.1`, and `[::1]`. Parsed URLs containing username or password are rejected.
+- Context: HTTP submission implementation could not safely choose timeout, response bound, redirect, or local-development cleartext behavior without making a new public transport contract.
+- Reason: A finite timeout and bounded body prevent indefinite resource use; rejecting redirects prevents Bearer credential forwarding; exact parsed-host checks prevent fake-loopback suffixes; and durable pre-request idempotency binding makes every ambiguous transport result safely replayable.
+- Trade-offs: Same-origin redirects are also rejected, and malformed/truncated/oversized responses remain unresolved even when the server may have committed. Operators must resume with the same key and canonical body rather than infer success.
+- Follow-up: Implement these values as submission-specific named constants, never reuse manifest limits, and keep token material out of artifacts, logs, JSON output, URLs, and receipts.
+
+### Implementation audit blocker
+
+The isolated Node CLI → authenticated Go HTTP → PostgreSQL test found that a Schema-valid `stable_id` preview cannot cross the current Go normalized-hash boundary. Node omits `seed_value` as required by the request Schema, but Go's typed `CreatePreviewCaseRequest` re-marshals its nil `SeedValue` as `"seed_value":null` while reconstructing normalized content. That changes the hash input and produces `422 INVALID_INGESTION_REQUEST`. A fixed-seed-only E2E fixture would hide the compatibility defect and is rejected as an acceptance workaround. WP6 submission remains blocked pending explicit authorization for the minimal Go hash/DTO compatibility correction and a stable-id cross-language regression.
+
+### Preview-hash compatibility resolution and WP6 acceptance
+
+- Decision: Keep `CreatePreviewCaseRequest.SeedValue` as `*int` and add `omitempty` only to its ingestion/create JSON tag. Add a raw canonical-request boundary check that rejects an explicitly present `seed_value: null` before normalized hashing or claim. Do not alter the frozen request Schema, Node output, fingerprint algorithm, preview persistence representation, or transaction/recovery model.
+- Reason: A nil pointer now serializes as omission for `stable_id`; a non-nil pointer preserves both ordinary fixed seed values and legal zero. The separate raw check retains the Schema distinction between an omitted optional field and explicit null, which typed pointer decoding alone cannot preserve.
+- Drift evidence: The shared Node/Go JCS corpus adds stable-id omission, fixed seed 42, and fixed seed 0 normalized-content fixtures. Go reconstructs them through the typed ingestion DTO and matches the fixture canonical bytes/hashes; actual Node and Go JCS processes match the same corpus. Complete evidence-bearing request fingerprint tests remain unchanged and pass.
+- End-to-end evidence: The isolated migrations-001–020 CLI→authenticated HTTP→PostgreSQL harness proves stable-id first submit (201), direct same-key replay (200), CLI already-submitted resume, response-loss pending/unknown recovery with the original key/body, evidence-only payload mismatch (409), explicit-null rejection (422) with zero new claim, user 403, invalid/expired 401, stable receipt/fingerprint/checkpoint binding, no duplicate Palette/preview/ingestion record, Admin Candidate visibility, and public catalog/detail/preview invisibility.
+- Scope: WP6 is locally accepted. Admin UI integration, publication workflow, WP7, and target/staging/production migration application remain outside this decision and unstarted/unverified.
+
+### WP6 documentation and contract-hardening closure
+
+- Decision: Remove the unimplemented `--validated-only` command example, document the actual Node CLI submit invocation, and replace the stale pre-Go-ingestion seed-boundary description with the implemented Schema → HTTP → `prepareIngestion` behavior.
+- Defensive contract: `prepareIngestion` now rejects a present stable-id `seed_value` before claim, including ordinary integers and zero; explicit null remains independently rejected. Illegal input is never normalized by deleting the field. Valid omitted stable-id, fixed seed 42, and fixed seed 0 behavior is unchanged.
+- Evidence: Focused service tests prove stable-id values 42 and 0 return the stable validation outcome with zero claim and zero aggregate calls. Focused HTTP tests return `422 INVALID_INGESTION_REQUEST` without invoking the ingestion service. Preview/ingestion, cross-language JCS, full Go, and palette-ingest regressions pass.
+- Closure: WP6 is passed and frozen locally. Admin UI integration is ready for a separately authorized work package but remains not started; publication, WP7, and target/staging/production migration application remain outside this closure.

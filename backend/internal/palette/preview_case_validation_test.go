@@ -214,6 +214,182 @@ func TestValidateBarErrorTemplateContractRejectsInvalidRolesAndConfig(t *testing
 	}
 }
 
+func TestValidateBarErrorTemplateContractRejectsReferenceAndKeyIssues(t *testing.T) {
+	tests := []struct {
+		name       string
+		colorRoles json.RawMessage
+		code       string
+	}{
+		{
+			name: "duplicate group key",
+			colorRoles: json.RawMessage(`{
+				"groups":[
+					{"key":"dup","label":"A","fill":{"source":"palette","color_id":"color-1"}},
+					{"key":"dup","label":"B","fill":{"source":"palette","color_id":"color-2"}}
+				],
+				"elements":{"axis":{"source":"theme","token":"foreground"},"grid":{"source":"theme","token":"grid"},"text":{"source":"theme","token":"foreground"},"error_bar":{"source":"theme","token":"foreground"},"background":{"source":"theme","token":"background"}}
+			}`),
+			code: "DUPLICATE_ROLE_KEY",
+		},
+		{
+			name: "empty palette color id",
+			colorRoles: json.RawMessage(`{
+				"groups":[{"key":"control","label":"Control","fill":{"source":"palette","color_id":""}}],
+				"elements":{"axis":{"source":"theme","token":"foreground"},"grid":{"source":"theme","token":"grid"},"text":{"source":"theme","token":"foreground"},"error_bar":{"source":"theme","token":"foreground"},"background":{"source":"theme","token":"background"}}
+			}`),
+			code: "COLOR_ID_REQUIRED",
+		},
+		{
+			name: "group fill must be palette source",
+			colorRoles: json.RawMessage(`{
+				"groups":[{"key":"control","label":"Control","fill":{"source":"theme","token":"foreground"}}],
+				"elements":{"axis":{"source":"theme","token":"foreground"},"grid":{"source":"theme","token":"grid"},"text":{"source":"theme","token":"foreground"},"error_bar":{"source":"theme","token":"foreground"},"background":{"source":"theme","token":"background"}}
+			}`),
+			code: "INVALID_COLOR_REFERENCE",
+		},
+		{
+			name: "invalid theme token",
+			colorRoles: json.RawMessage(`{
+				"groups":[{"key":"control","label":"Control","fill":{"source":"palette","color_id":"color-1"}}],
+				"elements":{"axis":{"source":"theme","token":"brand"},"grid":{"source":"theme","token":"grid"},"text":{"source":"theme","token":"foreground"},"error_bar":{"source":"theme","token":"foreground"},"background":{"source":"theme","token":"background"}}
+			}`),
+			code: "INVALID_COLOR_REFERENCE",
+		},
+		{
+			name: "invalid opacity",
+			colorRoles: json.RawMessage(`{
+				"groups":[{"key":"control","label":"Control","fill":{"source":"palette","color_id":"color-1"}}],
+				"elements":{"axis":{"source":"theme","token":"foreground","opacity":2},"grid":{"source":"theme","token":"grid"},"text":{"source":"theme","token":"foreground"},"error_bar":{"source":"theme","token":"foreground"},"background":{"source":"theme","token":"background"}}
+			}`),
+			code: "INVALID_OPACITY",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			candidate := &previewCaseCandidate{
+				PaletteID:       "palette-1",
+				ChartType:       ChartTypeBarError,
+				TemplateID:      "bar_error_v1",
+				TemplateVersion: 1,
+				SchemaVersion:   1,
+				ColorRoles:      tt.colorRoles,
+				PreviewConfig:   validBarErrorPreviewConfigJSON(),
+				SeedStrategy:    PreviewCaseSeedStrategyStableID,
+			}
+
+			issues := validatePreviewCaseTemplateContract(candidate)
+			if !hasValidationCode(issues, tt.code) {
+				t.Fatalf("issues = %#v, missing code %s", issues, tt.code)
+			}
+		})
+	}
+}
+
+func TestValidatePhaseOneTemplateContractsAcceptAllChartTypes(t *testing.T) {
+	cases := []previewCaseCandidate{
+		{
+			ChartType:       ChartTypeBoxplotJitter,
+			TemplateID:      "boxplot_jitter_v1",
+			TemplateVersion: 1,
+			SchemaVersion:   1,
+			ColorRoles:      json.RawMessage(`{"groups":[{"key":"g1","label":"G1","color":{"source":"palette","color_id":"color-1"}}],"elements":{"axis":{"source":"theme","token":"foreground"}}}`),
+			PreviewConfig:   json.RawMessage(`{"jitter_density":"medium","show_outliers":true,"y_axis_label":"Value"}`),
+		},
+		{
+			ChartType:       ChartTypeLineMultiseries,
+			TemplateID:      "line_multiseries_v1",
+			TemplateVersion: 1,
+			SchemaVersion:   1,
+			ColorRoles:      json.RawMessage(`{"series":[{"key":"s1","label":"S1","line":{"source":"palette","color_id":"color-1"}}],"elements":{"axis":{"source":"theme","token":"foreground"}}}`),
+			PreviewConfig:   json.RawMessage(`{"point_count":8,"curve_shape":"mixed","x_axis_label":"Time","y_axis_label":"Value"}`),
+		},
+		{
+			ChartType:       ChartTypeHeatmapAnnotated,
+			TemplateID:      "heatmap_annotated_v1",
+			TemplateVersion: 1,
+			SchemaVersion:   1,
+			ColorRoles:      json.RawMessage(`{"scale":{"type":"diverging","stops":[{"position":0,"color":{"source":"palette","color_id":"color-1"}},{"position":0.5,"color":{"source":"palette","color_id":"color-2"}},{"position":1,"color":{"source":"palette","color_id":"color-1"}}]},"annotations":[{"key":"batch","label":"Batch","color":{"source":"palette","color_id":"color-2"}}],"elements":{"text":{"source":"theme","token":"foreground"}}}`),
+			PreviewConfig:   json.RawMessage(`{"rows":6,"columns":6,"cluster_rows":false,"cluster_columns":false,"show_row_labels":true,"show_column_labels":true,"show_values":false,"data_pattern":"mixed"}`),
+		},
+	}
+
+	for _, candidate := range cases {
+		t.Run(candidate.ChartType, func(t *testing.T) {
+			issues := validatePreviewCaseTemplateContract(&candidate)
+			if len(issues) != 0 {
+				t.Fatalf("issues = %#v, want none", issues)
+			}
+		})
+	}
+}
+
+func TestValidatePhaseOneTemplateContractsRejectImportantErrors(t *testing.T) {
+	cases := []struct {
+		name      string
+		candidate previewCaseCandidate
+		code      string
+	}{
+		{
+			name: "template mismatch",
+			candidate: previewCaseCandidate{
+				ChartType:       ChartTypeLineMultiseries,
+				TemplateID:      "bar_error_v1",
+				TemplateVersion: 1,
+				SchemaVersion:   1,
+				ColorRoles:      json.RawMessage(`{}`),
+				PreviewConfig:   json.RawMessage(`{}`),
+			},
+			code: "TEMPLATE_CHART_TYPE_MISMATCH",
+		},
+		{
+			name: "duplicate role key",
+			candidate: previewCaseCandidate{
+				ChartType:       ChartTypeLineMultiseries,
+				TemplateID:      "line_multiseries_v1",
+				TemplateVersion: 1,
+				SchemaVersion:   1,
+				ColorRoles:      json.RawMessage(`{"series":[{"key":"dup","label":"A","line":{"source":"palette","color_id":"color-1"}},{"key":"dup","label":"B","line":{"source":"palette","color_id":"color-2"}}]}`),
+				PreviewConfig:   json.RawMessage(`{"point_count":8,"curve_shape":"mixed"}`),
+			},
+			code: "DUPLICATE_ROLE_KEY",
+		},
+		{
+			name: "invalid opacity",
+			candidate: previewCaseCandidate{
+				ChartType:       ChartTypeBoxplotJitter,
+				TemplateID:      "boxplot_jitter_v1",
+				TemplateVersion: 1,
+				SchemaVersion:   1,
+				ColorRoles:      json.RawMessage(`{"groups":[{"key":"g1","label":"G1","color":{"source":"palette","color_id":"color-1"}}],"elements":{"axis":{"source":"theme","token":"foreground","opacity":2}}}`),
+				PreviewConfig:   json.RawMessage(`{"jitter_density":"medium","show_outliers":true}`),
+			},
+			code: "INVALID_OPACITY",
+		},
+		{
+			name: "invalid heatmap stops",
+			candidate: previewCaseCandidate{
+				ChartType:       ChartTypeHeatmapAnnotated,
+				TemplateID:      "heatmap_annotated_v1",
+				TemplateVersion: 1,
+				SchemaVersion:   1,
+				ColorRoles:      json.RawMessage(`{"scale":{"type":"diverging","stops":[{"position":0.5,"color":{"source":"palette","color_id":"color-1"}},{"position":0.25,"color":{"source":"palette","color_id":"color-2"}}]}}`),
+				PreviewConfig:   json.RawMessage(`{"rows":6,"columns":6,"cluster_rows":false,"cluster_columns":false,"show_row_labels":true,"show_column_labels":true,"show_values":false,"data_pattern":"mixed"}`),
+			},
+			code: "INVALID_HEATMAP_STOPS",
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			issues := validatePreviewCaseTemplateContract(&tt.candidate)
+			if !hasValidationCode(issues, tt.code) {
+				t.Fatalf("issues = %#v, missing code %s", issues, tt.code)
+			}
+		})
+	}
+}
+
 func TestPreviewCaseDTOsDoNotExposeLifecycleFields(t *testing.T) {
 	for _, dto := range []struct {
 		name  string

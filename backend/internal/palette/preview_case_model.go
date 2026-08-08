@@ -39,7 +39,7 @@ type CreatePreviewCaseRequest struct {
 	ColorRoles      json.RawMessage `json:"color_roles"`
 	PreviewConfig   json.RawMessage `json:"preview_config"`
 	SeedStrategy    string          `json:"seed_strategy"`
-	SeedValue       *int            `json:"seed_value"`
+	SeedValue       *int            `json:"seed_value,omitempty"`
 }
 
 type UpdatePreviewCaseRequest struct {

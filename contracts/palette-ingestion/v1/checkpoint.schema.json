@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://figcolor.local/contracts/palette-ingestion/v1/checkpoint.schema.json",
+  "title": "FigColor Palette Ingestion Checkpoint v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pipeline_version", "batch_id", "source_key", "source_hash", "stage", "proposal_path", "normalized_content_hash", "proposal_artifact_hash"],
+  "properties": {
+    "schema_version": {"const": 1}, "pipeline_version": {"type": "string"}, "batch_id": {"type": "string"}, "source_key": {"type": "string"},
+    "source_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "stage": {"enum": ["prepared", "validated", "reported", "prepared_for_submission", "submission_pending_or_unknown", "submitted", "submission_failed_terminal"]},
+    "proposal_path": {"type": "string"}, "normalized_content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "proposal_artifact_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "validation_path": {"type": "string"},
+    "validation_report_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "validation_context_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "duplicate_index_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "perceptual_context_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "similarity_index_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "report_path": {"type": "string"},
+    "report_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "checkpoint_version": {"const": 2},
+    "request_path": {"type": "string"},
+    "request_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "idempotency_key": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "submission_code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+    "http_status": {"type": "integer", "minimum": 100, "maximum": 599},
+    "retry_after_seconds": {"type": "integer", "minimum": 1},
+    "receipt_path": {"type": "string"},
+    "receipt_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "allOf": [{
+    "if": {"properties": {"stage": {"const": "validated"}}, "required": ["stage"]},
+    "then": {
+      "properties": {
+        "validation_path": {"type": "string"},
+        "validation_report_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "validation_context_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "duplicate_index_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "perceptual_context_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "similarity_index_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "required": ["validation_path", "validation_report_hash", "validation_context_hash", "duplicate_index_hash", "perceptual_context_hash", "similarity_index_hash"]
+    }
+  }, {
+    "if": {"properties": {"stage": {"const": "reported"}}, "required": ["stage"]},
+    "then": {
+      "properties": {
+        "validation_path": {"type": "string"}, "validation_report_hash": {"type": "string"}, "validation_context_hash": {"type": "string"},
+        "duplicate_index_hash": {"type": "string"}, "perceptual_context_hash": {"type": "string"}, "similarity_index_hash": {"type": "string"},
+        "report_path": {"type": "string"}, "report_hash": {"type": "string"}
+      },
+      "required": ["validation_path", "validation_report_hash", "validation_context_hash", "duplicate_index_hash", "perceptual_context_hash", "similarity_index_hash", "report_path", "report_hash"]
+    }
+  }, {
+    "if": {"properties": {"stage": {"enum": ["prepared_for_submission", "submission_pending_or_unknown", "submitted", "submission_failed_terminal"]}}, "required": ["stage"]},
+    "then": {
+      "properties": {"checkpoint_version": {}, "validation_path": {}, "validation_report_hash": {}, "validation_context_hash": {}, "duplicate_index_hash": {}, "perceptual_context_hash": {}, "similarity_index_hash": {}, "report_path": {}, "report_hash": {}, "request_path": {}, "request_fingerprint": {}, "idempotency_key": {}},
+      "required": ["checkpoint_version", "validation_path", "validation_report_hash", "validation_context_hash", "duplicate_index_hash", "perceptual_context_hash", "similarity_index_hash", "report_path", "report_hash", "request_path", "request_fingerprint", "idempotency_key"]
+    }
+  }, {
+    "if": {"properties": {"stage": {"const": "submitted"}}, "required": ["stage"]},
+    "then": {"properties": {"receipt_path": {}, "receipt_hash": {}}, "required": ["receipt_path", "receipt_hash"]}
+  }, {
+    "if": {"properties": {"stage": {"enum": ["submission_pending_or_unknown", "submission_failed_terminal"]}}, "required": ["stage"]},
+    "then": {"properties": {"submission_code": {}}, "required": ["submission_code"]}
+  }]
+}

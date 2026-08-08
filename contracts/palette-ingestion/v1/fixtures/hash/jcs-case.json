@@ -1,0 +1,5 @@
+{
+  "input": {"z": [3, 2, 1], "a": {"β": "text", "n": 1e-7}},
+  "expected_canonical_utf8": "{\"a\":{\"n\":1e-7,\"β\":\"text\"},\"z\":[3,2,1]}",
+  "expected_sha256": "a6d4d677b091fa4e9d944aaf313bd5994a8188890dc809e51c443c068bcdc086"
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://figcolor.local/contracts/palette-ingestion/v1/source-package.schema.json",
+  "title": "FigColor Palette Source Package Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_key", "source_type", "supplied_fields"],
+  "properties": {
+    "source_key": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$"},
+    "source_type": {"const": "manual_colors"},
+    "figure_path": {"type": "string", "minLength": 1},
+    "caption": {"type": "string", "maxLength": 20000},
+    "curator_notes": {"type": "string", "maxLength": 20000},
+    "internal_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collection_batch": {"type": "string", "maxLength": 200},
+        "source_reference": {"type": "string", "maxLength": 2000},
+        "rights_note": {"type": "string", "maxLength": 2000}
+      }
+    },
+    "supplied_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colors", "type", "disciplines", "use_cases", "avoid_cases", "tags", "chart_applicability"],
+      "properties": {
+        "colors": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"type": "string", "pattern": "^#?[0-9A-Fa-f]{6}$"}},
+        "type": {"enum": ["categorical", "sequential", "diverging", "mixed"]},
+        "disciplines": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "use_cases": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "avoid_cases": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "tags": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "chart_applicability": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["chart_type", "suitability"],
+            "properties": {
+              "chart_type": {"type": "string"},
+              "suitability": {"enum": ["best_fit", "recommended", "compatible", "limited"]},
+              "notes": {"type": "string", "maxLength": 1000},
+              "source": {"const": "curated"}
+            }
+          }
+        }
+      }
+    },
+    "supplied_preview_cases": {
+      "type": "array",
+      "items": {"$ref": "ingestion-request.schema.json#/$defs/previewCase"}
+    }
+  }
+}

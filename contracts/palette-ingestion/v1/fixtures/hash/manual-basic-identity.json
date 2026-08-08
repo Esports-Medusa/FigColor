@@ -1,0 +1,9 @@
+{
+  "fixture_manifest": "../valid/manual-basic/manifest.json",
+  "batch_id": "hash-fixture",
+  "pipeline_version": "palette-ingest-wp1.1",
+  "schema_version": 1,
+  "expected_source_hash": "5ee9c48fded5dbeb08e47c2f9fb9edb89fec0abab0955a78aa388e597fd5503c",
+  "expected_normalized_content_hash": "fe72c11ea997d056bf4108aacf56dcf51c8ab193531fb42854126fc1a41adc30",
+  "expected_proposal_id": "hash-fixture/manual-basic"
+}

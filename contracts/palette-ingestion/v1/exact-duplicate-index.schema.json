@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://figcolor.local/contracts/palette-ingestion/v1/exact-duplicate-index.schema.json",
+  "title": "FigColor Exact Duplicate Index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fingerprint_version", "issue_policy_version", "context_hash", "findings"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "fingerprint_version": {"const": 1},
+    "issue_policy_version": {"const": 1},
+    "context_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "findings": {
+      "type": "array",
+      "items": {"$ref": "validation-report.schema.json#/$defs/duplicateFinding"}
+    }
+  }
+}

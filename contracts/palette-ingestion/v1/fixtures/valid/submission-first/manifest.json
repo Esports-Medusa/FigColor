@@ -1,0 +1,31 @@
+{
+  "source_key": "submission-first",
+  "source_type": "manual_colors",
+  "supplied_fields": {
+    "colors": ["#4E79A7", "#F28E2B", "#59A14F"],
+    "type": "categorical",
+    "disciplines": ["general"],
+    "use_cases": ["publication"],
+    "avoid_cases": [],
+    "tags": ["clean", "professional"],
+    "chart_applicability": [{"chart_type": "bar_error", "suitability": "best_fit", "source": "curated"}]
+  },
+  "supplied_preview_cases": [{
+    "chart_type": "bar_error",
+    "template_id": "bar_error_v1",
+    "template_version": 1,
+    "schema_version": 1,
+    "color_roles": {
+      "groups": [{"key": "group_1", "label": "Group 1", "fill": {"source": "palette", "color_id": "color-1"}}],
+      "elements": {
+        "axis": {"source": "theme", "token": "foreground"},
+        "grid": {"source": "theme", "token": "grid"},
+        "text": {"source": "theme", "token": "muted_foreground"},
+        "error_bar": {"source": "theme", "token": "foreground"},
+        "background": {"source": "theme", "token": "background"}
+      }
+    },
+    "preview_config": {"orientation": "vertical", "sample_size": 24, "error_type": "sem", "data_pattern": "mixed"},
+    "seed_strategy": "stable_id"
+  }]
+}

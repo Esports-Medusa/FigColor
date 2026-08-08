@@ -2,8 +2,35 @@
 
 import { getAuthHeaders } from './auth'
 import type { ChartTypeApplicability } from '@/types/palette'
+import type { ValidationIssue } from '@/types/palette'
 
 const API_BASE = '/api'
+
+export class AdminPaletteApiError extends Error {
+  issues: ValidationIssue[]
+  status: number
+
+  constructor(message: string, status: number, issues: ValidationIssue[] = []) {
+    super(message)
+    this.name = 'AdminPaletteApiError'
+    this.status = status
+    this.issues = issues
+  }
+}
+
+async function adminPaletteError(response: Response, fallback: string): Promise<AdminPaletteApiError> {
+  let payload: { error?: string; message?: string; issues?: ValidationIssue[] } = {}
+  try {
+    payload = await response.json()
+  } catch {
+    // Preserve the HTTP failure even when an intermediary returns a non-JSON body.
+  }
+  return new AdminPaletteApiError(
+    payload.error || payload.message || fallback,
+    response.status,
+    Array.isArray(payload.issues) ? payload.issues : []
+  )
+}
 
 export interface PaletteColor {
   id?: string
@@ -38,6 +65,8 @@ export interface AdminPalette {
   source_image?: string
   source_note?: string
   status: 'draft' | 'candidate' | 'published' | 'archived'
+  visibility?: 'public' | 'private'
+  owner_user_id?: string
   version?: string
   created_by?: string
   created_at: string
@@ -107,7 +136,7 @@ export interface PaletteStats {
 
 export async function getPalettes(params?: {
   status?: string
-  type?: string
+  search?: string
   chart_type?: string
   journal_style?: string
   discipline?: string
@@ -116,7 +145,7 @@ export async function getPalettes(params?: {
 }): Promise<PaletteListResponse> {
   const query = new URLSearchParams()
   if (params?.status) query.set('status', params.status)
-  if (params?.type) query.set('type', params.type)
+  if (params?.search) query.set('search', params.search)
   if (params?.chart_type) query.set('chart_type', params.chart_type)
   if (params?.journal_style) query.set('journal_style', params.journal_style)
   if (params?.discipline) query.set('discipline', params.discipline)
@@ -128,8 +157,7 @@ export async function getPalettes(params?: {
   })
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch palettes')
+    throw await adminPaletteError(response, 'Failed to fetch palettes')
   }
 
   const data = await response.json()
@@ -149,8 +177,7 @@ export async function getPalette(id: string): Promise<AdminPalette> {
   })
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch palette')
+    throw await adminPaletteError(response, 'Failed to fetch palette')
   }
 
   return response.json()
@@ -179,8 +206,7 @@ export async function updatePalette(id: string, data: UpdatePaletteRequest): Pro
   })
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to update palette')
+    throw await adminPaletteError(response, 'Failed to update palette')
   }
 
   return response.json()
@@ -193,11 +219,25 @@ export async function publishPalette(id: string): Promise<AdminPalette> {
   })
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to publish palette')
+    throw await adminPaletteError(response, 'Failed to publish candidate')
   }
 
   return response.json()
+}
+
+export async function rejectPalette(id: string): Promise<AdminPalette> {
+  const response = await fetch(`${API_BASE}/admin/palettes/${id}/reject`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  if (!response.ok) throw await adminPaletteError(response, 'Failed to reject candidate')
+  return response.json()
+}
+
+export async function getCandidateRejectionEligibility(id: string): Promise<boolean> {
+  const response = await fetch(`${API_BASE}/admin/palettes/${id}/rejection-eligibility`, { headers: getAuthHeaders() })
+  if (!response.ok) throw await adminPaletteError(response, 'Failed to load rejection eligibility')
+  return Boolean((await response.json()).eligible)
 }
 
 export async function unpublishPalette(id: string): Promise<AdminPalette> {

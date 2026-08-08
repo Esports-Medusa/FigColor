@@ -1,0 +1,14 @@
+{
+  "snapshot_version": 1,
+  "fingerprint_version": 1,
+  "records": [
+    {
+      "record_id": "catalog-candidate-1",
+      "normalized_content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "visibility": "public",
+      "status": "candidate",
+      "origin": "curated",
+      "owner_user_id": null
+    }
+  ]
+}

@@ -1,4 +1,6 @@
 import { createDeterministicRandom, type DeterministicRandom } from '@/lib/deterministic/random'
+import { fnv1a32 } from '@/lib/deterministic/seed'
+import { extractResolvedDataRoles } from '../dataRoles'
 import type { ChartRenderer, PreviewRendererInput, PreviewRenderResult } from '../types'
 
 const WIDTH = 360
@@ -8,25 +10,22 @@ const PLOT_WIDTH = WIDTH - MARGIN.left - MARGIN.right
 const PLOT_HEIGHT = HEIGHT - MARGIN.top - MARGIN.bottom
 const VALUE_MIN = 0
 const VALUE_MAX = 100
-const requiredElementColorPaths = [
-  'color_roles.elements.axis',
-  'color_roles.elements.grid',
-  'color_roles.elements.text',
-  'color_roles.elements.marker_stroke',
-  'color_roles.elements.background'
-] as const
+const DEFAULT_COLORS = {
+  axis: '#111827',
+  grid: '#D1D5DB',
+  text: '#6B7280',
+  markerStroke: '#FFFFFF',
+  referenceLine: '#6B7280',
+  background: '#FFFFFF'
+} as const
 
 type CurveShape = 'increasing' | 'decreasing' | 'sigmoid' | 'peak' | 'mixed'
-
-interface LineSeriesRole {
-  key: string
-  label: string
-  line: unknown
-}
 
 interface LineConfig {
   point_count: number
   curve_shape: CurveShape
+  x_axis_label?: string
+  y_axis_label?: string
 }
 
 interface GeneratedSeries {
@@ -42,13 +41,17 @@ export const lineMultiseriesRenderer: ChartRenderer = {
   templateVersion: 1,
   schemaVersion: 1,
   render(input: PreviewRendererInput): PreviewRenderResult {
-    const seriesRoles = readSeries(input.colorRoles)
-    if (seriesRoles.length < 2 || seriesRoles.length > 5) {
+    const dataRoles = extractResolvedDataRoles(input.colorRoles, input.resolvedColors, {
+      collection: 'series',
+      colorField: 'line'
+    })
+    if (!dataRoles.ok) {
       return invalidResult(
-        'INVALID_LINE_SERIES',
-        'line_multiseries renderer requires 2 to 5 series color roles.'
+        dataRoles.code,
+        dataRoles.message
       )
     }
+    const seriesRoles = dataRoles.roles
 
     const config = readConfig(input.previewConfig)
     if (!config) {
@@ -58,29 +61,20 @@ export const lineMultiseriesRenderer: ChartRenderer = {
       )
     }
 
-    const seriesColors = seriesRoles.map((_, index) => input.resolvedColors[`color_roles.series[${index}].line`])
-    const missingSeriesColorIndex = seriesColors.findIndex((color) => !color)
-    if (missingSeriesColorIndex >= 0) {
-      return invalidResult(
-        'MISSING_RESOLVED_COLOR',
-        `Missing resolved color for color_roles.series[${missingSeriesColorIndex}].line.`
-      )
-    }
+    const axisColor = readElementColor(input.resolvedColors, ['axis'], DEFAULT_COLORS.axis)
+    const gridColor = readElementColor(input.resolvedColors, ['grid'], DEFAULT_COLORS.grid)
+    const textColor = readElementColor(input.resolvedColors, ['text'], DEFAULT_COLORS.text)
+    const markerStrokeColor = readElementColor(input.resolvedColors, ['marker_stroke'], DEFAULT_COLORS.markerStroke)
+    const backgroundColor = readElementColor(input.resolvedColors, ['background'], DEFAULT_COLORS.background)
+    const referenceLineColor = readElementColor(input.resolvedColors, ['reference_line'], DEFAULT_COLORS.referenceLine)
 
-    const elementColors = readRequiredElementColors(input.resolvedColors)
-    if (!elementColors.ok) {
-      return elementColors.result
-    }
-
-    const axisColor = elementColors.colors['color_roles.elements.axis']
-    const gridColor = elementColors.colors['color_roles.elements.grid']
-    const textColor = elementColors.colors['color_roles.elements.text']
-    const markerStrokeColor = elementColors.colors['color_roles.elements.marker_stroke']
-    const backgroundColor = elementColors.colors['color_roles.elements.background']
-
-    const random = createDeterministicRandom(input.seed)
     const generated = seriesRoles.map((series, index) =>
-      generateSeries(series, config, index, random)
+      generateSeries(
+        series,
+        config,
+        index,
+        createDeterministicRandom(fnv1a32(`${input.seed}\u001fline\u001f${series.key}`))
+      )
     )
     const xScale = (index: number) =>
       MARGIN.left + (index / Math.max(1, config.point_count - 1)) * PLOT_WIDTH
@@ -96,6 +90,13 @@ export const lineMultiseriesRenderer: ChartRenderer = {
       const x = round(xScale(index))
       return `<text x="${x}" y="${HEIGHT - 18}" text-anchor="middle" fill="${textColor}" font-size="10">${index + 1}</text>`
     }).join('')
+    const axisLabelMarkup = [
+      config.x_axis_label ? `<text x="${round(MARGIN.left + PLOT_WIDTH / 2)}" y="${HEIGHT - 4}" text-anchor="middle" fill="${textColor}" font-size="9">${escapeSvg(config.x_axis_label)}</text>` : '',
+      config.y_axis_label ? `<text x="14" y="${round(MARGIN.top + PLOT_HEIGHT / 2)}" text-anchor="middle" fill="${textColor}" font-size="9" transform="rotate(-90 14 ${round(MARGIN.top + PLOT_HEIGHT / 2)})">${escapeSvg(config.y_axis_label)}</text>` : ''
+    ].join('')
+    const referenceLineMarkup = input.resolvedColors['color_roles.elements.reference_line']
+      ? `<line class="reference-line" x1="${MARGIN.left}" y1="${round(yScale(50))}" x2="${WIDTH - MARGIN.right}" y2="${round(yScale(50))}" stroke="${referenceLineColor}" stroke-width="1" stroke-dasharray="4 3" opacity="0.72"/>`
+      : ''
     const seriesMarkup = generated.map((series, seriesIndex) => {
       const points = series.values.map((value, pointIndex) => ({
         x: xScale(pointIndex),
@@ -105,12 +106,21 @@ export const lineMultiseriesRenderer: ChartRenderer = {
       const path = points.map((point, pointIndex) =>
         `${pointIndex === 0 ? 'M' : 'L'} ${round(point.x)} ${round(point.y)}`
       ).join(' ')
-      const markerMarkup = points.map((point) =>
-        `<circle cx="${round(point.x)}" cy="${round(point.y)}" r="2.6" fill="${seriesColors[seriesIndex]}" stroke="${markerStrokeColor}" stroke-width="1"/>`
-      ).join('')
-      const labelPoint = points[points.length - 1]
-
-      return `<g class="line-series" data-series-key="${escapeSvg(series.key)}" data-shape="${series.shape}" data-values="${series.values.map(round).join(',')}" data-first-value="${round(series.values[0])}" data-last-value="${round(series.values[series.values.length - 1])}" data-min-value="${round(Math.min(...series.values))}" data-max-value="${round(Math.max(...series.values))}" data-mid-value="${round(series.values[Math.floor(series.values.length / 2)])}"><path d="${path}" fill="none" stroke="${seriesColors[seriesIndex]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${markerMarkup}<text x="${round(Math.min(WIDTH - MARGIN.right, labelPoint.x + 5))}" y="${round(labelPoint.y + 3)}" fill="${textColor}" font-size="9">${escapeSvg(series.label)}</text></g>`
+      const bandColor = input.resolvedColors[`color_roles.series[${seriesIndex}].confidence_band`]
+      const bandMarkup = bandColor ? renderConfidenceBand(points, bandColor) : ''
+      const markerColor = input.resolvedColors[`color_roles.series[${seriesIndex}].marker`]
+      const markerMarkup = markerColor
+        ? points.map((point) =>
+            `<circle class="line-marker" cx="${round(point.x)}" cy="${round(point.y)}" r="2.6" fill="${markerColor}" stroke="${markerStrokeColor}" stroke-width="1"/>`
+          ).join('')
+        : ''
+      return `<g class="line-series" data-series-key="${escapeSvg(series.key)}" data-shape="${series.shape}" data-values="${series.values.map(round).join(',')}" data-first-value="${round(series.values[0])}" data-last-value="${round(series.values[series.values.length - 1])}" data-min-value="${round(Math.min(...series.values))}" data-max-value="${round(Math.max(...series.values))}" data-mid-value="${round(series.values[Math.floor(series.values.length / 2)])}">${bandMarkup}<path class="line-data-mark" d="${path}" fill="none" stroke="${seriesRoles[seriesIndex].color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${markerMarkup}</g>`
+    }).join('')
+    const legendCellWidth = PLOT_WIDTH / seriesRoles.length
+    const legendMarkup = seriesRoles.map((series, index) => {
+      const centerX = MARGIN.left + legendCellWidth * index + legendCellWidth / 2
+      const label = escapeSvg(fitLabel(series.label, legendCellWidth))
+      return `<g class="line-legend-item"><line x1="${round(centerX - 10)}" y1="10" x2="${round(centerX - 2)}" y2="10" stroke="${series.color}" stroke-width="2"/><text x="${round(centerX + 1)}" y="13" text-anchor="start" fill="${textColor}" font-size="7.5">${label}</text></g>`
     }).join('')
 
     return {
@@ -118,13 +128,13 @@ export const lineMultiseriesRenderer: ChartRenderer = {
       kind: 'svg',
       width: WIDTH,
       height: HEIGHT,
-      markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Line chart preview"><rect width="${WIDTH}" height="${HEIGHT}" fill="${backgroundColor}"/>${gridMarkup}<line x1="${MARGIN.left}" y1="${MARGIN.top}" x2="${MARGIN.left}" y2="${MARGIN.top + PLOT_HEIGHT}" stroke="${axisColor}" stroke-width="1.5"/><line x1="${MARGIN.left}" y1="${MARGIN.top + PLOT_HEIGHT}" x2="${WIDTH - MARGIN.right}" y2="${MARGIN.top + PLOT_HEIGHT}" stroke="${axisColor}" stroke-width="1.5"/>${xTickMarkup}${seriesMarkup}</svg>`
+      markup: `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Line chart preview"><rect width="${WIDTH}" height="${HEIGHT}" fill="${backgroundColor}"/>${legendMarkup}${gridMarkup}${referenceLineMarkup}<line x1="${MARGIN.left}" y1="${MARGIN.top}" x2="${MARGIN.left}" y2="${MARGIN.top + PLOT_HEIGHT}" stroke="${axisColor}" stroke-width="1.5"/><line x1="${MARGIN.left}" y1="${MARGIN.top + PLOT_HEIGHT}" x2="${WIDTH - MARGIN.right}" y2="${MARGIN.top + PLOT_HEIGHT}" stroke="${axisColor}" stroke-width="1.5"/>${xTickMarkup}${axisLabelMarkup}${seriesMarkup}</svg>`
     }
   }
 }
 
 function generateSeries(
-  role: LineSeriesRole,
+  role: { key: string; label: string },
   config: LineConfig,
   seriesIndex: number,
   random: DeterministicRandom
@@ -166,21 +176,6 @@ function curveValue(shape: CurveShape, x: number): number {
   return x
 }
 
-function readSeries(colorRoles: unknown): LineSeriesRole[] {
-  if (!isRecord(colorRoles) || !Array.isArray(colorRoles.series)) {
-    return []
-  }
-
-  return colorRoles.series.filter(isSeriesRole)
-}
-
-function isSeriesRole(value: unknown): value is LineSeriesRole {
-  return isRecord(value) &&
-    typeof value.key === 'string' &&
-    typeof value.label === 'string' &&
-    Object.prototype.hasOwnProperty.call(value, 'line')
-}
-
 function readConfig(previewConfig: unknown): LineConfig | null {
   if (!isRecord(previewConfig)) {
     return null
@@ -193,7 +188,9 @@ function readConfig(previewConfig: unknown): LineConfig | null {
   ) {
     return {
       point_count: Number(previewConfig.point_count),
-      curve_shape: previewConfig.curve_shape
+      curve_shape: previewConfig.curve_shape,
+      x_axis_label: typeof previewConfig.x_axis_label === 'string' ? previewConfig.x_axis_label : undefined,
+      y_axis_label: typeof previewConfig.y_axis_label === 'string' ? previewConfig.y_axis_label : undefined
     }
   }
   return null
@@ -207,29 +204,34 @@ function isCurveShape(value: unknown): value is CurveShape {
     value === 'mixed'
 }
 
-function readRequiredElementColors(resolvedColors: Record<string, string>):
-  | { ok: true; colors: Record<typeof requiredElementColorPaths[number], string> }
-  | { ok: false; result: PreviewRenderResult } {
-  const missingPath = requiredElementColorPaths.find((path) => !resolvedColors[path])
-  if (missingPath) {
-    return {
-      ok: false,
-      result: invalidResult('MISSING_RESOLVED_COLOR', `Missing resolved color for ${missingPath}.`)
-    }
-  }
-
-  return {
-    ok: true,
-    colors: Object.fromEntries(
-      requiredElementColorPaths.map((path) => [path, resolvedColors[path]])
-    ) as Record<typeof requiredElementColorPaths[number], string>
-  }
+function readElementColor(resolvedColors: Record<string, string>, keys: readonly string[], fallback: string): string {
+  return keys.map((key) => resolvedColors[`color_roles.elements.${key}`]).find(Boolean) ?? fallback
 }
 
 function createXTicks(pointCount: number): number[] {
   const middle = Math.floor((pointCount - 1) / 2)
   const last = pointCount - 1
   return middle === 0 || middle === last ? [0, last] : [0, middle, last]
+}
+
+function fitLabel(label: string, width: number): string {
+  const maxCharacters = Math.min(18, Math.max(4, Math.floor((width - 13) / 4.3)))
+  return label.length <= maxCharacters ? label : `${label.slice(0, maxCharacters - 1)}…`
+}
+
+function renderConfidenceBand(points: Array<{ x: number; y: number }>, color: string): string {
+  const upper = points.map((point, index) => ({
+    x: point.x,
+    y: point.y - (5 + (index % 2) * 1.2)
+  }))
+  const lower = [...points].reverse().map((point, index) => ({
+    x: point.x,
+    y: point.y + (5 + (index % 2) * 1.2)
+  }))
+  const path = [...upper, ...lower].map((point, index) =>
+    `${index === 0 ? 'M' : 'L'} ${round(point.x)} ${round(point.y)}`
+  ).join(' ')
+  return `<path class="confidence-band" d="${path} Z" fill="${color}" opacity="0.16"/>`
 }
 
 function invalidResult(code: string, message: string): PreviewRenderResult {
