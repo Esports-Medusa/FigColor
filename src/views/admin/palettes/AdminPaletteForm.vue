@@ -316,7 +316,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, toRefs } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { 
   getPalette, 
@@ -346,6 +346,10 @@ import AdminPreviewCaseEditor from './AdminPreviewCaseEditor.vue'
 import PalettePreview from '@/components/PalettePreview.vue'
 import PaletteChartPreview from '@/components/palettes/PaletteChartPreview.vue'
 import {
+  createCandidatePublicationController,
+  createCandidatePublicationState
+} from './CandidatePublication.logic'
+import {
   archiveAdminPreviewCase,
   createAdminPreviewCase,
   deleteAdminPreviewCase,
@@ -363,10 +367,13 @@ const isEditing = computed(() => !!route.params.id)
 const paletteId = computed(() => route.params.id as string)
 
 const saving = ref(false)
-const publishing = ref(false)
-const publicationMessage = ref('')
-const publicationError = ref('')
-const publicationIssues = ref<ValidationIssue[]>([])
+const publicationState = reactive(createCandidatePublicationState())
+const {
+  publishing,
+  message: publicationMessage,
+  error: publicationError,
+  issues: publicationIssues
+} = toRefs(publicationState)
 const savedPayload = ref('')
 const loading = ref(false)
 const formError = ref('')
@@ -759,38 +766,27 @@ async function saveAsCandidate() {
 }
 
 async function publishCandidate() {
-  if (!isCandidate.value || publishing.value || hasUnsavedChanges.value) return
-  if (!window.confirm('Publish this candidate to the public catalog?')) return
-  publishing.value = true
-  publicationMessage.value = ''
-  publicationError.value = ''
-  publicationIssues.value = []
-  try {
-    const published = await publishPalette(paletteId.value)
-    if (published.id !== paletteId.value || published.status !== 'published' || published.visibility !== 'public' || published.owner_user_id != null) {
-      throw new Error('The server returned an invalid publication response.')
-    }
-    form.status = published.status
-    loadedStatus.value = published.status
-    publicationMessage.value = 'Published to the public catalog.'
-  } catch (e: any) {
-    try {
-      const canonical = await getPalette(paletteId.value)
-      if (canonical.status === 'published' && canonical.visibility === 'public' && canonical.owner_user_id == null) {
-        form.status = canonical.status
-        loadedStatus.value = canonical.status
-        publicationMessage.value = 'Published to the public catalog.'
-        return
-      }
-    } catch {
-      // Preserve the original publication error when reconciliation also fails.
-    }
-    publicationError.value = e.message || 'Failed to publish candidate'
-    publicationIssues.value = e instanceof AdminPaletteApiError ? e.issues : []
-  } finally {
-    publishing.value = false
-  }
+  await candidatePublicationController.attempt()
 }
+
+const candidatePublicationController = createCandidatePublicationController({
+  state: publicationState,
+  paletteID: () => paletteId.value,
+  eligibility: () => ({
+    editing: isEditing.value,
+    authenticatedAdmin: true, // This form is mounted only behind AuthRequired + AdminRequired.
+    canonicalStatus: loadedStatus.value,
+    dirty: hasUnsavedChanges.value,
+    publishing: publicationState.publishing
+  }),
+  confirm: (message) => window.confirm(message),
+  publish: publishPalette,
+  reload: getPalette,
+  applyCanonical: (palette) => {
+    form.status = palette.status
+    loadedStatus.value = palette.status
+  }
+})
 
 async function loadPreviewCases(clearMessage = true) {
   if (!isEditing.value) return

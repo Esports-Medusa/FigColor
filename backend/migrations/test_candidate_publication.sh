@@ -2,7 +2,10 @@
 set -euo pipefail
 
 root_dir="$(cd "$(dirname "$0")/../.." && pwd)"
-test_db="figcolor_candidate_publication_test"
+source "$root_dir/backend/migrations/candidate_publication_test_guard.sh"
+figcolor_guard_candidate_publication_target
+
+test_db="$FIGCOLOR_TEST_DB_NAME"
 PSQL_BIN="${PSQL_BIN:-psql}"
 GO_BIN="${GO_BIN:-go}"
 
@@ -16,4 +19,10 @@ for migration in "${migrations[@]}"; do
   db -q -f "$root_dir/backend/migrations/${migration}.sql"
 done
 
-(cd "$root_dir/backend" && FIGCOLOR_PUBLICATION_TEST_DSN="dbname=$test_db sslmode=disable" "$GO_BIN" test ./internal/palette -run '^TestCandidatePublicationPostgres$' -count=1)
+(
+  cd "$root_dir/backend"
+  FIGCOLOR_INGESTION_TEST_DSN="dbname=$test_db sslmode=disable" \
+    "$GO_BIN" test ./internal/palette -run '^TestIngestion(RepositoryPostgres|ServicePostgresAggregate|HTTPPostgresEndToEnd)$' -count=1
+  FIGCOLOR_PUBLICATION_TEST_DSN="dbname=$test_db sslmode=disable" \
+    "$GO_BIN" test ./internal/palette -run '^TestCandidatePublicationPostgres$' -count=1
+)

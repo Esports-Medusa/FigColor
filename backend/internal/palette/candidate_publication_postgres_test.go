@@ -29,6 +29,7 @@ func TestCandidatePublicationPostgres(t *testing.T) {
 
 	service := NewService(NewRepository())
 	validID := insertPublicationCandidate(t, db, "valid", "candidate", "public", nil)
+	t.Logf("candidate palette id: %s", validID)
 	var previewID string
 	if err := db.QueryRow(`INSERT INTO palette_preview_cases
 		(palette_id,chart_type,template_id,color_roles,preview_config,status)
@@ -36,6 +37,26 @@ func TestCandidatePublicationPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	insertPublicationIngestion(t, db, validID, `[{"severity":"warning","code":"ADVISORY","message":"reviewed"}]`)
+	adminCandidates, adminTotal, err := service.List(ListParams{Status: "candidate", Search: "Publication valid", Page: 1, PageSize: 1})
+	if err != nil || adminTotal != 1 || len(adminCandidates) != 1 || adminCandidates[0].ID != validID {
+		t.Fatalf("admin candidate discovery mismatch: total=%d count=%d err=%v", adminTotal, len(adminCandidates), err)
+	}
+	adminDetail, err := service.GetByID(validID)
+	if err != nil || adminDetail == nil || len(adminDetail.Colors) == 0 || adminDetail.ChartApplicability == nil {
+		t.Fatalf("admin candidate detail incomplete: detail=%+v err=%v", adminDetail, err)
+	}
+	editedName := "Publication valid edited"
+	if _, err := service.Update(validID, &UpdatePaletteRequest{Name: &editedName}); err != nil {
+		t.Fatal(err)
+	}
+	adminDetail, err = service.GetByID(validID)
+	if err != nil || adminDetail == nil || adminDetail.Name != editedName {
+		t.Fatalf("admin edit did not persist: detail=%+v err=%v", adminDetail, err)
+	}
+	var applicabilityBefore string
+	if err := db.QueryRow(`SELECT chart_applicability::text FROM palettes WHERE id=$1`, validID).Scan(&applicabilityBefore); err != nil {
+		t.Fatal(err)
+	}
 
 	if got, _, err := service.ListPublic(ListParams{Page: 1, PageSize: 20}); err != nil || len(got) != 0 {
 		t.Fatalf("candidate leaked into public list: count=%d err=%v", len(got), err)
@@ -65,6 +86,13 @@ func TestCandidatePublicationPostgres(t *testing.T) {
 	}
 	if linkedPaletteID != validID || receiptPaletteID != validID {
 		t.Fatalf("publication changed aggregate linkage: preview=%s receipt=%s", linkedPaletteID, receiptPaletteID)
+	}
+	var applicabilityAfter string
+	if err := db.QueryRow(`SELECT chart_applicability::text FROM palettes WHERE id=$1`, validID).Scan(&applicabilityAfter); err != nil {
+		t.Fatal(err)
+	}
+	if applicabilityAfter != applicabilityBefore {
+		t.Fatalf("publication changed authored applicability: before=%s after=%s", applicabilityBefore, applicabilityAfter)
 	}
 	if _, err := service.Publish(validID); !errors.Is(err, ErrPalettePublicationConflict) {
 		t.Fatalf("repeat publication err=%v", err)
@@ -133,8 +161,8 @@ func insertPublicationCandidate(t *testing.T, db *sql.DB, suffix, status, visibi
 	t.Helper()
 	var id string
 	err := db.QueryRow(`INSERT INTO palettes
-		(slug,name,colors,color_count,type,status,visibility,origin,owner_user_id)
-		VALUES($1,$2,$3,2,'categorical',$4,$5,'curated',$6) RETURNING id`,
+		(slug,name,colors,color_count,type,chart_applicability,status,visibility,origin,owner_user_id)
+		VALUES($1,$2,$3,2,'categorical','[{"chart_type":"bar_error","suitability":"recommended"}]',$4,$5,'curated',$6) RETURNING id`,
 		"publication-"+suffix, "Publication "+suffix,
 		`[{"id":"c1","hex":"#112233","rgb":[17,34,51],"order":0},{"id":"c2","hex":"#445566","rgb":[68,85,102],"order":1}]`,
 		status, visibility, owner).Scan(&id)
