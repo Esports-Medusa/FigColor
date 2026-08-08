@@ -2,10 +2,12 @@ package project
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/qiqi/figcolor/backend/internal/database"
 )
 
@@ -26,6 +28,19 @@ var defaultRoles = []struct {
 	{Key: "treatment", Label: "Treatment", Color: "#EE6C4D", RoleType: "semantic"},
 	{Key: "highlight", Label: "Highlight", Color: "#E9C46A", RoleType: "ui"},
 	{Key: "background", Label: "Background", Color: "#F8F9FA", RoleType: "ui"},
+}
+
+type catalogColor struct {
+	ID    string `json:"id"`
+	Hex   string `json:"hex"`
+	Name  string `json:"name"`
+	Label string `json:"label"`
+}
+
+type projectPaletteLookup struct {
+	ID            string
+	BasePaletteID *string
+	IsDefault     bool
 }
 
 func (r *Repository) CreateProject(userID, name string, description *string) (*PaperProject, error) {
@@ -54,12 +69,42 @@ func (r *Repository) CreateProject(userID, name string, description *string) (*P
 		return nil, fmt.Errorf("failed to insert project: %w", err)
 	}
 
-	// Create default palette
+	basePaletteID := uuid.New()
+	baseColors, err := json.Marshal([]catalogColor{
+		{ID: "control", Hex: "#3D5A80", Name: "Control"},
+		{ID: "treatment", Hex: "#EE6C4D", Name: "Treatment"},
+		{ID: "highlight", Hex: "#E9C46A", Name: "Highlight"},
+		{ID: "background", Hex: "#F8F9FA", Name: "Background"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode default palette colors: %w", err)
+	}
+	_, err = tx.Exec(`
+		INSERT INTO palettes (
+			id, slug, name, owner_user_id, visibility, origin, colors, color_count, type, chart_types, journal_style,
+			discipline, use_case, tags, accessibility, source_type, status, version,
+			created_at, updated_at, published_at
+		)
+		VALUES (
+			$1, $2, $3, $4, 'private', 'custom', $5, $6, 'categorical', $7, $8,
+			$9, $10, $11, $12, 'manual', 'draft', 'project-default',
+			$13, $14, NULL
+		)
+		ON CONFLICT (id) DO NOTHING
+	`, basePaletteID.String(), "project-default-"+projectID.String(), "Default Palette", userID, baseColors, len(defaultRoles),
+		pq.Array([]string{"bar", "line", "heatmap"}), pq.Array([]string{"general"}), pq.Array([]string{"general"}),
+		pq.Array([]string{"presentation"}), pq.Array([]string{"project_default"}),
+		`{"colorblind_safe": false, "print_friendly": true, "dark_background": false}`,
+		time.Now(), time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert default base palette: %w", err)
+	}
+
 	paletteID := uuid.New()
 	_, err = tx.Exec(`
-		INSERT INTO project_palettes (id, project_id, name, is_default, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, paletteID.String(), project.ID, "Default Palette", true, time.Now(), time.Now())
+		INSERT INTO project_palettes (id, project_id, name, base_palette_id, is_default, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, paletteID.String(), project.ID, "Default Palette", basePaletteID.String(), true, time.Now(), time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert default palette: %w", err)
 	}
@@ -117,6 +162,31 @@ func (r *Repository) GetProjects() ([]PaperProject, error) {
 	return projects, nil
 }
 
+func (r *Repository) GetPublicProjects() ([]PaperProject, error) {
+	rows, err := database.DB.Query(`
+		SELECT id, user_id, name, description, default_palette_id, created_at, updated_at
+		FROM paper_projects
+		WHERE user_id IS NULL
+		ORDER BY created_at DESC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query public projects: %w", err)
+	}
+	defer rows.Close()
+
+	var projects []PaperProject
+	for rows.Next() {
+		var p PaperProject
+		err := rows.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.DefaultPaletteID, &p.CreatedAt, &p.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan public project: %w", err)
+		}
+		projects = append(projects, p)
+	}
+
+	return projects, nil
+}
+
 func (r *Repository) GetProjectsByUserID(userID string) ([]PaperProject, error) {
 	rows, err := database.DB.Query(`
 		SELECT id, user_id, name, description, default_palette_id, created_at, updated_at
@@ -158,6 +228,38 @@ func (r *Repository) GetProjectByID(id string) (*PaperProject, error) {
 	return &p, nil
 }
 
+func (r *Repository) GetProjectByIDForUser(id string, userID string) (*PaperProject, error) {
+	var p PaperProject
+	err := database.DB.QueryRow(`
+		SELECT id, user_id, name, description, default_palette_id, created_at, updated_at
+		FROM paper_projects
+		WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.DefaultPaletteID, &p.CreatedAt, &p.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query project for user: %w", err)
+	}
+	return &p, nil
+}
+
+func (r *Repository) GetPublicProjectByID(id string) (*PaperProject, error) {
+	var p PaperProject
+	err := database.DB.QueryRow(`
+		SELECT id, user_id, name, description, default_palette_id, created_at, updated_at
+		FROM paper_projects
+		WHERE id = $1 AND user_id IS NULL
+	`, id).Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.DefaultPaletteID, &p.CreatedAt, &p.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query public project: %w", err)
+	}
+	return &p, nil
+}
+
 func (r *Repository) UpdateProject(id string, name *string, description *string) error {
 	result, err := database.DB.Exec(`
 		UPDATE paper_projects 
@@ -178,8 +280,42 @@ func (r *Repository) UpdateProject(id string, name *string, description *string)
 	return nil
 }
 
+func (r *Repository) UpdateProjectForUser(id string, userID string, name *string, description *string) error {
+	result, err := database.DB.Exec(`
+		UPDATE paper_projects
+		SET name = COALESCE($3, name),
+		    description = COALESCE($4, description),
+		    updated_at = NOW()
+		WHERE id = $1 AND user_id = $2
+	`, id, userID, name, description)
+	if err != nil {
+		return fmt.Errorf("failed to update project: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("project not found")
+	}
+
+	return nil
+}
+
 func (r *Repository) DeleteProject(id string) error {
 	result, err := database.DB.Exec(`DELETE FROM paper_projects WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("project not found")
+	}
+
+	return nil
+}
+
+func (r *Repository) DeleteProjectForUser(id string, userID string) error {
+	result, err := database.DB.Exec(`DELETE FROM paper_projects WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete project: %w", err)
 	}
@@ -242,6 +378,168 @@ func (r *Repository) GetPaletteRoles(paletteID string) ([]PaletteRole, error) {
 	return roles, nil
 }
 
+func (r *Repository) PaletteExists(paletteID string) (bool, error) {
+	var exists bool
+	err := database.DB.QueryRow(`SELECT EXISTS (SELECT 1 FROM palettes WHERE id = $1)`, paletteID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check palette: %w", err)
+	}
+	return exists, nil
+}
+
+func (r *Repository) PaletteVisibleToUser(paletteID string, userID string) (bool, error) {
+	var exists bool
+	err := database.DB.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM palettes
+			WHERE id = $1
+			  AND (
+			    (visibility = 'public' AND owner_user_id IS NULL)
+			    OR owner_user_id = $2
+			  )
+		)
+	`, paletteID, userID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check palette visibility: %w", err)
+	}
+	return exists, nil
+}
+
+func (r *Repository) GetProjectPaletteByID(projectID string, projectPaletteID string) (*projectPaletteLookup, error) {
+	var palette projectPaletteLookup
+	err := database.DB.QueryRow(`
+		SELECT id, base_palette_id, is_default
+		FROM project_palettes
+		WHERE project_id = $1 AND id = $2
+	`, projectID, projectPaletteID).Scan(&palette.ID, &palette.BasePaletteID, &palette.IsDefault)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query project palette: %w", err)
+	}
+	return &palette, nil
+}
+
+func (r *Repository) GetProjectPaletteByBasePaletteID(projectID string, basePaletteID string) (*projectPaletteLookup, error) {
+	var palette projectPaletteLookup
+	err := database.DB.QueryRow(`
+		SELECT id, base_palette_id, is_default
+		FROM project_palettes
+		WHERE project_id = $1 AND base_palette_id = $2
+	`, projectID, basePaletteID).Scan(&palette.ID, &palette.BasePaletteID, &palette.IsDefault)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query project palette by base palette: %w", err)
+	}
+	return &palette, nil
+}
+
+func (r *Repository) CreateProjectPalette(projectID string, userID string, req CreateProjectPaletteRequest) (*ProjectPalette, error) {
+	if req.BasePaletteID == nil || *req.BasePaletteID == "" {
+		return nil, fmt.Errorf("basePaletteId is required")
+	}
+
+	var baseName string
+	var colorsRaw []byte
+	err := database.DB.QueryRow(`
+		SELECT name, colors
+		FROM palettes
+		WHERE id = $1
+		  AND (
+		    (visibility = 'public' AND owner_user_id IS NULL)
+		    OR owner_user_id = $2
+		  )
+	`, *req.BasePaletteID, userID).Scan(&baseName, &colorsRaw)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("palette not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query base palette: %w", err)
+	}
+
+	var colors []catalogColor
+	if err := json.Unmarshal(colorsRaw, &colors); err != nil {
+		return nil, fmt.Errorf("failed to decode base palette colors: %w", err)
+	}
+	if len(colors) == 0 {
+		return nil, fmt.Errorf("palette has no colors")
+	}
+
+	projectPaletteID := uuid.New()
+	paletteName := baseName
+	if req.Name != nil && *req.Name != "" {
+		paletteName = *req.Name
+	}
+	now := time.Now()
+
+	tx, err := database.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		INSERT INTO project_palettes (id, project_id, name, base_palette_id, is_default, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, false, $5, $6)
+	`, projectPaletteID.String(), projectID, paletteName, *req.BasePaletteID, now, now)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert project palette: %w", err)
+	}
+
+	roles := make([]PaletteRole, 0, len(colors))
+	for idx, color := range colors {
+		roleID := uuid.New()
+		label := color.Label
+		if label == "" {
+			label = color.Name
+		}
+		if label == "" {
+			label = fmt.Sprintf("Color %d", idx+1)
+		}
+		key := color.ID
+		if key == "" {
+			key = fmt.Sprintf("color-%d", idx)
+		}
+		_, err = tx.Exec(`
+			INSERT INTO palette_roles (id, palette_id, key, label, color, role_type, sort_order, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, 'semantic', $6, $7, $8)
+		`, roleID.String(), projectPaletteID.String(), key, label, color.Hex, idx, now, now)
+		if err != nil {
+			return nil, fmt.Errorf("failed to insert project palette role: %w", err)
+		}
+		roles = append(roles, PaletteRole{
+			ID:        roleID.String(),
+			PaletteID: projectPaletteID.String(),
+			Key:       key,
+			Label:     label,
+			Color:     color.Hex,
+			RoleType:  "semantic",
+			Order:     idx,
+			CreatedAt: now,
+			UpdatedAt: now,
+		})
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit project palette: %w", err)
+	}
+
+	return &ProjectPalette{
+		ID:            projectPaletteID.String(),
+		ProjectID:     projectID,
+		Name:          paletteName,
+		BasePaletteID: req.BasePaletteID,
+		IsDefault:     false,
+		Roles:         roles,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}, nil
+}
+
 func (r *Repository) UpdateRoleColor(roleID string, color string) error {
 	// Validate hex color format
 	if len(color) != 7 || color[0] != '#' {
@@ -253,6 +551,35 @@ func (r *Repository) UpdateRoleColor(roleID string, color string) error {
 		SET color = $2, updated_at = NOW()
 		WHERE id = $1
 	`, roleID, color)
+	if err != nil {
+		return fmt.Errorf("failed to update role color: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("role not found")
+	}
+
+	return nil
+}
+
+func (r *Repository) UpdateRoleColorForProject(projectID string, paletteID string, roleID string, color string) error {
+	if len(color) != 7 || color[0] != '#' {
+		return fmt.Errorf("invalid color format")
+	}
+
+	result, err := database.DB.Exec(`
+		UPDATE palette_roles
+		SET color = $4, updated_at = NOW()
+		WHERE id = $3
+		  AND palette_id = $2
+		  AND EXISTS (
+		    SELECT 1
+		    FROM project_palettes
+		    WHERE project_palettes.id = palette_roles.palette_id
+		      AND project_palettes.project_id = $1
+		  )
+	`, projectID, paletteID, roleID, color)
 	if err != nil {
 		return fmt.Errorf("failed to update role color: %w", err)
 	}
@@ -320,14 +647,40 @@ func (r *Repository) GetFigureByID(figureID string) (*FigureAssignment, error) {
 	return &f, nil
 }
 
+func (r *Repository) GetFigureByProjectID(projectID string, figureID string) (*FigureAssignment, error) {
+	var f FigureAssignment
+	var panel, notes sql.NullString
+	err := database.DB.QueryRow(`
+		SELECT id, project_id, palette_id, name, panel, chart_type, notes, created_at, updated_at
+		FROM figure_assignments
+		WHERE project_id = $1 AND id = $2
+	`, projectID, figureID).Scan(&f.ID, &f.ProjectID, &f.PaletteID, &f.Name, &panel, &f.ChartType, &notes, &f.CreatedAt, &f.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query figure: %w", err)
+	}
+	if panel.Valid {
+		f.Panel = &panel.String
+	}
+	if notes.Valid {
+		f.Notes = &notes.String
+	}
+	return &f, nil
+}
+
 func (r *Repository) CreateFigure(projectID string, req CreateFigureRequest) (*FigureAssignment, error) {
 	figureID := uuid.New()
 	now := time.Now()
 
-	// DEBUG: Log palette_id to diagnose foreign key constraint error
-	fmt.Printf("[DEBUG] CreateFigure - projectID: %s, paletteID: %s, req.PaletteID: %s\n", projectID, req.PaletteID, req.PaletteID)
+	tx, err := database.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
 
-	_, err := database.DB.Exec(`
+	_, err = tx.Exec(`
 		INSERT INTO figure_assignments (id, project_id, palette_id, name, panel, chart_type, notes, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`, figureID.String(), projectID, req.PaletteID, req.Name, req.Panel, req.ChartType, req.Notes, now, now)
@@ -335,16 +688,31 @@ func (r *Repository) CreateFigure(projectID string, req CreateFigureRequest) (*F
 		return nil, fmt.Errorf("failed to insert figure: %w", err)
 	}
 
+	for index, roleKey := range req.SelectedRoleKeys {
+		_, err = tx.Exec(`
+			INSERT INTO figure_selected_roles (id, figure_id, role_key, sort_order)
+			VALUES ($1, $2, $3, $4)
+		`, uuid.New().String(), figureID.String(), roleKey, index)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add selected role: %w", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit figure: %w", err)
+	}
+
 	return &FigureAssignment{
-		ID:        figureID.String(),
-		ProjectID: projectID,
-		PaletteID: req.PaletteID,
-		Name:      req.Name,
-		Panel:     req.Panel,
-		ChartType: req.ChartType,
-		Notes:     req.Notes,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:               figureID.String(),
+		ProjectID:        projectID,
+		PaletteID:        req.PaletteID,
+		Name:             req.Name,
+		Panel:            req.Panel,
+		ChartType:        req.ChartType,
+		SelectedRoleKeys: req.SelectedRoleKeys,
+		Notes:            req.Notes,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}, nil
 }
 
@@ -365,10 +733,68 @@ func (r *Repository) UpdateFigure(figureID string, req UpdateFigureRequest) erro
 	return nil
 }
 
+func (r *Repository) UpdateFigureForProject(projectID string, figureID string, req UpdateFigureRequest) error {
+	tx, err := database.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin figure update: %w", err)
+	}
+	defer tx.Rollback()
+
+	result, err := tx.Exec(`
+		UPDATE figure_assignments
+		SET name = COALESCE($3, name),
+		    panel = COALESCE($4, panel),
+		    chart_type = COALESCE($5, chart_type),
+		    palette_id = COALESCE($6, palette_id),
+		    notes = COALESCE($7, notes),
+		    updated_at = NOW()
+		WHERE project_id = $1 AND id = $2
+	`, projectID, figureID, req.Name, req.Panel, req.ChartType, req.PaletteID, req.Notes)
+	if err != nil {
+		return fmt.Errorf("failed to update figure: %w", err)
+	}
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("figure not found")
+	}
+
+	if req.SelectedRoleKeys != nil {
+		if _, err := tx.Exec(`DELETE FROM figure_selected_roles WHERE figure_id = $1`, figureID); err != nil {
+			return fmt.Errorf("failed to delete selected roles: %w", err)
+		}
+		for index, roleKey := range req.SelectedRoleKeys {
+			_, err = tx.Exec(`
+				INSERT INTO figure_selected_roles (id, figure_id, role_key, sort_order)
+				VALUES ($1, $2, $3, $4)
+			`, uuid.New().String(), figureID, roleKey, index)
+			if err != nil {
+				return fmt.Errorf("failed to add selected role: %w", err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit figure update: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) DeleteFigure(figureID string) error {
 	_, err := database.DB.Exec(`DELETE FROM figure_assignments WHERE id = $1`, figureID)
 	if err != nil {
 		return fmt.Errorf("failed to delete figure: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) DeleteFigureForProject(projectID string, figureID string) error {
+	result, err := database.DB.Exec(`DELETE FROM figure_assignments WHERE project_id = $1 AND id = $2`, projectID, figureID)
+	if err != nil {
+		return fmt.Errorf("failed to delete figure: %w", err)
+	}
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("figure not found")
 	}
 	return nil
 }
