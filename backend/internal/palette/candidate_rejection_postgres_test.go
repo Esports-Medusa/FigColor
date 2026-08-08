@@ -112,6 +112,33 @@ func TestCandidateRejectionPostgres(t *testing.T) {
 
 	rollback := insertPublicationCandidate(t, db, "reject-rollback", "candidate", "public", nil)
 	insertPublicationIngestion(t, db, rollback, `[]`)
+	rollbackPreview, err := service.CreatePreviewCase(rollback, &CreatePreviewCaseRequest{ChartType: pc.ChartType, TemplateID: pc.TemplateID, TemplateVersion: pc.TemplateVersion, SchemaVersion: pc.SchemaVersion, ColorRoles: pc.ColorRoles, PreviewConfig: pc.PreviewConfig, SeedStrategy: pc.SeedStrategy, SeedValue: pc.SeedValue})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollbackPreview, err = service.PublishPreviewCase(rollbackPreview.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollbackPreview, err = service.SetPrimaryPreviewCase(rollbackPreview.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paletteStatusBefore, previewStatusBefore, previewPaletteBefore string
+	var archivedAtBefore sql.NullTime
+	var previewPrimaryBefore bool
+	if err := db.QueryRow(`SELECT p.status,p.archived_at,pc.status,pc.is_primary,pc.palette_id
+		FROM palettes p JOIN palette_preview_cases pc ON pc.palette_id=p.id
+		WHERE p.id=$1 AND pc.id=$2`, rollback, rollbackPreview.ID).Scan(&paletteStatusBefore, &archivedAtBefore, &previewStatusBefore, &previewPrimaryBefore, &previewPaletteBefore); err != nil {
+		t.Fatal(err)
+	}
+	var ingestionIDBefore, ingestionPaletteBefore, receiptBeforeRollback string
+	if err := db.QueryRow(`SELECT id,palette_id,receipt::text FROM palette_ingestion_records WHERE palette_id=$1`, rollback).Scan(&ingestionIDBefore, &ingestionPaletteBefore, &receiptBeforeRollback); err != nil {
+		t.Fatal(err)
+	}
+	if paletteStatusBefore != "candidate" || archivedAtBefore.Valid || previewStatusBefore != "published" || !previewPrimaryBefore || previewPaletteBefore != rollback {
+		t.Fatalf("invalid rollback fixture palette=%s archived=%v preview=%s primary=%v linkage=%s", paletteStatusBefore, archivedAtBefore.Valid, previewStatusBefore, previewPrimaryBefore, previewPaletteBefore)
+	}
 	if _, err := db.Exec(`CREATE FUNCTION reject_candidate_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.id='` + rollback + `'::uuid THEN RAISE EXCEPTION 'forced reject failure'; END IF; RETURN NEW; END $$`); err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +148,27 @@ func TestCandidateRejectionPostgres(t *testing.T) {
 	if _, err := service.Reject(rollback); err == nil {
 		t.Fatal("forced failure succeeded")
 	}
-	assertPublicationState(t, db, rollback, "candidate")
+	var paletteStatusAfter, previewStatusAfter, previewPaletteAfter string
+	var archivedAtAfter sql.NullTime
+	var previewPrimaryAfter bool
+	if err := db.QueryRow(`SELECT p.status,p.archived_at,pc.status,pc.is_primary,pc.palette_id
+		FROM palettes p JOIN palette_preview_cases pc ON pc.palette_id=p.id
+		WHERE p.id=$1 AND pc.id=$2`, rollback, rollbackPreview.ID).Scan(&paletteStatusAfter, &archivedAtAfter, &previewStatusAfter, &previewPrimaryAfter, &previewPaletteAfter); err != nil {
+		t.Fatal(err)
+	}
+	var ingestionIDAfter, ingestionPaletteAfter, receiptAfterRollback string
+	if err := db.QueryRow(`SELECT id,palette_id,receipt::text FROM palette_ingestion_records WHERE palette_id=$1`, rollback).Scan(&ingestionIDAfter, &ingestionPaletteAfter, &receiptAfterRollback); err != nil {
+		t.Fatal(err)
+	}
+	if paletteStatusAfter != paletteStatusBefore || archivedAtAfter.Valid != archivedAtBefore.Valid ||
+		previewStatusAfter != previewStatusBefore || previewPrimaryAfter != previewPrimaryBefore || previewPaletteAfter != previewPaletteBefore ||
+		ingestionIDAfter != ingestionIDBefore || ingestionPaletteAfter != ingestionPaletteBefore || receiptAfterRollback != receiptBeforeRollback {
+		t.Fatalf("reject rollback changed aggregate palette=%s/%s archived=%v/%v preview=%s/%s primary=%v/%v preview_link=%s/%s ingestion=%s/%s ingestion_link=%s/%s receipt_equal=%v",
+			paletteStatusBefore, paletteStatusAfter, archivedAtBefore.Valid, archivedAtAfter.Valid,
+			previewStatusBefore, previewStatusAfter, previewPrimaryBefore, previewPrimaryAfter,
+			previewPaletteBefore, previewPaletteAfter, ingestionIDBefore, ingestionIDAfter,
+			ingestionPaletteBefore, ingestionPaletteAfter, receiptBeforeRollback == receiptAfterRollback)
+	}
 }
 
 func assertTwoTransitions(t *testing.T, first, second func() error) {

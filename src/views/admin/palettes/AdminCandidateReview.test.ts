@@ -54,6 +54,9 @@ function testCandidateReviewPresentationAndSafety(): void {
   expect(formSource.includes('Publish to public catalog'), 'candidate form must expose an explicit publication action')
   expect(formSource.includes('createCandidatePublicationController'), 'candidate form must wire the executable publication controller')
   expect(formSource.includes('candidatePublicationController.attempt()'), 'Publish action must delegate to the publication controller')
+  expect(formSource.includes('transitionCoordinator: candidateTransitionCoordinator'), 'Publish and Reject must share the form-level transition coordinator')
+  expect(formSource.includes('candidateTransitionActive !== null'), 'the competing transition button must disable during confirmation and request')
+  expect(formSource.includes('await loadPreviewCases(false)'), 'canonical Reject application must reconcile the preview aggregate')
   expect(!formSource.includes('handleUnpublish'), 'candidate workflow must not add an unpublish action')
   expect(formSource.includes(':public-only="false"'), 'admin form must continue using the shared preview renderer')
 }

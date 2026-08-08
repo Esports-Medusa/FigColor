@@ -1,5 +1,6 @@
 import type { AdminPalette } from '@/api/admin'
 import type { ValidationIssue } from '@/types/palette'
+import { createCandidateTransitionCoordinator, type CandidateTransitionCoordinator } from './CandidateTransition.logic'
 
 export interface CandidateRejectionState {
   rejecting: boolean
@@ -38,13 +39,20 @@ export function createCandidateRejectionController(dependencies: {
   confirm: (message: string) => boolean | Promise<boolean>
   reject: (id: string) => Promise<AdminPalette>
   reload: (id: string) => Promise<AdminPalette>
-  applyCanonical: (palette: AdminPalette) => void
+  applyCanonical: (palette: AdminPalette) => unknown | Promise<unknown>
+  transitionCoordinator?: CandidateTransitionCoordinator
 }) {
   let attemptInFlight = false
+  const transitionCoordinator = dependencies.transitionCoordinator ?? createCandidateTransitionCoordinator()
   async function attempt(): Promise<'ineligible' | 'duplicate' | 'cancelled' | 'rejected' | 'reconciled-rejected' | 'failed'> {
     if (attemptInFlight || dependencies.state.rejecting) return 'duplicate'
     if (!isCandidateRejectionEligible(dependencies.eligibility())) return 'ineligible'
     attemptInFlight = true
+    const releaseTransition = transitionCoordinator.acquire('reject')
+    if (!releaseTransition) {
+      attemptInFlight = false
+      return 'duplicate'
+    }
     try {
       if (!await dependencies.confirm('Reject this imported candidate? It will remain archived and non-public.')) return 'cancelled'
       const id = dependencies.paletteID()
@@ -52,14 +60,14 @@ export function createCandidateRejectionController(dependencies: {
       try {
         const rejected = await dependencies.reject(id)
         if (!isCanonicalRejection(id, rejected)) throw new Error('The server returned an invalid rejection response.')
-        dependencies.applyCanonical(rejected)
+        await dependencies.applyCanonical(rejected)
         dependencies.state.message = 'Imported candidate rejected.'
         return 'rejected'
       } catch (rejectionError) {
         try {
           const canonical = await dependencies.reload(id)
           if (isCanonicalRejection(id, canonical)) {
-            dependencies.applyCanonical(canonical)
+            await dependencies.applyCanonical(canonical)
             dependencies.state.message = 'Imported candidate rejected.'
             return 'reconciled-rejected'
           }
@@ -73,6 +81,7 @@ export function createCandidateRejectionController(dependencies: {
     } finally {
       dependencies.state.rejecting = false
       attemptInFlight = false
+      releaseTransition()
     }
   }
   return { attempt }

@@ -1,5 +1,6 @@
 import type { AdminPalette } from '@/api/admin'
 import type { ValidationIssue } from '@/types/palette'
+import { createCandidateTransitionCoordinator, type CandidateTransitionCoordinator } from './CandidateTransition.logic'
 
 export interface CandidatePublicationState {
   publishing: boolean
@@ -25,6 +26,7 @@ export interface CandidatePublicationDependencies {
   publish: (id: string) => Promise<AdminPalette>
   reload: (id: string) => Promise<AdminPalette>
   applyCanonical: (palette: AdminPalette) => void
+  transitionCoordinator?: CandidateTransitionCoordinator
 }
 
 export type CandidatePublicationOutcome =
@@ -52,6 +54,7 @@ export function isCanonicalPublication(expectedID: string, palette: AdminPalette
 
 export function createCandidatePublicationController(dependencies: CandidatePublicationDependencies) {
   let attemptInFlight = false
+  const transitionCoordinator = dependencies.transitionCoordinator ?? createCandidateTransitionCoordinator()
 
   async function attempt(): Promise<CandidatePublicationOutcome> {
     if (attemptInFlight) return 'duplicate'
@@ -59,6 +62,11 @@ export function createCandidatePublicationController(dependencies: CandidatePubl
     if (eligibility.publishing || dependencies.state.publishing) return 'duplicate'
     if (!isCandidatePublicationEligible(eligibility)) return 'ineligible'
     attemptInFlight = true
+    const releaseTransition = transitionCoordinator.acquire('publish')
+    if (!releaseTransition) {
+      attemptInFlight = false
+      return 'duplicate'
+    }
 
     try {
       if (!await dependencies.confirm('Publish this candidate to the public catalog?')) return 'cancelled'
@@ -99,6 +107,7 @@ export function createCandidatePublicationController(dependencies: CandidatePubl
     } finally {
       dependencies.state.publishing = false
       attemptInFlight = false
+      releaseTransition()
     }
   }
 

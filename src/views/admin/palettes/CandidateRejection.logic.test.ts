@@ -43,3 +43,21 @@ const retry=createCandidateRejectionController({state:retryState,paletteID:()=> 
 expect(await retry.attempt()==='failed' && await retry.attempt()==='rejected' && retries===2,'explicit retry failed')
 const uncertain=createCandidateRejectionController({state:createCandidateRejectionState(),paletteID:()=> 'candidate-1',eligibility,confirm:()=>true,reject:async()=>{throw new TypeError('lost')},reload:async()=>{throw new Error('reload')},applyCanonical:()=>{}})
 expect(await uncertain.attempt()==='failed','reconciliation failure guessed success')
+
+for (const reconciled of [false, true]) {
+  const previewReload=deferred<void>()
+  const canonicalApplied=deferred<void>()
+  let applied=0
+  const previewAware=createCandidateRejectionController({
+    state:createCandidateRejectionState(),paletteID:()=> 'candidate-1',eligibility,confirm:()=>true,
+    reject:async()=>{if(reconciled)throw new TypeError('lost');return palette('archived')},
+    reload:async()=>palette('archived'),
+    applyCanonical:async()=>{applied++;canonicalApplied.resolve();await previewReload.promise}
+  })
+  let settled=false
+  const attempt=previewAware.attempt().then((outcome)=>{settled=true;return outcome})
+  await canonicalApplied.promise
+  expect(applied===1 && !settled, `${reconciled?'reconciled':'successful'} rejection did not await preview reconciliation`)
+  previewReload.resolve()
+  expect(await attempt===(reconciled?'reconciled-rejected':'rejected'), 'preview-aware rejection outcome changed')
+}

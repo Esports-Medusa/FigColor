@@ -266,7 +266,7 @@
             v-if="isCandidate"
             class="btn btn-success"
             @click="publishCandidate"
-            :disabled="saving || publishing || rejecting || hasUnsavedChanges"
+            :disabled="saving || candidateTransitionActive !== null || hasUnsavedChanges"
           >
             {{ publishing ? 'Publishing...' : 'Publish to public catalog' }}
           </button>
@@ -274,7 +274,7 @@
             v-if="isCandidate && importedCandidateEligible"
             class="btn btn-danger"
             @click="rejectCandidate"
-            :disabled="saving || publishing || rejecting || hasUnsavedChanges"
+            :disabled="saving || candidateTransitionActive !== null || hasUnsavedChanges"
           >{{ rejecting ? 'Rejecting...' : 'Reject imported candidate' }}</button>
         </div>
         <p v-if="isCandidate && hasUnsavedChanges" class="helper-text">Save your changes before publishing.</p>
@@ -363,6 +363,7 @@ import {
   createCandidatePublicationState
 } from './CandidatePublication.logic'
 import { createCandidateRejectionController, createCandidateRejectionState } from './CandidateRejection.logic'
+import { createCandidateTransitionCoordinator, type CandidateTransition } from './CandidateTransition.logic'
 import {
   archiveAdminPreviewCase,
   createAdminPreviewCase,
@@ -383,6 +384,10 @@ const paletteId = computed(() => route.params.id as string)
 const saving = ref(false)
 const publicationState = reactive(createCandidatePublicationState())
 const rejectionState = reactive(createCandidateRejectionState())
+const candidateTransitionActive = ref<CandidateTransition | null>(null)
+const candidateTransitionCoordinator = createCandidateTransitionCoordinator((active) => {
+  candidateTransitionActive.value = active
+})
 const importedCandidateEligible = ref(false)
 const {
   publishing,
@@ -797,11 +802,12 @@ const candidatePublicationController = createCandidatePublicationController({
     authenticatedAdmin: true, // This form is mounted only behind AuthRequired + AdminRequired.
     canonicalStatus: loadedStatus.value,
     dirty: hasUnsavedChanges.value,
-    publishing: publicationState.publishing || rejectionState.rejecting
+    publishing: candidateTransitionActive.value !== null
   }),
   confirm: (message) => window.confirm(message),
   publish: publishPalette,
   reload: getPalette,
+  transitionCoordinator: candidateTransitionCoordinator,
   applyCanonical: (palette) => {
     form.status = palette.status
     loadedStatus.value = palette.status
@@ -821,15 +827,17 @@ const candidateRejectionController = createCandidateRejectionController({
     importedCandidate: importedCandidateEligible.value,
     canonicalStatus: loadedStatus.value,
     dirty: hasUnsavedChanges.value,
-    conflictingAction: publicationState.publishing
+    conflictingAction: candidateTransitionActive.value !== null
   }),
   confirm: (message) => window.confirm(message),
   reject: rejectPalette,
   reload: getPalette,
-  applyCanonical: (palette) => {
+  transitionCoordinator: candidateTransitionCoordinator,
+  applyCanonical: async (palette) => {
     form.status = palette.status
     loadedStatus.value = palette.status
     importedCandidateEligible.value = false
+    await loadPreviewCases(false)
   }
 })
 
