@@ -1635,6 +1635,8 @@ Codex must not resolve these silently. Update this plan before the blocking Work
    - Define perceptual similarity thresholds and whether admin-accepted duplicates may link to an existing internal ingestion-evidence record.
    - Exact-content ingestion behavior is resolved: a different proposal with the same verified canonical content is blocked with `EXACT_CONTENT_DUPLICATE`; no override exists in the current contract.
 
+WP9 pilot decisions were resolved by the product owner on 2026-08-08 for the isolated four-package `manual_colors` technical pilot recorded in `docs/wp9-pilot-manifest.md`: fixed denominators and thresholds, a uniquely prefixed disposable local target, authorized Admin outcomes, and protected-local 90-day evidence retention. The existing v1 perceptual thresholds are approved only for pilot evaluation. Because this is an individual MSc project, independent second-human handoff is explicitly deferred and non-blocking for the technical pilot; it remains reported as not run and the full ingestion-plan Definition of Done remains only partially met.
+
 ## 21. Recommended First Implementation Slice
 
 Build a narrow vertical slice before full AI assistance:
