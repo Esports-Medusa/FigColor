@@ -266,10 +266,16 @@
             v-if="isCandidate"
             class="btn btn-success"
             @click="publishCandidate"
-            :disabled="saving || publishing || hasUnsavedChanges"
+            :disabled="saving || publishing || rejecting || hasUnsavedChanges"
           >
             {{ publishing ? 'Publishing...' : 'Publish to public catalog' }}
           </button>
+          <button
+            v-if="isCandidate && importedCandidateEligible"
+            class="btn btn-danger"
+            @click="rejectCandidate"
+            :disabled="saving || publishing || rejecting || hasUnsavedChanges"
+          >{{ rejecting ? 'Rejecting...' : 'Reject imported candidate' }}</button>
         </div>
         <p v-if="isCandidate && hasUnsavedChanges" class="helper-text">Save your changes before publishing.</p>
         <p v-if="publicationMessage" class="helper-text">{{ publicationMessage }}</p>
@@ -280,6 +286,11 @@
               {{ issue.path }}: {{ issue.message }}
             </li>
           </ul>
+        </div>
+        <p v-if="rejectionMessage" class="helper-text">{{ rejectionMessage }}</p>
+        <div v-if="rejectionError" class="error" role="alert">
+          <p>{{ rejectionError }}</p>
+          <ul v-if="rejectionIssues.length"><li v-for="issue in rejectionIssues" :key="`${issue.path}:${issue.code}`">{{ issue.path }}: {{ issue.message }}</li></ul>
         </div>
       </div>
 
@@ -323,6 +334,8 @@ import {
   createPalette, 
   updatePalette, 
   publishPalette,
+  rejectPalette,
+  getCandidateRejectionEligibility,
   parseColorsInput, 
   preservePaletteColorIds,
   isValidHex,
@@ -349,6 +362,7 @@ import {
   createCandidatePublicationController,
   createCandidatePublicationState
 } from './CandidatePublication.logic'
+import { createCandidateRejectionController, createCandidateRejectionState } from './CandidateRejection.logic'
 import {
   archiveAdminPreviewCase,
   createAdminPreviewCase,
@@ -368,12 +382,15 @@ const paletteId = computed(() => route.params.id as string)
 
 const saving = ref(false)
 const publicationState = reactive(createCandidatePublicationState())
+const rejectionState = reactive(createCandidateRejectionState())
+const importedCandidateEligible = ref(false)
 const {
   publishing,
   message: publicationMessage,
   error: publicationError,
   issues: publicationIssues
 } = toRefs(publicationState)
+const { rejecting, message: rejectionMessage, error: rejectionError, issues: rejectionIssues } = toRefs(rejectionState)
 const savedPayload = ref('')
 const loading = ref(false)
 const formError = ref('')
@@ -598,6 +615,9 @@ async function loadPalette() {
     form.version = palette.version || ''
     form.status = palette.status || 'draft'
     loadedStatus.value = palette.status
+    importedCandidateEligible.value = palette.status === 'candidate'
+      ? await getCandidateRejectionEligibility(paletteId.value)
+      : false
     form.color_count = palette.color_count
     loadedColors.value = palette.colors || []
 
@@ -777,7 +797,7 @@ const candidatePublicationController = createCandidatePublicationController({
     authenticatedAdmin: true, // This form is mounted only behind AuthRequired + AdminRequired.
     canonicalStatus: loadedStatus.value,
     dirty: hasUnsavedChanges.value,
-    publishing: publicationState.publishing
+    publishing: publicationState.publishing || rejectionState.rejecting
   }),
   confirm: (message) => window.confirm(message),
   publish: publishPalette,
@@ -785,6 +805,31 @@ const candidatePublicationController = createCandidatePublicationController({
   applyCanonical: (palette) => {
     form.status = palette.status
     loadedStatus.value = palette.status
+  }
+})
+
+async function rejectCandidate() {
+  await candidateRejectionController.attempt()
+}
+
+const candidateRejectionController = createCandidateRejectionController({
+  state: rejectionState,
+  paletteID: () => paletteId.value,
+  eligibility: () => ({
+    editing: isEditing.value,
+    authenticatedAdmin: true,
+    importedCandidate: importedCandidateEligible.value,
+    canonicalStatus: loadedStatus.value,
+    dirty: hasUnsavedChanges.value,
+    conflictingAction: publicationState.publishing
+  }),
+  confirm: (message) => window.confirm(message),
+  reject: rejectPalette,
+  reload: getPalette,
+  applyCanonical: (palette) => {
+    form.status = palette.status
+    loadedStatus.value = palette.status
+    importedCandidateEligible.value = false
   }
 })
 

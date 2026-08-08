@@ -19,6 +19,7 @@ const testModules = [
   '/src/views/admin/palettes/AdminPalettesList.test.ts',
   '/src/views/admin/palettes/AdminCandidateReview.test.ts',
   '/src/views/admin/palettes/CandidatePublication.logic.test.ts',
+  '/src/views/admin/palettes/CandidateRejection.logic.test.ts',
   '/src/views/admin/palettes/AdminPreviewCaseEditor.test.ts'
 ]
 

@@ -225,6 +225,21 @@ export async function publishPalette(id: string): Promise<AdminPalette> {
   return response.json()
 }
 
+export async function rejectPalette(id: string): Promise<AdminPalette> {
+  const response = await fetch(`${API_BASE}/admin/palettes/${id}/reject`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  if (!response.ok) throw await adminPaletteError(response, 'Failed to reject candidate')
+  return response.json()
+}
+
+export async function getCandidateRejectionEligibility(id: string): Promise<boolean> {
+  const response = await fetch(`${API_BASE}/admin/palettes/${id}/rejection-eligibility`, { headers: getAuthHeaders() })
+  if (!response.ok) throw await adminPaletteError(response, 'Failed to load rejection eligibility')
+  return Boolean((await response.json()).eligible)
+}
+
 export async function unpublishPalette(id: string): Promise<AdminPalette> {
   const response = await fetch(`${API_BASE}/admin/palettes/${id}/unpublish`, {
     method: 'POST',

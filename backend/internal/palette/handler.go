@@ -17,6 +17,8 @@ type handlerService interface {
 	Create(req *CreatePaletteRequest, createdBy string) (*Palette, error)
 	Update(id string, req *UpdatePaletteRequest) (*Palette, error)
 	Publish(id string) (*Palette, error)
+	Reject(id string) (*Palette, error)
+	CanReject(id string) (bool, error)
 	Unpublish(id string) (*Palette, error)
 	Archive(id string) (*Palette, error)
 	Delete(id string) error
@@ -61,6 +63,8 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, jwtSecret string, auth
 			palettes.POST("", h.Create)
 			palettes.PATCH("/:id", h.Update)
 			palettes.POST("/:id/publish", h.Publish)
+			palettes.POST("/:id/reject", h.Reject)
+			palettes.GET("/:id/rejection-eligibility", h.RejectionEligibility)
 			palettes.POST("/:id/unpublish", h.Unpublish)
 			palettes.DELETE("/:id", h.Delete)
 		}
@@ -204,6 +208,37 @@ func (h *Handler) Publish(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, palette)
+}
+
+// Reject terminally archives an imported candidate without deleting its evidence.
+func (h *Handler) Reject(c *gin.Context) {
+	palette, err := h.service.Reject(c.Param("id"))
+	if err != nil {
+		if errors.Is(err, ErrPaletteRejectionConflict) || errors.Is(err, ErrPaletteNotImportedCandidate) {
+			c.JSON(http.StatusConflict, gin.H{"error": "palette is not an eligible imported candidate", "code": "REJECTION_CONFLICT"})
+			return
+		}
+		if errors.Is(err, ErrPaletteNotFound) || errors.Is(err, ErrPaletteNotAdminManageable) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "palette not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, palette)
+}
+
+func (h *Handler) RejectionEligibility(c *gin.Context) {
+	eligible, err := h.service.CanReject(c.Param("id"))
+	if err != nil {
+		if errors.Is(err, ErrPaletteNotFound) || errors.Is(err, ErrPaletteNotAdminManageable) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "palette not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"eligible": eligible})
 }
 
 // Unpublish unpublishes a palette

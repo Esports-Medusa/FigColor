@@ -25,4 +25,6 @@ done
     "$GO_BIN" test ./internal/palette -run '^TestIngestion(RepositoryPostgres|ServicePostgresAggregate|HTTPPostgresEndToEnd)$' -count=1
   FIGCOLOR_PUBLICATION_TEST_DSN="dbname=$test_db sslmode=disable" \
     "$GO_BIN" test ./internal/palette -run '^TestCandidatePublicationPostgres$' -count=1
+  FIGCOLOR_REJECTION_TEST_DSN="dbname=$test_db sslmode=disable" \
+    "$GO_BIN" test ./internal/palette -run '^TestCandidateRejectionPostgres$' -count=1
 )

@@ -19,6 +19,8 @@ var (
 	ErrPaletteNotFound                       = errors.New("palette not found")
 	ErrPaletteNotAdminManageable             = errors.New("palette is not admin manageable")
 	ErrPalettePublicationConflict            = errors.New("palette publication conflict")
+	ErrPaletteRejectionConflict              = errors.New("palette rejection conflict")
+	ErrPaletteNotImportedCandidate           = errors.New("palette is not an imported candidate")
 	ErrInvalidPreviewCaseLifecycleTransition = errors.New("invalid preview case lifecycle transition")
 	ErrPreviewCaseValidationFailure          = errors.New("preview case validation failure")
 )
@@ -817,6 +819,71 @@ func (s *Service) Publish(id string) (*Palette, error) {
 		return nil, fmt.Errorf("commit publication transaction: %w", err)
 	}
 	return published, nil
+}
+
+// Reject atomically moves an imported candidate to the existing archived terminal state.
+func (s *Service) Reject(id string) (*Palette, error) {
+	tx, err := database.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("begin rejection transaction: %w", err)
+	}
+	defer tx.Rollback()
+	existing, err := s.repo.getByID(tx, id, true)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, ErrPaletteNotFound
+	}
+	if err := ensureAdminManageablePalette(existing); err != nil {
+		return nil, err
+	}
+	if existing.Status != "candidate" {
+		return nil, ErrPaletteRejectionConflict
+	}
+	var ingestionID string
+	if err := tx.QueryRow(`SELECT id FROM palette_ingestion_records WHERE palette_id=$1 AND processing_state='succeeded'`, id).Scan(&ingestionID); err == sql.ErrNoRows {
+		return nil, ErrPaletteNotImportedCandidate
+	} else if err != nil {
+		return nil, fmt.Errorf("load rejection ingestion identity: %w", err)
+	}
+	if _, err := tx.Exec(`UPDATE palette_preview_cases SET status='archived',is_primary=false,updated_at=clock_timestamp()
+		WHERE palette_id=$1 AND status<>'archived'`, id); err != nil {
+		return nil, fmt.Errorf("archive rejected candidate previews: %w", err)
+	}
+	result, err := tx.Exec(`UPDATE palettes SET status='archived',archived_at=clock_timestamp(),updated_at=clock_timestamp()
+		WHERE id=$1 AND status='candidate' AND visibility='public' AND owner_user_id IS NULL`, id)
+	if err != nil {
+		return nil, fmt.Errorf("reject imported candidate: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil || rows != 1 {
+		return nil, ErrPaletteRejectionConflict
+	}
+	rejected, err := s.repo.getByID(tx, id, false)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit rejection transaction: %w", err)
+	}
+	return rejected, nil
+}
+
+func (s *Service) CanReject(id string) (bool, error) {
+	palette, err := s.repo.GetByID(id)
+	if err != nil || palette == nil {
+		return false, err
+	}
+	if err := ensureAdminManageablePalette(palette); err != nil {
+		return false, err
+	}
+	if palette.Status != "candidate" {
+		return false, nil
+	}
+	var eligible bool
+	err = database.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM palette_ingestion_records WHERE palette_id=$1 AND processing_state='succeeded')`, id).Scan(&eligible)
+	return eligible, err
 }
 
 func (s *Service) validatePublicationReadiness(tx *sql.Tx, palette *Palette, previewCases []*PalettePreviewCase) error {
