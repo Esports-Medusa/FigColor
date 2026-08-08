@@ -1,0 +1,23 @@
+{
+  "id": "stable-non-identifying-id",
+  "path": "relative/path-under-approved-input-root.png",
+  "sha256": "lowercase-sha256-after-input-is-frozen",
+  "chart_type": "bar_error",
+  "format": "png",
+  "width": 0,
+  "height": 0,
+  "encoded_bytes": 0,
+  "palette_type": "categorical",
+  "expected_ordered_data_colors": [],
+  "expected_unordered_data_colors": ["#RRGGBB"],
+  "expected_structural_colors": ["#RRGGBB"],
+  "ambiguous_colors": [],
+  "continuous_gradient": false,
+  "order_observable": false,
+  "annotation_method": "manual-two-pass-v1",
+  "transformation": "describe compression, crop, screenshot or resize already present",
+  "provenance_category": "user-supplied",
+  "permission_status": "internal-pilot-only",
+  "may_commit": false,
+  "notes": "non-identifying ambiguity notes only"
+}
