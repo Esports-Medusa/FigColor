@@ -1650,3 +1650,7 @@ Build a narrow vertical slice before full AI assistance:
 7. Add one `figure_image` package and deterministic extraction evidence only after the end-to-end boundary is proven.
 
 Only after this path is safe and measurable should WP3 add multimodal controlled-field mapping assistance and batch-scale tuning.
+
+## 22. Post-WP9 deterministic extraction feasibility decision
+
+The repository-owned synthetic benchmark recorded in `docs/deterministic-image-color-extraction-feasibility.md` partially accepts deterministic pixel-based extraction as a future candidate-suggestion input, not as a canonical Palette source. The safe PNG/JPEG decoding boundary is defined for the feasibility harness; production integration is not authorized. Corrected alpha composition and exact/quantized frequency analysis recover simple native-raster bars, filled regions, and observed transparent composites, but pale/neutral data colours, downsampled thin-line blends, annotated heatmaps, unknown transparency backdrops, and lossy compression require curator confirmation and stronger evidence design. Canonical semantic colour order is not inferable from pixels except where a separately defined observable spatial ordering rule exists. OCR and AI/multimodal work remain deferred.
