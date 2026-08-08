@@ -123,6 +123,7 @@ type ingestionAggregateFactory interface {
 type IngestionService struct {
 	claims       ingestionClaimRepository
 	aggregates   ingestionAggregateFactory
+	candidates   *CandidateAggregateService
 	unknownAfter int64
 }
 
@@ -142,11 +143,11 @@ func NewIngestionServiceWithConfig(cfg config.IngestionRecoveryConfig) (*Ingesti
 	if err != nil {
 		return nil, err
 	}
-	return &IngestionService{claims: repo, aggregates: sqlIngestionAggregateFactory{claims: repo, palettes: NewRepository()}, unknownAfter: int64(cfg.UnknownRetryAfterSeconds)}, nil
+	return &IngestionService{claims: repo, aggregates: sqlIngestionAggregateFactory{claims: repo, palettes: NewRepository()}, candidates: NewCandidateAggregateService(), unknownAfter: int64(cfg.UnknownRetryAfterSeconds)}, nil
 }
 
 func newIngestionService(claims ingestionClaimRepository, aggregates ingestionAggregateFactory, unknownAfter int64) *IngestionService {
-	return &IngestionService{claims: claims, aggregates: aggregates, unknownAfter: unknownAfter}
+	return &IngestionService{claims: claims, aggregates: aggregates, candidates: NewCandidateAggregateService(), unknownAfter: unknownAfter}
 }
 
 func (s *IngestionService) Ingest(ctx context.Context, input CandidateIngestionSubmission) (result *IngestionServiceResult) {
@@ -208,30 +209,21 @@ func (s *IngestionService) runAggregate(ctx context.Context, prepared *preparedI
 		}
 	}()
 
-	palette, err := tx.CreateCandidate(&prepared.palette, prepared.claim.ActorUserID)
+	aggregate, err := s.candidates.Create(tx, CandidateAggregateInput{Palette: candidatePaletteInputFromOffline(prepared.palette), PreviewCases: prepared.previews, ActorUserID: prepared.claim.ActorUserID})
 	if err != nil {
 		finished = true
 		return s.rollbackAndClassify(ctx, tx, claim, err)
 	}
-	previewIDs := make([]string, 0, len(prepared.previews))
-	for i := range prepared.previews {
-		preview, createErr := tx.CreatePreview(palette.ID, &prepared.previews[i])
-		if createErr != nil {
-			finished = true
-			return s.rollbackAndClassify(ctx, tx, claim, createErr)
-		}
-		previewIDs = append(previewIDs, preview.ID)
-	}
 	receipt, err := json.Marshal(ingestionReceipt{
 		ProposalID: prepared.claim.ProposalID, NormalizedContentHash: prepared.claim.NormalizedContentHash,
-		RequestFingerprint: prepared.claim.RequestFingerprint, PaletteID: palette.ID, Slug: palette.Slug,
-		Status: "candidate", PreviewCaseIDs: previewIDs,
+		RequestFingerprint: prepared.claim.RequestFingerprint, PaletteID: aggregate.PaletteID, Slug: aggregate.Slug,
+		Status: "candidate", PreviewCaseIDs: aggregate.PreviewCaseIDs,
 	})
 	if err != nil {
 		finished = true
 		return s.rollbackAndClassify(ctx, tx, claim, err)
 	}
-	bound, bindErr := tx.BindSuccess(ctx, claim.Record.ID, claim.Record.AttemptCount, claim.LeaseToken, palette.ID, receipt)
+	bound, bindErr := tx.BindSuccess(ctx, claim.Record.ID, claim.Record.AttemptCount, claim.LeaseToken, aggregate.PaletteID, receipt)
 	if bindErr != nil {
 		finished = true
 		return s.rollbackBindFailure(ctx, tx, claim, bindErr)
@@ -242,6 +234,16 @@ func (s *IngestionService) runAggregate(ctx context.Context, prepared *preparedI
 	}
 	finished = true
 	return receiptResult(IngestionServiceCreated, bound.Receipt, false)
+}
+
+func candidatePaletteInputFromOffline(input CreatePaletteRequest) CandidatePaletteInput {
+	return CandidatePaletteInput{
+		Name: input.Name, Slug: input.Slug, Colors: input.Colors, ColorCount: input.ColorCount, Type: input.Type,
+		ChartTypes: input.ChartTypes, ChartApplicability: input.ChartApplicability, JournalStyle: input.JournalStyle,
+		Discipline: input.Discipline, UseCase: input.UseCase, AvoidCase: input.AvoidCase, Tags: input.Tags,
+		Accessibility: input.Accessibility, SourceType: input.SourceType, SourceImage: input.SourceImage,
+		SourceNote: input.SourceNote, Version: input.Version,
+	}
 }
 
 func (s *IngestionService) rollbackAndClassify(ctx context.Context, tx ingestionAggregateTx, claim *IngestionClaimResult, cause error) *IngestionServiceResult {
