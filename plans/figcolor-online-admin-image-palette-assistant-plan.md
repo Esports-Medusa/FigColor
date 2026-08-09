@@ -1,8 +1,8 @@
 # FigColor Online Admin Image Palette Assistant Plan
 
-**Document status:** Repository-aligned implementation plan; WP-B0–B3 complete
-**Plan version:** v1.2
-**Date:** 2026-08-08
+**Document status:** Repository-aligned implementation plan; WP-B0–B3 complete; WP-B4A contract frozen
+**Plan version:** v1.3
+**Date:** 2026-08-09
 **Working branch:** `main`
 **Primary product path:** `Image → Assistant Suggestions → Editable AssistantDraft → Admin Confirmation → Online Validation → Create Candidate → Existing Admin Review → Publish or Reject`
 
@@ -13,6 +13,8 @@
 **WP-B2 implementation:** [Safe Deterministic Image Analysis Implementation Record](figcolor-online-admin-image-palette-assistant-wp-b2-safe-deterministic-image-analysis.md)
 
 **WP-B3 implementation:** [Deterministic Rule-Based Palette Suggestions Implementation Record](figcolor-online-admin-image-palette-assistant-wp-b3-deterministic-rule-based-palette-suggestions.md)
+
+**WP-B4A contract:** [Analyze-Only Transport Bridge Contract](figcolor-online-admin-image-palette-assistant-wp-b4a-analyze-transport-bridge.md)
 
 > **v1.1 revision note:** This revision incorporates the completed repository review and WP-B0/WP-B1 closure. It separates Palette fields from Preview Case fields, removes unsupported `tasks` and `user_suitability` persistence, distinguishes backend Preview validation from frontend rendering, and defines separate online/offline entry semantics converging only at the shared Candidate aggregate service extracted in WP-B1.
 
@@ -147,7 +149,15 @@ The analysis result, editable `AssistantDraft`, and persisted Candidate are sepa
 
 ### 4.1 Analysis result
 
-The analysis response contains decoder facts, suggestions, provenance, and warnings. It contains no formal Palette/Candidate identifiers and performs no database write.
+The analysis response contains the bounded wire projection frozen by WP-B0 and
+WP-B4A: decoder facts, wire-visible suggestions/provenance, and warnings. Richer
+server-internal WP-B2/WP-B3 fields intentionally omitted by that projection are
+not a browser audit record. The response contains no formal Palette/Candidate
+identifiers and performs no database write.
+
+The linked WP-B4A contract is the single normative owner for Analyze warning
+catalog/messages/IDs and every seeded `AssistantDraft`, `DraftColor`, and
+`SuggestionProvenance` construction rule; this Plan does not duplicate them.
 
 Historical conceptual illustration; the linked WP-B0 contract and Go DTOs supersede this shape:
 
@@ -239,7 +249,7 @@ System-generated content remains non-authoritative even when confidence or evide
 
 Active color objects use `unconfirmed`, `accepted`, or `modified`; deleted colors are absent rather than retained as `cleared`. Path-addressed non-color provenance may use `cleared` to represent explicit removal. Server warning findings are response-owned and are not part of `AssistantDraft` or its digest.
 
-The Go DTOs and golden tests freeze server-output serialization. Inbound requests additionally require rejection of missing/null required fields, unknown fields, and duplicate JSON keys; WP-B6 must implement that strict decoding because ordinary Go unmarshaling does not enforce the complete inbound contract.
+The Go DTOs and golden tests freeze server-output serialization. Inbound requests additionally require rejection of missing/null required fields, unknown fields, and duplicate JSON keys. WP-B4A owns strict Analyze multipart parsing; WP-B6 owns strict Validate/Create JSON decoding because ordinary Go unmarshaling does not enforce the complete inbound contract.
 
 ### 4.6 Revision and confirmation
 
@@ -366,7 +376,9 @@ Entry-specific validation remains outside it:
 
 ## 7. Frozen Online API Responsibilities
 
-Endpoint names and transport responsibilities were frozen by WP-B0; their implementation remains allocated to later work packages.
+Endpoint names and transport responsibilities were frozen by WP-B0. The
+Analyze-only transport is now allocated to WP-B4A as a production dependency
+of WP-B4; Validate and Create remain allocated to WP-B6.
 
 ### 7.1 Analyze
 
@@ -581,9 +593,23 @@ Implemented the transport-independent `paletteassistant/imageanalysis` productio
 
 Implemented `paletteassistant/palettesuggestion`, a transport-independent deterministic policy over verified WP-B2 evidence. It selects only retained data colors, explicitly records truncation and all structural/background/excluded colors, reports insufficient/no-usable outcomes without fabricating colors, and emits only a conservative non-authoritative `categorical` type proposal when at least two colors survive. Chart/Preview and unsupported metadata remain explicitly unresolved because color evidence cannot establish those semantics. See the linked WP-B3 record.
 
+### WP-B4A — Analyze-only transport bridge (contract frozen; not implemented)
+
+Implement the already-frozen Admin-only Analyze endpoint and frontend Analyze
+client as the production input dependency for WP-B4. In one authenticated,
+request-scoped server flow, parse the bounded image transport, invoke the
+existing WP-B2 analyzer, pass that exact typed in-memory result to the existing
+WP-B3 suggestion engine, and assemble only the normative bounded projection into
+the frozen `AnalyzeResponse`. Wire-visible semantics are deterministic for
+identical input/version/policy/config except that each request receives a fresh
+random `analysis_id`; full cross-request JSON byte equality is not required. WP-B4A
+performs no Draft editing, Preview integration, validation receipt, Candidate
+creation, persistence, transaction, idempotency, Publish, or Reject. See the
+linked WP-B4A contract.
+
 ### WP-B4 — Admin Draft workbench
 
-Implement upload, editable Draft, stable colors, suggestion states, warnings, revision confirmation, local preview lifetime, and abandonment protection.
+After WP-B4A is implemented, implement Admin image selection/upload interaction and consume its real Analyze client; editable Draft, stable colors, suggestion states, inspection and immutable audit copies of only wire-visible evidence/warnings, resolution of unseeded or locally invalid Draft fields, authoritative local validation, revision confirmation, dirty/reset behavior, browser-local object URL lifetime, accessibility, and abandonment protection. WP-B4 must not depend on intentionally omitted WP-B3 fields, infer a complete policy from warnings, rerun WP-B2/WP-B3 in the browser, or use fixtures/parallel DTOs to reconstruct an internal audit record. WP-B4 owns no Analyze handler or server execution of WP-B2/WP-B3. It creates no Candidate or Preview Case, persists no Draft, performs no scientific Preview integration, and calls neither Validate nor Create.
 
 ### WP-B5 — Preview Case and live Preview integration
 
@@ -591,7 +617,22 @@ Implement Draft Preview Case editing, stable color references, frontend renderer
 
 ### WP-B6 — Online validation and Candidate creation
 
-Implement duplicate/similarity findings, authoritative revalidation, online idempotency, atomic Candidate/related-record creation, rollback, stable receipt, and Admin Review redirect.
+Analyze transport has been extracted in the contract and allocated to the separate WP-B4A dependency. WP-B6 continues to implement Validate and Create transport, duplicate/similarity findings, authoritative revalidation, online idempotency, atomic Candidate/related-record creation, rollback, stable receipt, and Admin Review redirect. Neither WP-B4A nor any part of WP-B6 is implemented by this allocation change.
+
+### Work-package ownership matrix
+
+| Concern | WP-B4A | WP-B4 | WP-B5 | WP-B6 |
+|---|---|---|---|---|
+| Image selection UI | No | Yes | No | No |
+| Browser object URL lifecycle | No | Yes | No | No |
+| Analyze HTTP transport | Yes | Consume only | No | Already extracted |
+| WP-B2/WP-B3 execution | Yes | No | No | No |
+| Evidence/suggestion display | No | Yes | Optional read-only reuse only if separately frozen | No |
+| `AssistantDraft` editing | No | Yes | Consume Draft only | No |
+| Local validation | Transport checks only | Yes | Preview-specific only | Server final validation |
+| Scientific Preview | No | No | Yes | No |
+| Candidate persistence | No | No | No | Yes |
+| Database transaction | No | No | No | Yes |
 
 ### WP-B7 — Optional CV/VLM analysis
 
@@ -679,7 +720,11 @@ Feature-flag wiring, rollout metrics, and operational performance targets remain
 | Exact Palette duplicate fields/scope/enforcement | Deferred to WP-B6 | Offline normalized identity is ingestion-specific; global uniqueness could break private/custom palettes |
 | Similarity warnings use exact finding-ID acknowledgment | Frozen by WP-B0 | One warning cannot authorize another finding sharing its code |
 | Production image limits are 8 MiB multipart, 6 MiB encoded, 4096×4096, 8 MP, 5 seconds | Frozen by WP-B0 | Bounds memory/CPU while accommodating realistic screenshots |
+| Analyze-only transport is a WP-B4A production dependency | Frozen by dependency closure | Breaks the WP-B4/WP-B6 dependency cycle without fixtures, parallel DTOs, or fake APIs |
 
 ## 17. Immediate Next Step
 
-WP-B0 through WP-B3 are complete. The next separately authorized implementation step is **WP-B4: Admin Draft workbench**. WP-B4 must preserve the production image-analysis and suggestion boundaries, extracted Candidate service, offline ingestion, Admin Review behavior, and the documented WP-B5 Preview registry/database prerequisite.
+WP-B0 through WP-B3 are complete. The next dependency implementation step is
+**WP-B4A: Analyze-only transport bridge**. WP-B4 is unblocked only after WP-B4A
+provides its real production Analyze client. WP-B5 and WP-B6 remain unimplemented;
+WP-B6 retains Validate/Create and persistence ownership.
