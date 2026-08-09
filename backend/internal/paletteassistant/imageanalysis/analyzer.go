@@ -426,6 +426,12 @@ func outputHash(result Result) string {
 	}
 	return sha256Hex(encoded)
 }
+
+// VerifyResult is an integrity check for the embedded deterministic digest. It
+// is not source authentication or a signature, and it does not repair evidence.
+func VerifyResult(result Result) bool {
+	return result.Evidence.OutputSHA256 != "" && result.Evidence.OutputSHA256 == outputHash(result)
+}
 func maxDistance(a, b [3]uint8) uint8 {
 	var result uint8
 	for i := range a {

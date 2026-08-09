@@ -1,6 +1,6 @@
 # FigColor Online Admin Image Palette Assistant Plan
 
-**Document status:** Repository-aligned implementation plan; WP-B0–B2 complete
+**Document status:** Repository-aligned implementation plan; WP-B0–B3 complete
 **Plan version:** v1.2
 **Date:** 2026-08-08
 **Working branch:** `main`
@@ -11,6 +11,8 @@
 **WP-B1 implementation:** [Shared Candidate Aggregate Service Implementation Record](figcolor-online-admin-image-palette-assistant-wp-b1-shared-candidate-service.md)
 
 **WP-B2 implementation:** [Safe Deterministic Image Analysis Implementation Record](figcolor-online-admin-image-palette-assistant-wp-b2-safe-deterministic-image-analysis.md)
+
+**WP-B3 implementation:** [Deterministic Rule-Based Palette Suggestions Implementation Record](figcolor-online-admin-image-palette-assistant-wp-b3-deterministic-rule-based-palette-suggestions.md)
 
 > **v1.1 revision note:** This revision incorporates the completed repository review and WP-B0/WP-B1 closure. It separates Palette fields from Preview Case fields, removes unsupported `tasks` and `user_suitability` persistence, distinguishes backend Preview validation from frontend rendering, and defines separate online/offline entry semantics converging only at the shared Candidate aggregate service extracted in WP-B1.
 
@@ -575,9 +577,9 @@ Implemented `palette.CandidateAggregateService` with canonical `CandidateAggrega
 
 Implemented the transport-independent `paletteassistant/imageanalysis` production package: complete bounded-byte PNG/JPEG input, encoded-length enforcement, MIME/signature/config agreement, pre-decode dimension and pixel checks, white alpha compositing, a real returning deadline boundary, process-shared capacity controls, deterministic color extraction, structural/background evidence, stable safe errors, and configuration-bound output evidence. The package does not depend on or promote the feasibility package and performs no HTTP parsing, persistence, or Candidate orchestration. See the linked WP-B2 record.
 
-### WP-B3 — Rule-based suggestions
+### WP-B3 — Rule-based suggestions (complete)
 
-Implement limited registered chart-type assistance and controlled Palette metadata suggestions. Preserve a useful deterministic path without an external AI provider.
+Implemented `paletteassistant/palettesuggestion`, a transport-independent deterministic policy over verified WP-B2 evidence. It selects only retained data colors, explicitly records truncation and all structural/background/excluded colors, reports insufficient/no-usable outcomes without fabricating colors, and emits only a conservative non-authoritative `categorical` type proposal when at least two colors survive. Chart/Preview and unsupported metadata remain explicitly unresolved because color evidence cannot establish those semantics. See the linked WP-B3 record.
 
 ### WP-B4 — Admin Draft workbench
 
@@ -680,4 +682,4 @@ Feature-flag wiring, rollout metrics, and operational performance targets remain
 
 ## 17. Immediate Next Step
 
-WP-B0, WP-B1, and WP-B2 are complete. The next separately authorized implementation step is **WP-B3: Rule-based suggestions**. WP-B3 must preserve the production image-analysis boundary, extracted Candidate service, offline ingestion, Admin Review behavior, and the documented WP-B5 Preview registry/database prerequisite.
+WP-B0 through WP-B3 are complete. The next separately authorized implementation step is **WP-B4: Admin Draft workbench**. WP-B4 must preserve the production image-analysis and suggestion boundaries, extracted Candidate service, offline ingestion, Admin Review behavior, and the documented WP-B5 Preview registry/database prerequisite.

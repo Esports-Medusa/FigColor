@@ -416,6 +416,18 @@ func fill(im *image.NRGBA, value color.NRGBA) {
 		}
 	}
 }
+func TestVerifyResultRejectsMutation(t *testing.T) {
+	encoded := encodePNG(t, image.NewNRGBA(image.Rect(0, 0, 2, 2)))
+	result := mustAnalyze(t, newTestAnalyzer(t, DefaultConfig(), 1), encoded, "image/png")
+	if !VerifyResult(result) {
+		t.Fatal("fresh analyzer result did not verify")
+	}
+	result.Image.Width++
+	if VerifyResult(result) {
+		t.Fatal("mutated analyzer result verified")
+	}
+}
+
 func encodePNG(t *testing.T, im image.Image) []byte {
 	t.Helper()
 	var b bytes.Buffer
