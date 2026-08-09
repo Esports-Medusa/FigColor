@@ -11,6 +11,7 @@ import (
 	"github.com/qiqi/figcolor/backend/internal/favorite"
 	"github.com/qiqi/figcolor/backend/internal/middleware"
 	"github.com/qiqi/figcolor/backend/internal/palette"
+	"github.com/qiqi/figcolor/backend/internal/paletteassistant/analyze"
 	"github.com/qiqi/figcolor/backend/internal/project"
 	"github.com/qiqi/figcolor/backend/internal/user"
 )
@@ -63,6 +64,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize Palette ingestion HTTP handler: %v", err)
 	}
+	analyzeHandler, err := analyze.NewHandler(analyze.NewService())
+	if err != nil {
+		log.Fatalf("Failed to initialize Palette Assistant Analyze handler: %v", err)
+	}
 
 	// Create middleware
 	authMiddleware := middleware.Auth(cfg.JWTSecret, userRepo)
@@ -86,6 +91,7 @@ func main() {
 	// Palette routes (admin and public)
 	paletteHandler.RegisterRoutes(api, cfg.JWTSecret, authMiddleware, adminMiddleware)
 	ingestionHandler.RegisterRoutes(api, authMiddleware, adminMiddleware)
+	analyzeHandler.RegisterRoutes(api, authMiddleware, adminMiddleware)
 
 	// Start server
 	addr := fmt.Sprintf(":%s", cfg.ServerPort)

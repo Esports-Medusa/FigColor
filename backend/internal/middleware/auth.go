@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/qiqi/figcolor/backend/internal/authctx"
 	"github.com/qiqi/figcolor/backend/internal/jwt"
+	"github.com/qiqi/figcolor/backend/internal/paletteassistant"
 	"github.com/qiqi/figcolor/backend/internal/user"
 )
 
@@ -20,32 +21,32 @@ func Auth(jwtSecret string, userRepo *user.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader(AuthorizationHeader)
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization header required"})
+			abortAuthentication(c, "authorization header required")
 			return
 		}
 
 		if !strings.HasPrefix(authHeader, BearerPrefix) {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
+			abortAuthentication(c, "invalid authorization format")
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, BearerPrefix)
 		if tokenString == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token required"})
+			abortAuthentication(c, "token required")
 			return
 		}
 
 		// Parse and validate token
 		claims, err := jwt.ValidateTokenStatic(tokenString, jwtSecret)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+			abortAuthentication(c, "invalid or expired token")
 			return
 		}
 
 		// Get user to fetch role
 		u, err := userRepo.GetByID(claims.UserID)
 		if err != nil || u == nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+			abortAuthentication(c, "user not found")
 			return
 		}
 
@@ -61,15 +62,27 @@ func AdminRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role := authctx.GetRole(c)
 		if role == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			abortAuthentication(c, "unauthorized")
 			return
 		}
 
 		if role != "admin" {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied"})
+			if c.Request.URL.Path == paletteassistant.AnalyzePath {
+				c.AbortWithStatusJSON(http.StatusForbidden, paletteassistant.Problem{Code: paletteassistant.ErrAdminRequired, Message: "Admin access is required.", Retryable: false})
+			} else {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied"})
+			}
 			return
 		}
 
 		c.Next()
 	}
+}
+
+func abortAuthentication(c *gin.Context, legacyMessage string) {
+	if c.Request.URL.Path == paletteassistant.AnalyzePath {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, paletteassistant.Problem{Code: paletteassistant.ErrAuthenticationRequired, Message: "Sign in is required.", Retryable: false})
+		return
+	}
+	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": legacyMessage})
 }
