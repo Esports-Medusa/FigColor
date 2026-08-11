@@ -4,6 +4,7 @@ const testModules = [
   '/src/lib/palette.preview-normalization.test.ts',
   '/src/lib/palette-cache-boundary.test.ts',
   '/src/lib/api/adminPreviewCases.test.ts',
+  '/src/api/paletteAssistant.test.ts',
   '/src/lib/chart-types.registry.test.ts',
   '/src/lib/chart-types/bar-error/suggestion.test.ts',
   '/src/lib/chart-types/bar-error/admin.test.ts',

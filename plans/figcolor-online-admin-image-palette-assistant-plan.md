@@ -1,6 +1,6 @@
 # FigColor Online Admin Image Palette Assistant Plan
 
-**Document status:** Repository-aligned implementation plan; WP-B0–B3 complete; WP-B4A contract frozen
+**Document status:** Repository-aligned implementation plan; WP-B0–B3 complete; WP-B4A backend committed at `395fbfa`, frontend completion implemented with independent review pending
 **Plan version:** v1.3
 **Date:** 2026-08-09
 **Working branch:** `main`
@@ -593,7 +593,7 @@ Implemented the transport-independent `paletteassistant/imageanalysis` productio
 
 Implemented `paletteassistant/palettesuggestion`, a transport-independent deterministic policy over verified WP-B2 evidence. It selects only retained data colors, explicitly records truncation and all structural/background/excluded colors, reports insufficient/no-usable outcomes without fabricating colors, and emits only a conservative non-authoritative `categorical` type proposal when at least two colors survive. Chart/Preview and unsupported metadata remain explicitly unresolved because color evidence cannot establish those semantics. See the linked WP-B3 record.
 
-### WP-B4A — Analyze-only transport bridge (contract frozen; not implemented)
+### WP-B4A — Analyze-only transport bridge (frontend completion implemented; independent review pending)
 
 Implement the already-frozen Admin-only Analyze endpoint and frontend Analyze
 client as the production input dependency for WP-B4. In one authenticated,
@@ -724,7 +724,8 @@ Feature-flag wiring, rollout metrics, and operational performance targets remain
 
 ## 17. Immediate Next Step
 
-WP-B0 through WP-B3 are complete. The next dependency implementation step is
-**WP-B4A: Analyze-only transport bridge**. WP-B4 is unblocked only after WP-B4A
-provides its real production Analyze client. WP-B5 and WP-B6 remain unimplemented;
-WP-B6 retains Validate/Create and persistence ownership.
+WP-B0 through WP-B3 are complete. WP-B4A's backend implementation is committed
+at `395fbfa`; its production frontend Analyze client and drift tests are implemented
+as an uncommitted completion pending independent review. WP-B4 remains blocked
+until that review and a separate completion commit. WP-B5 and WP-B6 remain
+unimplemented; WP-B6 retains Validate/Create and persistence ownership.

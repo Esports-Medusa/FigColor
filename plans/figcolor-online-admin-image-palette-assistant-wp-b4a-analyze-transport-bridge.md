@@ -1,6 +1,6 @@
 # FigColor WP-B4A — Analyze-Only Transport Bridge Contract
 
-**Status:** Contract frozen; not implemented
+**Status:** Contract frozen; backend committed at `395fbfa`; frontend completion implemented, independent review pending
 
 **Scope:** Production Analyze transport and client boundary only
 
@@ -473,8 +473,8 @@ being promoted to product contract.
 ## 8. Downstream state
 
 - WP-B4 dependency conflict: resolved in contract.
-- WP-B4A Analyze-only transport: frozen, not implemented.
-- WP-B4 Admin Draft Workbench: unblocked after WP-B4A implementation.
+- WP-B4A Analyze-only transport: backend committed at `395fbfa`; frontend completion implemented, independent review pending.
+- WP-B4 Admin Draft Workbench: blocked pending independent WP-B4A frontend completion review and commit.
 - WP-B5 Preview integration: unchanged, not implemented.
 - WP-B6 Validate/Create persistence: unchanged except Analyze extraction, not
   implemented.
