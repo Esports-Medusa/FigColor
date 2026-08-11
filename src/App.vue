@@ -28,7 +28,10 @@
         <div class="nav-links">
           <router-link to="/palettes" class="nav-link">Palettes</router-link>
           <template v-if="isAuthenticated">
-            <router-link v-if="isAdmin" to="/admin/palettes" class="nav-link nav-link-admin">Review</router-link>
+            <template v-if="isAdmin">
+              <router-link to="/admin/palettes" class="nav-link nav-link-admin">Review</router-link>
+              <router-link to="/admin/palette-assistant" class="nav-link nav-link-admin">Assistant</router-link>
+            </template>
             <router-link to="/projects" class="nav-link">My Projects</router-link>
             <router-link to="/favorites" class="nav-link">Favorites</router-link>
             <router-link to="/profile" class="nav-link">{{ currentUser?.name || currentUser?.email }}</router-link>

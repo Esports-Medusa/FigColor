@@ -1,0 +1,372 @@
+import type { AnalyzeResponse } from '@/api/paletteAssistant'
+import { compile } from '@vue/compiler-dom'
+import { parse } from '@vue/compiler-sfc'
+import * as Vue from 'vue'
+import ts from 'typescript'
+import workbenchSfcSource from './AdminPaletteAssistantWorkbench.vue?raw'
+import routerSourceText from '../../../router/index.ts?raw'
+import {
+  AnalyzeWarningList, MAX_ASSISTANT_IMAGE_BYTES, PaletteAssistantWorkbench, addChartApplicability,
+  auditFromAnalyze, confirmCurrentDraft, confirmDraftAbandonment, createInitialState,
+  createPaletteAssistantRoute,
+  draftFromAnalyze, editChartApplicability, hasUnconfirmedDraft, isCurrentRevisionConfirmed, mutateDraft,
+  newAdminColor, removeChartApplicability, resetDraftToAnalyze, validateAssistantImage,
+  validateDraft, warningOccurrences
+} from './workbench'
+
+function expect(condition: boolean, message: string): void { if (!condition) throw new Error(message) }
+
+type RenderNode = { type?: unknown; props?: Record<string, unknown> | null; children?: unknown }
+
+function renderWorkbenchTemplate(context: Record<string, unknown>): RenderNode {
+  const descriptor = parse(workbenchSfcSource, { filename: 'AdminPaletteAssistantWorkbench.vue' }).descriptor
+  expect(Boolean(descriptor.template), 'production Workbench SFC must have a template')
+  const { code } = compile(descriptor.template!.content, { mode: 'function', filename: 'AdminPaletteAssistantWorkbench.vue' })
+  const render = new Function('Vue', code)(Vue) as (context: Record<string, unknown>) => RenderNode
+  return render(context)
+}
+
+function descendants(node: unknown): RenderNode[] {
+  if (Array.isArray(node)) return node.flatMap(descendants)
+  if (!node || typeof node !== 'object') return []
+  const current = node as RenderNode
+  const children = Array.isArray(current.children) ? current.children.flatMap(descendants) : []
+  return [current, ...children]
+}
+
+function nodeText(node: unknown): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(nodeText).join('')
+  if (!node || typeof node !== 'object') return ''
+  return nodeText((node as RenderNode).children)
+}
+
+function sameDescriptor(left: PropertyDescriptor | undefined, right: PropertyDescriptor | undefined): boolean {
+  if (!left || !right) return left === right
+  return left.configurable === right.configurable && left.enumerable === right.enumerable &&
+    left.writable === right.writable && left.value === right.value && left.get === right.get && left.set === right.set
+}
+
+async function withGlobalIsolation(run: () => void | Promise<void>): Promise<void> {
+  const snapshots: Array<[object, PropertyKey, PropertyDescriptor | undefined]> = [
+    [URL, 'createObjectURL', Object.getOwnPropertyDescriptor(URL, 'createObjectURL')],
+    [URL, 'revokeObjectURL', Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL')],
+    [globalThis, 'fetch', Object.getOwnPropertyDescriptor(globalThis, 'fetch')],
+    [globalThis, 'localStorage', Object.getOwnPropertyDescriptor(globalThis, 'localStorage')]
+  ]
+  try {
+    await run()
+  } finally {
+    for (const [target, property, descriptor] of snapshots) {
+      if (descriptor) Object.defineProperty(target, property, descriptor)
+      else delete (target as Record<PropertyKey, unknown>)[property]
+    }
+  }
+  for (const [target, property, descriptor] of snapshots) {
+    expect(sameDescriptor(Object.getOwnPropertyDescriptor(target, property), descriptor), `${String(property)} descriptor must be restored`)
+  }
+}
+
+function analyzeResponse(variant: 'old' | 'new' = 'old'): AnalyzeResponse {
+  const old = variant === 'old'
+  const hex = old ? '#112233' : '#000000'
+  return {
+    contract_version: 'palette-assistant.v1', analysis_id: old ? '123e4567-e89b-42d3-a456-426614174000' : '223e4567-e89b-42d3-a456-426614174000',
+    image: { format: 'png', encoded_bytes: 123, width: 2, height: 1, pixel_count: 2, has_transparency: false, alpha_backdrop: '#FFFFFF', sha256: 'a'.repeat(64) },
+    color_suggestions: [{ id: old ? 'color-51bd3d4a26033bd9' : 'color-370ebb088749173b', hex, pixel_count: 1, fraction: .5, producer: 'deterministic_extractor', algorithm_version: 'deterministic-image-analysis.v1', reason_codes: ['DETERMINISTIC_PIXEL_SUPPORT'] }],
+    structural_color_suggestions: [{ id: 'color-2e8f2aa94cac55f4', hex: '#FFFFFF', pixel_count: 1, fraction: .5, producer: 'deterministic_extractor', algorithm_version: 'deterministic-image-analysis.v1', reason_codes: ['LIKELY_NEUTRAL_STRUCTURAL_COLOR'] }],
+    draft: { contract_version: 'palette-assistant.v1', revision: 1, name: '', type: '', colors: [{ id: old ? '2559aff2-2f7b-5f17-9d9f-e505654c4ae5' : '621bec94-c917-5be8-877d-1fcf5bb08e1c', hex, order: 0, source: 'assistant', state: 'unconfirmed' }], chart_applicability: [], disciplines: [], use_cases: [], avoid_cases: [], tags: [], accessibility: { colorblind_safe: false, print_friendly: false, dark_background: false }, source_type: 'figure_extracted', source_note: '', preview_cases: [], provenance: [] },
+    warnings: old
+      ? [{ id: 'e4460a068dd58fd623166a95a3bc603844eeba409061159c4716987685d11ca3', code: 'HEURISTIC_SUGGESTION_REQUIRES_ADMIN_REVIEW', message: 'Assistant suggestions are heuristic and require Admin review.', policy: 'deterministic-palette-suggestion.v1', params: { producer: 'palettesuggestion' }, requires_acknowledgment: false }]
+      : [{ id: '528ef80e640b07175b66da18ac98ac9348666dd04ccd282921c1846cd223c1e1', code: 'TRANSPARENCY_COMPOSITED_TO_WHITE', message: 'Transparency was composited onto white before analysis.', policy: 'deterministic-image-analysis.v1', params: { producer: 'imageanalysis' }, requires_acknowledgment: false }],
+    algorithm_version: 'deterministic-image-analysis.v1'
+  }
+}
+
+function jsonResponse(body: unknown): Response { return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }) }
+
+async function testAdminBoundaryAndNoWrites(): Promise<void> {
+  const component = { name: 'AdminPaletteAssistantWorkbench' }
+  const route = createPaletteAssistantRoute(component)
+  expect(route.path === '/admin/palette-assistant' && route.meta?.requiresAuth === true && route.meta.requiresAdmin === true, 'production route factory must use the existing Admin guard metadata')
+  expect(route.component === component, 'production route factory must preserve the AdminPaletteAssistantWorkbench component')
+  const productionWorkbench = { name: 'AdminPaletteAssistantWorkbench.vue' }
+  const productionRoute = createPaletteAssistantRoute(productionWorkbench)
+  expect(productionRoute.path === '/admin/palette-assistant', 'production route path must remain frozen')
+  expect(productionRoute.name === 'admin-palette-assistant', 'production route name must remain frozen')
+  expect(productionRoute.meta?.requiresAuth === true && productionRoute.meta.requiresAdmin === true, 'production route must retain Auth and Admin guards')
+  expect(productionRoute.component === productionWorkbench, 'production route factory must preserve the real Workbench component identity')
+
+  const routerSource = ts.createSourceFile('src/router/index.ts', routerSourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  let importsWorkbench = false; let exportsFactoryRoute = false; let registersExportedRoute = false; let usesEnvironmentHistory = false
+  function inspect(node: ts.Node): void {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text === '@/views/admin/palette-assistant/AdminPaletteAssistantWorkbench.vue') {
+      importsWorkbench = node.importClause?.name?.text === 'AdminPaletteAssistantWorkbench'
+    }
+    if (ts.isVariableStatement(node)) {
+      const exported = node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+      for (const declaration of node.declarationList.declarations) {
+        if (exported && ts.isIdentifier(declaration.name) && declaration.name.text === 'adminPaletteAssistantRoute' && declaration.initializer && ts.isCallExpression(declaration.initializer)) {
+          exportsFactoryRoute = ts.isIdentifier(declaration.initializer.expression) && declaration.initializer.expression.text === 'createPaletteAssistantRoute' &&
+            declaration.initializer.arguments.length === 1 && ts.isIdentifier(declaration.initializer.arguments[0]) && declaration.initializer.arguments[0].text === 'AdminPaletteAssistantWorkbench'
+        }
+        if (ts.isIdentifier(declaration.name) && declaration.name.text === 'routes' && declaration.initializer && ts.isArrayLiteralExpression(declaration.initializer)) {
+          registersExportedRoute = declaration.initializer.elements.some((element) => ts.isIdentifier(element) && element.text === 'adminPaletteAssistantRoute')
+        }
+      }
+    }
+    if (ts.isPropertyAssignment(node) && ts.isIdentifier(node.name) && node.name.text === 'history' && ts.isConditionalExpression(node.initializer)) {
+      const calls = [node.initializer.whenTrue, node.initializer.whenFalse].filter(ts.isCallExpression).map((call) => ts.isIdentifier(call.expression) ? call.expression.text : '')
+      usesEnvironmentHistory = calls.includes('createMemoryHistory') && calls.includes('createWebHistory')
+    }
+    ts.forEachChild(node, inspect)
+  }
+  inspect(routerSource)
+  expect(importsWorkbench && exportsFactoryRoute, 'production router must export the factory-created route with the real Workbench SFC import')
+  expect(registersExportedRoute, 'production router must register and consume adminPaletteAssistantRoute')
+  expect(usesEnvironmentHistory, 'production router must retain memory history for Node and web history for browsers')
+}
+
+async function testProductionAdminRouteRuntime(): Promise<void> {
+  const [{ default: router, adminPaletteAssistantRoute }, { default: AdminPaletteAssistantWorkbench }] = await Promise.all([
+    import('@/router'),
+    import('./AdminPaletteAssistantWorkbench.vue')
+  ])
+
+  expect(adminPaletteAssistantRoute.path === '/admin/palette-assistant', 'real exported Admin route path must remain frozen')
+  expect(adminPaletteAssistantRoute.name === 'admin-palette-assistant', 'real exported Admin route name must remain frozen')
+  expect(adminPaletteAssistantRoute.meta?.requiresAuth === true, 'real exported Admin route must require authentication')
+  expect(adminPaletteAssistantRoute.meta?.requiresAdmin === true, 'real exported Admin route must require Admin role')
+  expect(adminPaletteAssistantRoute.component === AdminPaletteAssistantWorkbench, 'real exported Admin route must reference the real Workbench component')
+
+  const registeredMatches = router.getRoutes().filter((record) => record.name === 'admin-palette-assistant')
+  expect(registeredMatches.length === 1, 'default production router must register exactly one Admin Palette Assistant route')
+  const registered = registeredMatches[0]
+  expect(registered.path === adminPaletteAssistantRoute.path, 'registered route path must match the real exported route')
+  expect(registered.name === adminPaletteAssistantRoute.name, 'registered route name must match the real exported route')
+  expect(registered.meta.requiresAuth === true, 'registered route must preserve authentication metadata')
+  expect(registered.meta.requiresAdmin === true, 'registered route must preserve Admin metadata')
+  expect(registered.components?.default === AdminPaletteAssistantWorkbench, 'registered route must preserve the real Workbench component')
+
+  const resolved = router.resolve('/admin/palette-assistant')
+  const matched = resolved.matched[resolved.matched.length - 1]
+  expect(resolved.name === 'admin-palette-assistant', 'path resolution must return the Admin Palette Assistant route name')
+  expect(resolved.path === '/admin/palette-assistant', 'path resolution must preserve the Admin Palette Assistant path')
+  expect(resolved.meta.requiresAuth === true, 'path resolution must merge authentication metadata')
+  expect(resolved.meta.requiresAdmin === true, 'path resolution must merge Admin metadata')
+  expect(matched?.name === registered.name && matched.path === registered.path, 'path resolution must match the registered production record')
+  expect(matched?.components?.default === AdminPaletteAssistantWorkbench, 'resolved record must preserve the real Workbench component')
+
+  const resolvedByName = router.resolve({ name: 'admin-palette-assistant' })
+  const namedMatch = resolvedByName.matched[resolvedByName.matched.length - 1]
+  expect(resolvedByName.path === '/admin/palette-assistant', 'named resolution must return the frozen Admin Palette Assistant path')
+  expect(namedMatch?.components?.default === AdminPaletteAssistantWorkbench, 'named resolution must preserve the real Workbench component')
+}
+
+function testFileValidation(): void {
+  expect(validateAssistantImage(new File(['x'], 'x.png', { type: 'image/png' })) === null, 'PNG should be accepted')
+  expect(validateAssistantImage(new File(['x'], 'x.jpg', { type: 'image/jpeg' })) === null, 'JPEG should be accepted')
+  expect(Boolean(validateAssistantImage(new File(['x'], 'x.gif', { type: 'image/gif' }))), 'unsupported types should be rejected')
+  expect(Boolean(validateAssistantImage(new File([], 'x.png', { type: 'image/png' }))), 'empty images should be rejected')
+  expect(Boolean(validateAssistantImage(new File([new Uint8Array(MAX_ASSISTANT_IMAGE_BYTES + 1)], 'x.png', { type: 'image/png' }))), 'oversized images should be rejected')
+}
+
+function testDraftInitializationAuditAndRevision(): void {
+  const response = analyzeResponse()
+  const draft = draftFromAnalyze(response)
+  const audit = auditFromAnalyze(response)
+  response.draft.colors[0].hex = '#999999'
+  response.warnings[0].message = 'changed'
+  expect(draft.colors[0].hex === '#112233' && draft.colors[0].classification === 'data', 'Draft must be an independent editable copy with data classification')
+  expect(audit.warnings[0].message.includes('heuristic') && audit.omittedStructuralColors[0].hex === '#FFFFFF', 'warnings and omitted structural evidence must be immutable copies')
+  expect(draft.colors.length === 1 && audit.omittedStructuralColors.length === 1, 'omitted structural colors must not count as retained colors')
+
+  const state = createInitialState(); state.draft = draft; state.latestDraftRevision = 1
+  mutateDraft(state, (current) => { current.name = 'Figure palette'; current.type = 'categorical'; current.colors.push(newAdminColor(1)) })
+  const firstId = draft.colors[0].id; const addedId = draft.colors[1].id
+  expect(draft.revision === 2 && firstId !== addedId, 'mutation must bump revision and added colors need stable unique IDs')
+  expect(confirmCurrentDraft(state) && isCurrentRevisionConfirmed(state), 'valid current revision should be confirmable')
+  mutateDraft(state, (current) => { current.colors[0].hex = '#AABBCC' })
+  expect(draft.colors[0].id === firstId && !isCurrentRevisionConfirmed(state), 'HEX edits must preserve identity and invalidate confirmation')
+  mutateDraft(state, (current) => { const [color] = current.colors.splice(0, 1); current.colors.splice(1, 0, color) })
+  expect(draft.colors[1].id === firstId && draft.colors[1].order === 1, 'reorder must preserve identity and normalize order')
+  mutateDraft(state, (current) => { current.colors[0].classification = 'structural' })
+  expect(validateDraft(draft).some((item) => item.code === 'STRUCTURAL_COLOR_RETAINED'), 'data and structural classifications must not be conflated')
+  state.audit = audit
+  const changedRevision = state.draft.revision
+  expect(resetDraftToAnalyze(state) && state.draft.revision === changedRevision + 1 && state.draft.colors[0].hex === '#112233', 'reset must restore immutable Analyze suggestions as a new revision')
+}
+
+function testAbandonmentGuard(): void {
+  const state = createInitialState()
+  let prompts = 0
+  expect(confirmDraftAbandonment(state, () => { prompts++; return false }), 'no Draft should allow navigation')
+  state.draft = draftFromAnalyze(analyzeResponse()); state.latestDraftRevision = 1
+  const originalDraft = state.draft; const originalRevision = state.draft.revision
+  expect(!confirmDraftAbandonment(state, () => { prompts++; return false }), 'cancel must block navigation for an unconfirmed Draft')
+  expect(state.draft === originalDraft && state.draft.revision === originalRevision, 'cancelled navigation must preserve Draft and revision')
+  expect(confirmDraftAbandonment(state, () => { prompts++; return true }), 'confirmation must allow navigation')
+  state.confirmedRevision = state.draft.revision
+  expect(confirmDraftAbandonment(state, () => { prompts++; return false }), 'confirmed Draft must allow navigation without prompting')
+  expect(prompts === 2, 'only unconfirmed Draft navigation should prompt')
+}
+
+async function testDuplicateWarningRendering(): Promise<void> {
+  const warning = analyzeResponse().warnings[0]
+  const occurrences = warningOccurrences([warning, structuredClone(warning)])
+  const render = (AnalyzeWarningList.setup as Function)({ warnings: [warning, structuredClone(warning)] }, {})
+  const list = render()
+  const renderedItems = list.children as Array<{ key: PropertyKey; children: Array<{ children: string } | string> }>
+  const messages = renderedItems.map((item) => item.children.map((child) => typeof child === 'string' ? child : child.children).join(''))
+  expect(occurrences[0].key !== occurrences[1].key, 'duplicate warning occurrences need unique render keys')
+  expect(renderedItems.length === 2 && renderedItems[0].key !== renderedItems[1].key, 'production warning component must render both occurrences with unique VNode keys')
+  expect(messages[0].includes(warning.message) && messages[1].includes(warning.message), 'duplicate warnings must both render in original order with messages visible')
+  const audit = auditFromAnalyze(analyzeResponse())
+  expect(audit.omittedStructuralColors[0].hex === '#FFFFFF' && audit.dataSuggestions[0].hex === '#112233', 'render inputs must keep omitted structural and retained data colors separate')
+}
+
+function testProductionEvidenceRendering(): void {
+  const response = analyzeResponse()
+  response.draft.provenance = [{ path: '/type', source: 'assistant', state: 'unconfirmed', producer: 'deterministic_rule_engine', algorithm_version: 'deterministic-palette-suggestion.v1', reason_codes: ['MULTIPLE_UNORDERED_RETAINED_DATA_COLORS'], suggested_value: 'categorical' }]
+  const state = createInitialState(); state.audit = auditFromAnalyze(response); state.draft = draftFromAnalyze(response)
+  state.draft.colors[0].hex = '#AABBCC'
+  const common = {
+    state, fileError: '', issues: [], confirmed: false, PALETTE_TYPES: [], PHASE_1_CHART_TYPES: [], CHART_SUITABILITIES: [], AnalyzeWarningList,
+    formatBytes: (value: number) => `${value}`, percent: (value: number) => `${value}`, validHex: () => true,
+    workbench: { cancel: () => undefined }, onFileChange: () => undefined, removeImage: () => undefined, runAnalyze: () => undefined,
+    setName: () => undefined, setType: () => undefined, setHex: () => undefined, setClassification: () => undefined,
+    addColor: () => undefined, removeColor: () => undefined, moveColor: () => undefined, addChart: () => undefined,
+    removeChart: () => undefined, setChart: () => undefined, resetDraft: () => undefined, confirmDraft: () => undefined
+  }
+  const rendered = descendants(renderWorkbenchTemplate(common))
+  const text = nodeText(rendered)
+  expect(text.includes('Omitted structural colors') && text.includes('#FFFFFF'), 'production render must show omitted structural color HEX')
+  const omitted = rendered.find((node) => node.props?.title === 'deterministic_extractor / deterministic-image-analysis.v1 / LIKELY_NEUTRAL_STRUCTURAL_COLOR')
+  expect(Boolean(omitted), 'production render must show omitted structural diagnostics')
+  expect(text.includes('Suggestion provenance') && text.includes('/type') && text.includes('categorical'), 'production render must show provenance path and suggested value')
+  expect(text.includes('deterministic_rule_engine / deterministic-palette-suggestion.v1') && text.includes('MULTIPLE_UNORDERED_RETAINED_DATA_COLORS'), 'production render must show provenance metadata')
+  const strip = rendered.find((node) => node.props?.['aria-label'] === 'Current Draft color order')
+  const stripColors = descendants(strip?.children).map((node) => (node.props?.style as { backgroundColor?: string } | undefined)?.backgroundColor).filter(Boolean)
+  expect(stripColors.length === 1 && stripColors[0] === '#AABBCC' && !stripColors.includes('#FFFFFF'), 'retained strip must use edited Draft colors and exclude omitted colors')
+
+  state.audit!.omittedStructuralColors = []; state.audit!.provenance = []
+  const emptyText = nodeText(descendants(renderWorkbenchTemplate(common)))
+  expect(!emptyText.includes('Omitted structural colors') && !emptyText.includes('Suggestion provenance'), 'empty omitted/provenance collections must hide their sections')
+}
+
+function testChartApplicabilityRevisionPath(): void {
+  const state = createInitialState(); state.draft = draftFromAnalyze(analyzeResponse()); state.latestDraftRevision = 1
+  state.draft.name = 'Chart palette'; state.draft.type = 'categorical'; state.draft.colors.push(newAdminColor(1))
+  state.confirmedRevision = 1
+  addChartApplicability(state)
+  expect(state.draft.revision === 2 && state.confirmedRevision === null, 'add applicability must increment revision and invalidate confirmation')
+  state.confirmedRevision = 2; editChartApplicability(state, 0, 'chart_type', 'bar_error')
+  expect(state.draft.revision === 3 && state.confirmedRevision === null, 'chart type edit must increment revision and invalidate confirmation')
+  state.confirmedRevision = 3; editChartApplicability(state, 0, 'suitability', 'recommended')
+  expect(state.draft.revision === 4 && state.confirmedRevision === null, 'suitability edit must increment revision and invalidate confirmation')
+  const chartType = state.draft.chart_applicability[0].chart_type; const suitability = state.draft.chart_applicability[0].suitability
+  state.confirmedRevision = 4; editChartApplicability(state, 0, 'notes', 'Best for grouped measurements')
+  expect(state.draft.chart_applicability[0].notes === 'Best for grouped measurements' && state.draft.revision === 5, 'notes edit must update notes and increment revision exactly once')
+  expect(state.confirmedRevision === null && hasUnconfirmedDraft(state), 'notes edit must invalidate confirmation and protect the Draft')
+  expect(state.draft.chart_applicability[0].chart_type === chartType && state.draft.chart_applicability[0].suitability === suitability, 'notes edit must preserve other applicability fields')
+  addChartApplicability(state); editChartApplicability(state, 1, 'chart_type', 'bar_error')
+  expect(validateDraft(state.draft).some((item) => item.code === 'DUPLICATE_CHART_TYPE'), 'duplicate chart types must fail local validation')
+  editChartApplicability(state, 1, 'chart_type', 'unsupported')
+  expect(validateDraft(state.draft).some((item) => item.code === 'INVALID_CHART_TYPE'), 'unsupported chart types must fail local validation')
+  const beforeRemove = state.draft.revision; state.confirmedRevision = beforeRemove; removeChartApplicability(state, 1)
+  expect(state.draft.revision === beforeRemove + 1 && state.confirmedRevision === null, 'remove applicability must increment revision and invalidate confirmation')
+}
+
+async function testObjectUrlLifecycleAndStateReset(): Promise<void> {
+  const created: string[] = []; const revoked: string[] = []
+  Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => { const value = `blob:test-${created.length + 1}`; created.push(value); return value } })
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: (value: string) => revoked.push(value) })
+  const workbench = new PaletteAssistantWorkbench()
+  const first = new File(['one'], 'one.png', { type: 'image/png' }); const second = new File(['two'], 'two.png', { type: 'image/png' })
+  expect(workbench.selectImage(first) === null, 'valid image selection should succeed')
+  workbench.state.draft = draftFromAnalyze(analyzeResponse()); workbench.state.audit = auditFromAnalyze(analyzeResponse()); workbench.state.error = { code: 'OLD', message: 'old', retryable: true }; workbench.state.confirmedRevision = 1; workbench.state.latestDraftRevision = 1
+  workbench.selectImage(second)
+  expect(revoked[0] === created[0] && workbench.state.draft === null && workbench.state.audit === null && workbench.state.error === null && workbench.state.confirmedRevision === null, 'replacement must revoke old URL and clear all dependent state')
+  workbench.removeImage()
+  expect(revoked[1] === created[1] && workbench.state.image === null && workbench.state.draft === null && workbench.state.audit === null && workbench.state.error === null && workbench.state.confirmedRevision === null, 'removal must revoke current URL and clear dependent state')
+  workbench.selectImage(first); workbench.dispose()
+  expect(revoked[2] === created[2], 'dispose must revoke the current URL')
+}
+
+async function testAnalyzeSuccessRetryAbortAndStaleProtection(): Promise<void> {
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => 'admin-token' } })
+  Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:analysis' })
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => undefined })
+  const workbench = new PaletteAssistantWorkbench(); workbench.selectImage(new File(['x'], 'x.png', { type: 'image/png' }))
+  let rejectFirst!: (error: unknown) => void
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => new Promise<Response>((_, reject) => { rejectFirst = reject }) })
+  const cancelled = workbench.analyze(); expect(workbench.state.status === 'analyzing', 'Analyze should expose loading state')
+  workbench.cancel(); rejectFirst(new DOMException('aborted', 'AbortError')); await cancelled
+  expect(workbench.state.status === 'cancelled' && workbench.state.draft === null && workbench.state.audit === null && workbench.state.latestDraftRevision === 0, 'cancel-late rejection must not create Draft/audit or consume revision')
+
+  let attempts = 0
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => { attempts++; return attempts === 1 ? Promise.reject(new TypeError('offline')) : Promise.resolve(jsonResponse(analyzeResponse())) } })
+  await workbench.analyze(); expect(workbench.state.status === 'error' && workbench.state.error?.retryable === true, 'transport errors must be retryable and visible')
+  await workbench.analyze(); expect(workbench.state.status === 'success' && workbench.state.draft?.colors[0].hex === '#112233' && workbench.state.draft.revision === 1, 'retry success must create the first local revision without rollback')
+  mutateDraft(workbench.state, (draft) => { draft.name = 'Edited' })
+  workbench.state.confirmedRevision = 2
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => Promise.resolve(jsonResponse(analyzeResponse('new'))) })
+  await workbench.analyze()
+  expect(workbench.state.draft?.revision === 3 && workbench.state.confirmedRevision === null && workbench.state.draft.colors[0].hex === '#000000', 'Analyze again must allocate old revision + 1 and clear confirmation')
+
+  let resolveCancelled!: (response: Response) => void
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => new Promise<Response>((resolve) => { resolveCancelled = resolve }) })
+  const lateCancelled = workbench.analyze(); workbench.cancel(); resolveCancelled(jsonResponse(analyzeResponse())) ; await lateCancelled
+  expect(workbench.state.status === 'cancelled' && workbench.state.draft === null && workbench.state.audit === null && workbench.state.confirmedRevision === null && workbench.state.latestDraftRevision === 3, 'cancel-late success must not restore Draft/audit/confirmation or consume revision')
+
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => Promise.reject(new TypeError('retry me')) })
+  await workbench.analyze()
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => Promise.resolve(jsonResponse(analyzeResponse('new'))) })
+  await workbench.analyze()
+  expect(workbench.state.draft?.revision === 4, 'failure followed by retry must continue the monotonic revision source')
+
+  let resolveOld!: (response: Response) => void
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => new Promise<Response>((resolve) => { resolveOld = resolve }) })
+  const old = workbench.analyze()
+  workbench.selectImage(new File(['y'], 'y.png', { type: 'image/png' }))
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => Promise.resolve(jsonResponse(analyzeResponse('new'))) })
+  await workbench.analyze(); const latestRevision = workbench.state.draft?.revision; resolveOld(jsonResponse(analyzeResponse('old'))); await old
+  expect(workbench.state.status === 'success' && workbench.state.image?.file.name === 'y.png', 'stale Analyze completion must not overwrite newer image state')
+  expect(workbench.state.draft?.colors[0].hex === '#000000' && workbench.state.audit?.analysisId === '223e4567-e89b-42d3-a456-426614174000' && workbench.state.audit.warnings[0].code === 'TRANSPARENCY_COMPOSITED_TO_WHITE' && workbench.state.draft?.revision === latestRevision, 'late old response must not overwrite latest Draft, audit, warnings, or revision')
+}
+
+async function testGlobalIsolationRestoresAfterThrow(): Promise<void> {
+  const before = [
+    Object.getOwnPropertyDescriptor(URL, 'createObjectURL'), Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL'),
+    Object.getOwnPropertyDescriptor(globalThis, 'fetch'), Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  ]
+  let caught = false
+  try {
+    await withGlobalIsolation(() => {
+      Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:throw' })
+      Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => undefined })
+      Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => Promise.reject(new Error('unused')) })
+      Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => 'throw' } })
+      throw new Error('expected isolation probe')
+    })
+  } catch (error) {
+    caught = error instanceof Error && error.message === 'expected isolation probe'
+  }
+  const after = [
+    Object.getOwnPropertyDescriptor(URL, 'createObjectURL'), Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL'),
+    Object.getOwnPropertyDescriptor(globalThis, 'fetch'), Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  ]
+  expect(caught && before.every((descriptor, index) => sameDescriptor(descriptor, after[index])), 'global descriptors must be restored when an isolated test throws')
+}
+
+await testAdminBoundaryAndNoWrites()
+await testProductionAdminRouteRuntime()
+testFileValidation()
+testDraftInitializationAuditAndRevision()
+testAbandonmentGuard()
+await testDuplicateWarningRendering()
+testProductionEvidenceRendering()
+testChartApplicabilityRevisionPath()
+await withGlobalIsolation(testObjectUrlLifecycleAndStateReset)
+await withGlobalIsolation(testAnalyzeSuccessRetryAbortAndStaleProtection)
+await testGlobalIsolationRestoresAfterThrow()

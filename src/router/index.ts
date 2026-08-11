@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createMemoryHistory, createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import PalettesView from '@/views/PalettesView.vue'
 import PaletteDetailView from '@/views/PaletteDetailView.vue'
@@ -12,13 +12,15 @@ import ProfileView from '@/views/ProfileView.vue'
 import AdminDashboard from '@/views/admin/AdminDashboard.vue'
 import AdminPalettesList from '@/views/admin/palettes/AdminPalettesList.vue'
 import AdminPaletteForm from '@/views/admin/palettes/AdminPaletteForm.vue'
+import AdminPaletteAssistantWorkbench from '@/views/admin/palette-assistant/AdminPaletteAssistantWorkbench.vue'
 import AccessDeniedView from '@/views/AccessDeniedView.vue'
 import { isAuthenticated } from '@/api/auth'
 import { useAuth } from '@/composables/useAuth'
+import { createPaletteAssistantRoute } from '@/views/admin/palette-assistant/workbench'
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes: [
+export const adminPaletteAssistantRoute: RouteRecordRaw = createPaletteAssistantRoute(AdminPaletteAssistantWorkbench)
+
+const routes: RouteRecordRaw[] = [
     {
       path: '/',
       name: 'home',
@@ -94,6 +96,7 @@ const router = createRouter({
       component: AdminPaletteForm,
       meta: { requiresAuth: true, requiresAdmin: true }
     },
+    adminPaletteAssistantRoute,
     {
       path: '/admin/palettes/:id/edit',
       name: 'admin-palette-edit',
@@ -106,6 +109,10 @@ const router = createRouter({
       component: AccessDeniedView
     }
   ]
+
+const router = createRouter({
+  history: typeof window === 'undefined' ? createMemoryHistory() : createWebHistory(),
+  routes
 })
 
 // Navigation guard for auth and admin

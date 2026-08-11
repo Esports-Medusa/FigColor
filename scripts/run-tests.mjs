@@ -5,6 +5,7 @@ const testModules = [
   '/src/lib/palette-cache-boundary.test.ts',
   '/src/lib/api/adminPreviewCases.test.ts',
   '/src/api/paletteAssistant.test.ts',
+  '/src/views/admin/palette-assistant/workbench.test.ts',
   '/src/lib/chart-types.registry.test.ts',
   '/src/lib/chart-types/bar-error/suggestion.test.ts',
   '/src/lib/chart-types/bar-error/admin.test.ts',
@@ -34,6 +35,7 @@ const testModules = [
 const server = await createServer({ logLevel: 'error' })
 
 try {
+  await server.pluginContainer.buildStart({})
   for (const testModule of testModules) {
     await server.ssrLoadModule(testModule)
     console.log(`ok ${testModule}`)
