@@ -7,6 +7,8 @@ const testModules = [
   '/src/api/paletteAssistant.test.ts',
   '/src/views/admin/palette-assistant/workbench.test.ts',
   '/src/views/admin/palette-assistant/draftPreview.test.ts',
+  '/src/lib/chart-types/previewDefaults.test.ts',
+  '/src/views/admin/palette-assistant/draftPreviewRenderer.test.ts',
   '/src/lib/chart-types.registry.test.ts',
   '/src/lib/chart-types/bar-error/suggestion.test.ts',
   '/src/lib/chart-types/bar-error/admin.test.ts',

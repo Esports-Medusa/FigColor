@@ -90,12 +90,32 @@
         <div class="actions"><button type="button" class="secondary" @click="resetDraft">Reset to Analyze suggestions</button></div>
       </section>
 
+      <section class="panel" aria-labelledby="preview-heading">
+        <h2 id="preview-heading">4. Scientific Preview</h2>
+        <template v-if="!currentPreview">
+          <p class="empty">No preview added.</p>
+          <label>Chart type<select :value="pendingPreviewChart" @change="setPendingPreviewChart"><option v-for="chart in PHASE_1_CHART_TYPES" :key="chart" :value="chart">{{ chart }}</option></select></label>
+          <button type="button" @click="createPreview">Add Preview</button>
+        </template>
+        <template v-else>
+          <div class="section-title"><h3>{{ currentPreview.chart_type }} · {{ currentPreview.template_id }}</h3><button type="button" class="danger" @click="removePreview">Remove Preview</button></div>
+          <label>Chart type<select :value="currentPreview.chart_type" @change="changePreviewChart"><option v-for="chart in PHASE_1_CHART_TYPES" :key="chart" :value="chart">{{ chart }}</option></select></label>
+          <div class="grid preview-json-controls">
+            <label>Color roles JSON<textarea :value="JSON.stringify(currentPreview.color_roles, null, 2)" rows="10" @change="setPreviewJson('color_roles', $event)"></textarea></label>
+            <label>Preview config JSON<textarea :value="JSON.stringify(currentPreview.preview_config, null, 2)" rows="10" @change="setPreviewJson('preview_config', $event)"></textarea></label>
+          </div>
+          <p class="hint">Fixed seed: {{ currentPreview.seed_value }}</p>
+          <div v-if="previewRender?.state === 'svg'" class="draft-live-preview" v-html="previewRender.markup"></div>
+          <div v-else-if="previewRender" class="error-card" role="alert"><strong>Preview {{ previewRender.state }}</strong><p>{{ previewRender.message }}</p><ul v-if="previewRender.issues.length"><li v-for="item in previewRender.issues" :key="`${item.path}:${item.code}`"><code>{{ item.path }}</code>: {{ item.message }}</li></ul></div>
+        </template>
+        <p v-if="previewActionError" class="error" role="alert">{{ previewActionError }}</p>
+      </section>
+
       <section class="panel" aria-labelledby="status-heading">
-        <h2 id="status-heading">4. Current Draft status</h2>
+        <h2 id="status-heading">5. Current Draft status</h2>
         <div class="draft-strip" aria-label="Current Draft color order"><i v-for="color in state.draft.colors" :key="color.id" :style="{ backgroundColor: validHex(color.hex) ? color.hex : '#ffffff' }"></i></div>
         <ul v-if="issues.length" class="errors"><li v-for="item in issues" :key="`${item.path}:${item.code}`"><code>{{ item.path }}</code>: {{ item.message }}</li></ul>
         <p v-else class="valid">Local Draft checks pass.</p>
-        <p class="hint">Scientific Preview Case editing and renderer integration begin in WP-B5.</p>
         <button type="button" :disabled="issues.length > 0 || confirmed" @click="confirmDraft">{{ confirmed ? `Revision ${state.draft.revision} confirmed` : 'Confirm current revision' }}</button>
         <p v-if="confirmed" class="valid" role="status">Confirmation is bound to revision {{ state.confirmedRevision }}. Any Candidate-relevant edit invalidates it.</p>
         <p v-else class="notice" role="status">The current revision is not confirmed.</p>
@@ -109,12 +129,14 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import {
-  addChartApplicability, AnalyzeWarningList, CHART_SUITABILITIES, editChartApplicability,
+  addChartApplicability, addDraftPreviewCase, AnalyzeWarningList, CHART_SUITABILITIES, clearDraftPreviewCases, editChartApplicability,
   PALETTE_TYPES, PHASE_1_CHART_TYPES, removeChartApplicability,
   PaletteAssistantWorkbench, confirmCurrentDraft, isCurrentRevisionConfirmed,
   confirmDraftAbandonment, hasUnconfirmedDraft, mutateDraft, newAdminColor,
-  resetDraftToAnalyze, validateDraft
+  replaceDraftPreviewChart, resetDraftToAnalyze, validateDraft, mutateDraftPreviewCase
 } from './workbench'
+import { renderDraftPreview } from './draftPreviewRenderer'
+import type { ChartType } from '@/types/palette'
 
 const workbench = reactive(new PaletteAssistantWorkbench())
 const state = workbench.state
@@ -122,6 +144,10 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const fileError = ref('')
 const issues = computed(() => state.draft ? validateDraft(state.draft) : [])
 const confirmed = computed(() => isCurrentRevisionConfirmed(state))
+const pendingPreviewChart = ref<ChartType>('bar_error')
+const previewActionError = ref('')
+const currentPreview = computed(() => state.draft?.preview_cases[0] ?? null)
+const previewRender = computed(() => state.draft && currentPreview.value ? renderDraftPreview(state.draft, currentPreview.value) : null)
 
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
@@ -145,6 +171,18 @@ function removeChart(index: number) { removeChartApplicability(state, index) }
 function setChart(index: number, field: 'chart_type' | 'suitability' | 'notes', event: Event) { editChartApplicability(state, index, field, (event.target as HTMLInputElement).value) }
 function confirmDraft() { confirmCurrentDraft(state) }
 function resetDraft() { resetDraftToAnalyze(state) }
+function createPreview() { const result = addDraftPreviewCase(state, pendingPreviewChart.value); previewActionError.value = result.ok ? '' : result.message }
+function setPendingPreviewChart(event: Event) { pendingPreviewChart.value = (event.target as HTMLSelectElement).value as ChartType; previewActionError.value = '' }
+function removePreview() { clearDraftPreviewCases(state); previewActionError.value = '' }
+function changePreviewChart(event: Event) { const result = replaceDraftPreviewChart(state, (event.target as HTMLSelectElement).value); previewActionError.value = result.ok ? '' : result.message }
+function setPreviewJson(field: 'color_roles' | 'preview_config', event: Event) {
+  try {
+    const value = JSON.parse((event.target as HTMLTextAreaElement).value)
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error('Expected a JSON object.')
+    mutateDraftPreviewCase(state, (preview) => { preview[field] = value })
+    previewActionError.value = ''
+  } catch (error) { previewActionError.value = error instanceof Error ? error.message : 'Invalid JSON.' }
+}
 const validHex = (value: string) => /^#[0-9A-F]{6}$/.test(value)
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`
 const formatBytes = (value: number) => `${(value / 1024).toFixed(1)} KiB`

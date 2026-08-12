@@ -13,6 +13,7 @@ import { validateDraftPreviewCases } from './draftPreview'
 import type { ChartSuitability, ChartType, ValidationIssue } from '@/types/palette'
 import { defineComponent, h, type Component, type PropType } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'
+import { createPreviewDefaults } from '@/lib/chart-types/previewDefaults'
 
 export const MAX_ASSISTANT_IMAGE_BYTES = 6 * 1024 * 1024
 export const ASSISTANT_IMAGE_TYPES = ['image/png', 'image/jpeg'] as const
@@ -128,6 +129,43 @@ export function replaceDraftPreviewCases(state: WorkbenchState, previewCases: Dr
 
 export function clearDraftPreviewCases(state: WorkbenchState): void {
   replaceDraftPreviewCases(state, [])
+}
+
+export type DraftSeedAllocator = () => number
+
+export function allocateDraftPreviewSeed(randomSource: Pick<Crypto, 'getRandomValues'> = globalThis.crypto): number {
+  const value = new Int32Array(1)
+  randomSource.getRandomValues(value)
+  return value[0]
+}
+
+export function addDraftPreviewCase(
+  state: WorkbenchState,
+  chartType: ChartType | string,
+  allocateSeed: DraftSeedAllocator = allocateDraftPreviewSeed
+): { ok: true } | { ok: false; message: string } {
+  if (!state.draft || state.draft.preview_cases.length !== 0) return { ok: false, message: 'A Draft Preview already exists.' }
+  const colorIds = state.draft.colors.map((color) => color.id)
+  const checked = createPreviewDefaults(chartType, colorIds, 0)
+  if (!checked.ok) return { ok: false, message: checked.message }
+  const defaults = createPreviewDefaults(chartType, colorIds, allocateSeed())
+  if (!defaults.ok) return { ok: false, message: defaults.message }
+  replaceDraftPreviewCases(state, [defaults.value])
+  return { ok: true }
+}
+
+export function replaceDraftPreviewChart(
+  state: WorkbenchState,
+  chartType: ChartType | string
+): { ok: true } | { ok: false; message: string } {
+  const existing = state.draft?.preview_cases[0]
+  if (!state.draft || !existing || existing.seed_strategy !== 'fixed' || !Number.isInteger(existing.seed_value)) {
+    return { ok: false, message: 'The current Draft Preview does not have a valid fixed seed.' }
+  }
+  const defaults = createPreviewDefaults(chartType, state.draft.colors.map((color) => color.id), existing.seed_value!)
+  if (!defaults.ok) return { ok: false, message: defaults.message }
+  replaceDraftPreviewCases(state, [defaults.value])
+  return { ok: true }
 }
 
 export function mutateDraftPreviewCase(

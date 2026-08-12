@@ -191,7 +191,8 @@
 import { computed, ref, watch } from 'vue'
 import PaletteChartPreview from '@/components/palettes/PaletteChartPreview.vue'
 import PreviewValidationIssues from '@/components/admin/previews/PreviewValidationIssues.vue'
-import { validatePreviewCaseAgainstRegistry } from '@/lib/chart-types/registry'
+import { getChartTemplateDefinition, validatePreviewCaseAgainstRegistry } from '@/lib/chart-types/registry'
+import { createPreviewDefaults, DEFAULT_PREVIEW_TEMPLATE_IDS } from '@/lib/chart-types/previewDefaults'
 import { resolveExplicitPreviewCaseExportModel, toJsonExport } from '@/lib/exports'
 import {
   editorValueFromVisualReference,
@@ -216,11 +217,8 @@ type ConfigField =
 interface EditorDefinition {
   chartType: ChartType
   label: string
-  templateId: string
   roleSections: RoleSection[]
   configFields: ConfigField[]
-  createDefaultRoles(colors: CanonicalPalette['colors']): Record<string, any>
-  createDefaultConfig(): Record<string, any>
 }
 
 interface Props {
@@ -261,7 +259,6 @@ const editorDefinitions: EditorDefinition[] = [
   {
     chartType: 'bar_error',
     label: 'Bar with error bars',
-    templateId: 'bar_error_v1',
     roleSections: [
       { id: 'groups', label: 'Groups', kind: 'named-array', path: 'groups', colorField: 'fill', repeatable: true, minItems: 1 },
       { id: 'elements', label: 'Elements', kind: 'elements', path: 'elements', keys: ['axis', 'grid', 'text', 'error_bar', 'background'] }
@@ -271,17 +268,11 @@ const editorDefinitions: EditorDefinition[] = [
       { key: 'sample_size', label: 'Sample Size', kind: 'number', min: 1 },
       { key: 'error_type', label: 'Error Type', kind: 'enum', options: ['sd', 'sem', 'ci'] },
       { key: 'data_pattern', label: 'Data Pattern', kind: 'enum', options: ['treatment_higher', 'treatment_lower', 'dose_response', 'mixed'] }
-    ],
-    createDefaultRoles: (colors) => ({
-      groups: colors.slice(0, 5).map((color, index) => namedItem(`group_${index + 1}`, `Group ${index + 1}`, 'fill', color.id)),
-      elements: defaultElements(['axis', 'grid', 'text', 'error_bar', 'background'])
-    }),
-    createDefaultConfig: () => ({ orientation: 'vertical', sample_size: 24, error_type: 'sem', data_pattern: 'mixed' })
+    ]
   },
   {
     chartType: 'boxplot_jitter',
     label: 'Boxplot with jitter',
-    templateId: 'boxplot_jitter_v1',
     roleSections: [
       { id: 'groups', label: 'Groups', kind: 'named-array', path: 'groups', colorField: 'color', repeatable: true, minItems: 1 },
       { id: 'elements', label: 'Optional Elements', kind: 'elements', path: 'elements', keys: ['jitter_point', 'median_line', 'whisker', 'outline', 'axis', 'grid', 'text', 'background'] }
@@ -290,17 +281,11 @@ const editorDefinitions: EditorDefinition[] = [
       { key: 'jitter_density', label: 'Jitter Density', kind: 'enum', options: ['low', 'medium', 'high'] },
       { key: 'show_outliers', label: 'Show Outliers', kind: 'boolean' },
       { key: 'y_axis_label', label: 'Y Axis Label', kind: 'string' }
-    ],
-    createDefaultRoles: (colors) => ({
-      groups: colors.slice(0, 5).map((color, index) => namedItem(`group_${index + 1}`, `Group ${index + 1}`, 'color', color.id)),
-      elements: defaultElements(['axis', 'grid', 'text', 'jitter_point', 'median_line', 'background'])
-    }),
-    createDefaultConfig: () => ({ jitter_density: 'medium', show_outliers: true, y_axis_label: 'Value' })
+    ]
   },
   {
     chartType: 'line_multiseries',
     label: 'Multi-series line',
-    templateId: 'line_multiseries_v1',
     roleSections: [
       { id: 'series', label: 'Series', kind: 'named-array', path: 'series', colorField: 'line', repeatable: true, minItems: 1 },
       { id: 'elements', label: 'Optional Elements', kind: 'elements', path: 'elements', keys: ['axis', 'grid', 'reference_line', 'text', 'marker_stroke', 'background'] }
@@ -310,17 +295,11 @@ const editorDefinitions: EditorDefinition[] = [
       { key: 'curve_shape', label: 'Curve Shape', kind: 'enum', options: ['increasing', 'decreasing', 'sigmoid', 'peak', 'mixed'] },
       { key: 'x_axis_label', label: 'X Axis Label', kind: 'string' },
       { key: 'y_axis_label', label: 'Y Axis Label', kind: 'string' }
-    ],
-    createDefaultRoles: (colors) => ({
-      series: colors.slice(0, 5).map((color, index) => namedItem(`series_${index + 1}`, `Series ${index + 1}`, 'line', color.id)),
-      elements: defaultElements(['axis', 'grid', 'text', 'marker_stroke', 'background'])
-    }),
-    createDefaultConfig: () => ({ point_count: 8, curve_shape: 'mixed', x_axis_label: 'Time', y_axis_label: 'Response' })
+    ]
   },
   {
     chartType: 'heatmap_annotated',
     label: 'Annotated heatmap',
-    templateId: 'heatmap_annotated_v1',
     roleSections: [
       { id: 'scaleType', label: 'Scale', kind: 'scale-type', path: 'scale' },
       { id: 'stops', label: 'Scale Stops', kind: 'scale-stops', path: 'scale.stops', repeatable: true, minItems: 2 },
@@ -336,21 +315,11 @@ const editorDefinitions: EditorDefinition[] = [
       { key: 'show_column_labels', label: 'Show Column Labels', kind: 'boolean' },
       { key: 'show_values', label: 'Show Values', kind: 'boolean' },
       { key: 'data_pattern', label: 'Data Pattern', kind: 'enum', options: ['two_clusters', 'three_clusters', 'gradient', 'mixed'] }
-    ],
-    createDefaultRoles: (colors) => ({
-      scale: {
-        type: colors.length >= 3 ? 'diverging' : 'sequential',
-        stops: createScaleStops(colors)
-      },
-      annotations: [],
-      elements: defaultElements(['text', 'grid', 'border', 'background', 'annotation_text'])
-    }),
-    createDefaultConfig: () => ({ rows: 6, columns: 6, cluster_rows: false, cluster_columns: false, show_row_labels: true, show_column_labels: true, show_values: false, data_pattern: 'mixed' })
+    ]
   },
   {
     chartType: 'scatter_grouped',
     label: 'Grouped scatter',
-    templateId: 'scatter_grouped_v1',
     roleSections: [
       { id: 'groups', label: 'Groups', kind: 'named-array', path: 'groups', colorField: 'color', repeatable: true, minItems: 1 },
       { id: 'elements', label: 'Elements', kind: 'elements', path: 'elements', keys: ['axis', 'muted_foreground', 'grid', 'background'] }
@@ -360,17 +329,11 @@ const editorDefinitions: EditorDefinition[] = [
       { key: 'data_pattern', label: 'Data Pattern', kind: 'enum', options: ['clusters', 'positive', 'negative', 'mixed'] },
       { key: 'point_size', label: 'Point Size', kind: 'enum', options: ['small', 'medium', 'large'] },
       { key: 'point_opacity', label: 'Point Opacity', kind: 'number', min: 0.25, max: 1 }
-    ],
-    createDefaultRoles: (colors) => ({
-      groups: colors.slice(0, 5).map((color, index) => namedItem(`group_${index + 1}`, `Group ${index + 1}`, 'color', color.id)),
-      elements: defaultElements(['axis', 'muted_foreground', 'grid', 'background'])
-    }),
-    createDefaultConfig: () => ({ point_count: 18, data_pattern: 'clusters', point_size: 'medium', point_opacity: 0.78 })
+    ]
   },
   {
     chartType: 'violin_distribution',
     label: 'Violin distribution',
-    templateId: 'violin_distribution_v1',
     roleSections: [
       { id: 'groups', label: 'Distributions', kind: 'named-array', path: 'groups', colorField: 'fill', repeatable: true, minItems: 1 },
       { id: 'elements', label: 'Elements', kind: 'elements', path: 'elements', keys: ['outline', 'median', 'axis', 'grid', 'background'] }
@@ -380,12 +343,7 @@ const editorDefinitions: EditorDefinition[] = [
       { key: 'distribution_shape', label: 'Distribution Shape', kind: 'enum', options: ['normal', 'skewed', 'bimodal', 'mixed'] },
       { key: 'bandwidth', label: 'Bandwidth', kind: 'enum', options: ['narrow', 'medium', 'wide'] },
       { key: 'show_summary', label: 'Show Summary', kind: 'boolean' }
-    ],
-    createDefaultRoles: (colors) => ({
-      groups: colors.slice(0, 5).map((color, index) => namedItem(`group_${index + 1}`, `Group ${index + 1}`, 'fill', color.id)),
-      elements: defaultElements(['outline', 'median', 'axis', 'grid', 'background'])
-    }),
-    createDefaultConfig: () => ({ sample_count: 32, distribution_shape: 'mixed', bandwidth: 'medium', show_summary: true })
+    ]
   }
 ]
 
@@ -405,9 +363,9 @@ const selectedDefinition = computed(() =>
   editorDefinitions.find((definition) => definition.chartType === selectedChartType.value) ?? editorDefinitions[0]
 )
 const selectedTemplate = computed(() => ({
-  id: selectedDefinition.value.templateId,
-  templateVersion: 1,
-  schemaVersion: 1
+  id: DEFAULT_PREVIEW_TEMPLATE_IDS[selectedChartType.value],
+  templateVersion: getChartTemplateDefinition(selectedChartType.value, DEFAULT_PREVIEW_TEMPLATE_IDS[selectedChartType.value])!.templateVersion,
+  schemaVersion: getChartTemplateDefinition(selectedChartType.value, DEFAULT_PREVIEW_TEMPLATE_IDS[selectedChartType.value])!.schemaVersion
 }))
 const visiblePreviewCases = computed(() =>
   props.previewCases.filter((previewCase) => previewCase.chart_type === selectedChartType.value)
@@ -477,8 +435,7 @@ function syncFromSelected(): void {
     roles.value = cloneObject(previewCase.color_roles)
     config.value = cloneObject(previewCase.preview_config)
   } else {
-    roles.value = selectedDefinition.value.createDefaultRoles(props.palette.colors)
-    config.value = selectedDefinition.value.createDefaultConfig()
+    applySharedDefaults()
   }
   ensureScaleStopMinimum()
   syncJsonText()
@@ -494,8 +451,7 @@ function selectPreviewCase(previewCase: PalettePreviewCase): void {
 
 function startFreshDraft(): void {
   selectedPreviewCaseId.value = `local-${selectedChartType.value}-draft`
-  roles.value = selectedDefinition.value.createDefaultRoles(props.palette.colors)
-  config.value = selectedDefinition.value.createDefaultConfig()
+  applySharedDefaults()
   syncJsonText()
 }
 
@@ -621,28 +577,18 @@ function syncJsonText(): void {
   configJson.value = JSON.stringify(config.value, null, 2)
 }
 
+function applySharedDefaults(): void {
+  const result = createPreviewDefaults(selectedChartType.value, props.palette.colors.map((color) => color.id), 0)
+  roles.value = result.ok ? cloneObject(result.value.color_roles) : {}
+  config.value = result.ok ? cloneObject(result.value.preview_config) : {}
+}
+
 function namedItem(key: string, label: string, colorField: string, colorId: string): Record<string, any> {
   return { key, label, [colorField]: paletteRef(colorId) }
 }
 
 function paletteRef(colorId: string) {
   return { source: 'palette', color_id: colorId }
-}
-
-function defaultElements(keys: string[]): Record<string, ThemeColorReference> {
-  return Object.fromEntries(keys.map((key) => [
-    key,
-    { source: 'theme', token: key === 'background' ? 'background' : key === 'grid' ? 'grid' : 'foreground' } as ThemeColorReference
-  ])) as Record<string, ThemeColorReference>
-}
-
-function createScaleStops(colors: CanonicalPalette['colors']) {
-  const usable = colors.length >= 3 ? colors.slice(0, 3) : colors.slice(0, 2)
-  return usable.map((color, index) => ({
-    position: usable.length === 1 ? 0 : index / (usable.length - 1),
-    label: index === 0 ? 'Low' : index === usable.length - 1 ? 'High' : 'Mid',
-    color: paletteRef(color.id)
-  }))
 }
 
 function normalizeStopPositions(stops: any[]): void {

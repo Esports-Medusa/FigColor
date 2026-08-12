@@ -6,10 +6,10 @@ import ts from 'typescript'
 import workbenchSfcSource from './AdminPaletteAssistantWorkbench.vue?raw'
 import routerSourceText from '../../../router/index.ts?raw'
 import {
-  AnalyzeWarningList, MAX_ASSISTANT_IMAGE_BYTES, PaletteAssistantWorkbench, addChartApplicability,
+  AnalyzeWarningList, MAX_ASSISTANT_IMAGE_BYTES, PaletteAssistantWorkbench, addChartApplicability, addDraftPreviewCase, allocateDraftPreviewSeed,
   auditFromAnalyze, confirmCurrentDraft, confirmDraftAbandonment, createInitialState,
   clearDraftPreviewCases, createPaletteAssistantRoute,
-  draftFromAnalyze, editChartApplicability, hasUnconfirmedDraft, isCurrentRevisionConfirmed, mutateDraft,
+  draftFromAnalyze, editChartApplicability, hasUnconfirmedDraft, isCurrentRevisionConfirmed, mutateDraft, replaceDraftPreviewChart,
   mutateDraftPreviewCase, newAdminColor, removeChartApplicability, replaceDraftPreviewCases, resetDraftToAnalyze, validateAssistantImage,
   validateDraft, warningOccurrences
 } from './workbench'
@@ -285,7 +285,10 @@ function testProductionEvidenceRendering(): void {
     workbench: { cancel: () => undefined }, onFileChange: () => undefined, removeImage: () => undefined, runAnalyze: () => undefined,
     setName: () => undefined, setType: () => undefined, setHex: () => undefined, setClassification: () => undefined,
     addColor: () => undefined, removeColor: () => undefined, moveColor: () => undefined, addChart: () => undefined,
-    removeChart: () => undefined, setChart: () => undefined, resetDraft: () => undefined, confirmDraft: () => undefined
+    removeChart: () => undefined, setChart: () => undefined, resetDraft: () => undefined, confirmDraft: () => undefined,
+    currentPreview: null, pendingPreviewChart: 'bar_error', previewActionError: '', previewRender: null,
+    createPreview: () => undefined, setPendingPreviewChart: () => undefined, removePreview: () => undefined, changePreviewChart: () => undefined, setPreviewJson: () => undefined,
+    JSON
   }
   const rendered = descendants(renderWorkbenchTemplate(common))
   const text = nodeText(rendered)
@@ -301,6 +304,51 @@ function testProductionEvidenceRendering(): void {
   state.audit!.omittedStructuralColors = []; state.audit!.provenance = []
   const emptyText = nodeText(descendants(renderWorkbenchTemplate(common)))
   expect(!emptyText.includes('Omitted structural colors') && !emptyText.includes('Suggestion provenance'), 'empty omitted/provenance collections must hide their sections')
+}
+
+function testDraftPreviewCreationAndReplacementLifecycle(): void {
+  const state = createInitialState(); state.draft = draftFromAnalyze(analyzeResponse()); state.latestDraftRevision = 1
+  state.draft.name = 'Preview Draft'; state.draft.type = 'categorical'; state.draft.colors.push(newAdminColor(1)); state.confirmedRevision = 1
+  let allocations = 0
+  const added = addDraftPreviewCase(state, 'bar_error', () => { allocations++; return 0 })
+  expect(added.ok && allocations === 1, 'explicit valid Add must allocate exactly one fixed seed')
+  expect(state.draft.preview_cases.length === 1 && state.draft.preview_cases[0].seed_strategy === 'fixed' && state.draft.preview_cases[0].seed_value === 0, 'Add must create one fixed-seed Preview and permit zero')
+  expect(state.draft.revision === 2 && state.confirmedRevision === null, 'Add must increment revision once and clear confirmation')
+  const seed = state.draft.preview_cases[0].seed_value
+  const beforeReplace = state.draft.revision
+  expect(replaceDraftPreviewChart(state, 'line_multiseries').ok, 'registered chart replacement should succeed')
+  expect(state.draft.revision === beforeReplace + 1 && state.draft.preview_cases[0].seed_value === seed && state.draft.preview_cases[0].template_id === 'line_multiseries_v1', 'chart replacement must be one revision, replace metadata, and preserve seed')
+  const beforeEdit = state.draft.revision
+  mutateDraftPreviewCase(state, (preview) => { preview.preview_config = { ...preview.preview_config, point_count: 9 } })
+  expect(state.draft.revision === beforeEdit + 1 && state.draft.preview_cases[0].seed_value === seed, 'Preview config edit must increment once and preserve seed')
+  const beforeRemove = state.draft.revision; clearDraftPreviewCases(state)
+  expect(state.draft.revision === beforeRemove + 1 && state.draft.preview_cases.length === 0, 'Remove must increment once and remove Preview and seed')
+  expect(addDraftPreviewCase(state, 'bar_error', () => { allocations++; return 7 }).ok && allocations === 2 && state.draft.preview_cases[0].seed_value === 7, 'Remove then Add must allocate one new seed')
+
+  const insufficient = createInitialState(); insufficient.draft = draftFromAnalyze(analyzeResponse()); insufficient.draft.colors = []; insufficient.latestDraftRevision = 1
+  let insufficientAllocations = 0
+  const failed = addDraftPreviewCase(insufficient, 'bar_error', () => { insufficientAllocations++; return 1 })
+  expect(!failed.ok && insufficientAllocations === 0 && insufficient.draft.revision === 1 && insufficient.draft.preview_cases.length === 0, 'insufficient colors must not allocate, mutate, or increment revision')
+}
+
+function testSignedSeedAllocatorBoundaries(): void {
+  const source = (value: number): Pick<Crypto, 'getRandomValues'> => ({
+    getRandomValues<T extends ArrayBufferView | null>(array: T): T {
+      ;(array as Int32Array)[0] = value
+      return array
+    }
+  })
+  expect(allocateDraftPreviewSeed(source(-2147483648)) === -2147483648, 'secure allocator must preserve signed minimum')
+  expect(allocateDraftPreviewSeed(source(0)) === 0, 'secure allocator must permit zero')
+  expect(allocateDraftPreviewSeed(source(2147483647)) === 2147483647, 'secure allocator must preserve signed maximum')
+}
+
+function testPreviewUiStateContract(): void {
+  expect(workbenchSfcSource.includes('No preview added.') && workbenchSfcSource.includes('Add Preview'), 'production UI must expose an explicit absent state and Add action')
+  expect(workbenchSfcSource.includes("previewRender?.state === 'svg'") && workbenchSfcSource.includes('v-html="previewRender.markup"'), 'valid state must display real renderer SVG')
+  expect(workbenchSfcSource.includes('Preview {{ previewRender.state }}') && workbenchSfcSource.includes('previewRender.issues'), 'invalid, unsupported, and render-error states must be explicit and field-addressable')
+  expect(!workbenchSfcSource.includes('<PaletteChartPreview'), 'Draft Preview UI must not use the generic/public fallback component')
+  expect(!workbenchSfcSource.includes('watch('), 'Draft Preview UI must not use a watcher that can create a revision loop')
 }
 
 function testChartApplicabilityRevisionPath(): void {
@@ -425,6 +473,9 @@ testAdminUuidAndPreviewLifecycle()
 testAbandonmentGuard()
 await testDuplicateWarningRendering()
 testProductionEvidenceRendering()
+testDraftPreviewCreationAndReplacementLifecycle()
+testSignedSeedAllocatorBoundaries()
+testPreviewUiStateContract()
 testChartApplicabilityRevisionPath()
 await withGlobalIsolation(testObjectUrlLifecycleAndStateReset)
 await withGlobalIsolation(testAnalyzeSuccessRetryAbortAndStaleProtection)
