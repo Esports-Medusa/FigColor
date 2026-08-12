@@ -400,7 +400,7 @@ Content-Type: application/json
 ```
 
 - validate the complete current Draft revision;
-- normalize Palette and Preview Case data;
+- return the validated canonical Draft without silently normalizing Palette or Preview Case data;
 - return field-addressable errors, warnings, exact duplicates, and similarity findings;
 - bind results to the validated revision;
 - issue stable finding identities for warnings requiring acknowledgment;
@@ -615,6 +615,250 @@ After WP-B4A is implemented, implement Admin image selection/upload interaction 
 
 Implement Draft Preview Case editing, stable color references, frontend renderer smoke tests, and backend registry/schema/domain validation.
 
+#### WP-B5.4 — Reusable authoritative backend Draft validation
+
+WP-B5.4 is the transport- and persistence-independent backend validation work
+package. It follows the completed B5.2/B5.3 Draft Preview work and the decisions
+in the [WP-B0 contract](./figcolor-online-admin-image-palette-assistant-wp-b0-contract.md).
+It does not implement either online endpoint or any Candidate write.
+
+##### Authority, input, and reusable result
+
+The only validation target is
+`paletteassistant.AssistantDraft`, owned by
+`backend/internal/paletteassistant`. Validate and Create already carry this
+complete Draft, including its revision and optional Preview. It excludes
+persistence-controlled fields and requires neither fabricated offline
+provenance/hashes nor persisted identity, so it can be validated without HTTP,
+Gin, SQL, a repository, or a database. An HTTP request DTO, persisted Palette or
+Preview Case model, `CandidateAggregateInput`, offline ingestion request/package,
+database row, and repository model are not validator authority.
+
+The single exported reusable seam is:
+
+```go
+ValidateAssistantDraft(draft AssistantDraft) DraftValidationResult
+```
+
+`DraftValidationResult` expresses `ValidatedDraft` and `Issues`. The validator
+is deterministic and pure with respect to caller-visible state: it does not
+mutate its input, allocate identity, create a Candidate, assign persistence
+lifecycle, or depend on HTTP, a database, or a repository. For valid input,
+`Issues` is empty and `ValidatedDraft` is present as a fully detached deep copy
+whose semantic and serialized fields equal the input. For invalid input,
+`Issues` is non-empty and `ValidatedDraft` is not usable for persistence.
+Ordinary validation failure is returned, not thrown, and internal parser,
+registry, repository, or database details are never exposed. The concrete Go
+presence representation may use a pointer or boolean, but these semantics are
+fixed. There is no second Create-only validator, mode, or bypass flag.
+
+Frontend-only `classification` remains workbench state. It is not added to the
+Go `AssistantDraft` wire contract or persistence, and the backend does not rely
+on it. Colors submitted in the Draft are the final retained data colors.
+
+##### Reject-or-accept canonical boundary
+
+WP-B5.4 performs no silent normalization. It does not trim and accept strings,
+uppercase HEX, reorder colors, fill order, deduplicate, remove unknown values,
+add applicability, choose `best_fit`, change a chart/template, add Preview
+defaults, convert seed strategy, or repair Preview references. Non-canonical
+input receives a field issue; constructing the detached copy must preserve all
+values. In this plan and the WP-B0 Validate contract, a "validated/normalized
+Draft" therefore means an already-canonical accepted Draft and its detached
+copy, not a transformed input.
+
+WP-B6 remains responsible for strict wire decoding, including duplicate JSON
+keys, unknown top-level fields, missing/null required fields, and decode errors.
+WP-B5.4 begins only after successful decoding and validates domain semantics.
+
+##### Stable field issues and deterministic aggregation
+
+Issues use `paletteassistant.FieldIssue` with contract-stable `path` and `code`
+and a safe displayable `message` that is not a machine compatibility key.
+`path` is an RFC 6901 JSON Pointer; the empty string (`""`) is the root pointer,
+array indices are numeric segments, and `~` and `/` are escaped as `~0` and
+`~1`. Existing persisted-validator dot/bracket paths are not exposed. Examples
+include `/colors/0/hex`, `/chart_applicability/1/chart_type`,
+`/preview_cases/0/seed_value`, and
+`/preview_cases/0/color_roles/groups/0/fill/color_id`.
+
+The validator collects every issue that can be decided safely and independently,
+then sorts by ascending `path`, then ascending `code`; identical path/code pairs
+retain stable production order. Go map iteration order must never affect output.
+If an opaque JSON subtree cannot be parsed, the validator emits one controlled
+parse/shape issue for that subtree, does not guess at its children, and continues
+with other independently interpretable Draft fields.
+
+##### Core Draft rules
+
+Validation covers `contract_version`, positive `revision`, `name`, Palette
+`type`, colors, chart applicability, metadata vocabularies, accessibility,
+`source_type`, `source_note`, Preview Cases, and provenance structure. Existing
+WP-B0/Plan B authorities and limits are reused rather than copied or changed.
+
+- `name` must be non-empty after trimming, but its bytes are never modified. No
+  name maximum is frozen by the current authoritative plan; that maximum remains
+  an explicit decision required before WP-B5.4 implementation and must not be
+  guessed.
+- `type` is exactly one of `categorical`, `sequential`, `diverging`, or `mixed`.
+- `source_type` is exactly `figure_extracted`. Client input never chooses
+  persisted origin, status, or visibility.
+- `source_note` remains bounded free text under the existing online sanitizer:
+  at most 500 Unicode code points, with the existing trim/control-character
+  rejection semantics and no corrective mutation.
+- `accessibility` retains the frozen boolean shape; the validator does not infer
+  or upgrade any claim.
+
+There is at least one retained Draft color. No online Draft maximum color count
+is frozen by the current authoritative plan: the Analyze suggestion cap and the
+offline ingestion cap govern different boundaries and are not B5.4 authority.
+The Draft maximum therefore remains an explicit decision required before
+WP-B5.4 implementation and must not be guessed. Each ID is a canonical lowercase
+hyphenated UUID and is unique. HEX is
+canonical uppercase six-digit `#[0-9A-F]{6}` and unique; duplicate HEX is an
+issue, never deduplicated. Each `order` equals its array position, producing a
+zero-based contiguous sequence. Identity is never substituted by HEX, index,
+order, or similarity. Preview membership uses only color UUID. B5.4 creates no
+UUID; existing Analyze UUIDv5 and Admin UUIDv4 rules remain unchanged.
+
+Chart applicability contains at least one item, has registered and unique
+`chart_type` values, and uses exactly `best_fit`, `recommended`, `compatible`,
+or `limited`. Exactly one item is `best_fit`; the validator never selects or
+changes it. A supplied Preview's `chart_type` must appear in the Draft's chart
+applicability.
+
+Metadata field semantics are explicit:
+
+| Field | Semantics and authority |
+|---|---|
+| `disciplines` | Closed vocabulary from `contracts/palette-ingestion/v1/controlled-vocabularies.json` |
+| `use_cases` | Closed vocabulary from the same authority |
+| `avoid_cases` | Closed vocabulary from the same authority |
+| `tags` | Closed vocabulary from the same authority |
+| `source_note` | Bounded free text under the online sanitizer |
+| Palette `name` | Bounded free text; maximum unresolved as stated above |
+
+Closed values require canonical exact matches: no trim/case conversion is used
+to accept them, collections contain no duplicates, and existing cardinality and
+item-length limits apply. Unknown values are issues. No vocabulary is recopied
+by hand into this validator; generated authority material is used where needed.
+
+##### Draft Preview validation and registry authority
+
+The existing TypeScript chart/template registry is the sole authoritative
+Preview registry. Existing generation/tooling must deterministically project it
+into a committed Go validation artifact with an explicit version/fingerprint
+derived from that canonical projection. Parity/drift tests prove the Go artifact
+matches TypeScript, and implementation verification regenerates it and proves a
+clean diff. File modification time, current time, randomness, and separately
+hand-maintained version strings are forbidden. Go does not import or execute
+TypeScript at runtime, generation never occurs per HTTP request, and the
+handwritten persisted Preview registry is not promoted to authority. If the
+existing generation seam cannot safely produce this artifact, implementation
+stops rather than creating a handwritten mirror. Controlled-vocabulary material
+needed by this validator participates in the same deterministic generation and
+parity approach without changing its existing JSON authority.
+
+Preview cardinality remains 0..1, with no fake or persisted identity. When
+present, `chart_type`, `template_id`, `template_version`, `schema_version`,
+`color_roles`, `preview_config`, Draft color membership, `seed_strategy`, and
+`seed_value` are validated against the generated registry/schema artifact.
+Malformed roles/config, unknown members, template/version mismatch, and unknown
+color references fail closed. References use Draft color UUID only, never HEX,
+index, order, or another fallback.
+
+For `stable_id`, `seed_value` is omitted. For `fixed`, it is present and within
+the inclusive signed 32-bit range `-2147483648..2147483647`; zero is valid. The
+validator does not default `stable_id`, delete a supplied stable seed, truncate
+64-bit input, reinterpret signedness, generate persisted identity, or derive a
+seed from HEX/order/index/time. These rules preserve the B5.2/B5.3 contract; the
+WP-B0 restriction on pre-create visual equivalence remains in force.
+
+The validator uses the generated registry fingerprint to establish compatibility
+with the current Draft Preview. B6 may expose or record that version and must
+bind it into its receipt/digest strategy, but HTTP encoding and persisted
+registry migration/version acceptance are outside WP-B5.4.
+
+##### Provenance and persistence boundaries
+
+For `provenance`, WP-B5.4 validates contract structure, required fields,
+allowed source/state values, bounded strings/collections, JSON Pointer path and
+suggested-value shape, and reports deterministic issues. It does not claim that
+provenance came from the current Analyze call, that a producer ran, that a
+suggestion matches the image, that an analysis ID relates to an image hash, or
+that persistence audit evidence is authentic. A pure validator has no Analyze
+session/database authority, and client provenance is never trusted as Candidate
+publication or audit authority. Analysis provenance remains Draft/receipt
+evidence and does not enter Candidate persistence; B6 may include it in the
+canonical digest/receipt.
+
+WP-B5.4 neither accepts nor trusts Palette ID, Preview Case ID, slug,
+`owner_user_id`, visibility, origin, status, `is_primary`, timestamps, or
+publication state. B6 and database constraints own these values. Database
+uniqueness, foreign keys, repository state, and actor authorization are not
+validated here.
+
+##### Required B6 parity and explicit exclusions
+
+Future WP-B6 flow is fixed as:
+
+```text
+Validate: strict decode
+  → confirmation/revision entry checks
+  → ValidateAssistantDraft
+  → repository-dependent findings
+  → receipt/digest response
+
+Create: strict decode
+  → confirmation/revision/receipt/idempotency checks
+  → ValidateAssistantDraft again
+  → repository-dependent findings again where required
+  → Draft-to-formal-ID mapping
+  → Candidate transaction
+```
+
+Both paths call the same exported function. Create reruns it and never trusts a
+client success flag or old Validate result; clients cannot submit validator
+results. WP-B5.4 does not implement HTTP, Gin binding, Problem mapping,
+confirmation binding, receipt/digest encoding, idempotency, repository queries,
+duplicate/similarity search, transactions, Candidate persistence,
+Draft-to-formal-ID mapping, or publication.
+
+##### Future implementation scope
+
+Future implementation must modify `backend/internal/paletteassistant/**`. It may
+modify existing registry generation tooling, generated registry artifacts, and
+cross-language parity tests/fixtures only when generator evidence requires it.
+It must not by default modify backend HTTP routes/handlers, repositories/write
+services, `backend/migrations/**`, application/runtime behavior under `src`, the
+public catalog, Admin Review persistence, offline ingestion DTOs/contracts,
+`package.json`, or `package-lock.json`. If generation requires exposing a `src`
+registry surface, a later implementation prompt must separately authorize the
+smallest non-behavioral exposure and require frontend registry regression tests.
+
+##### Acceptance and completion boundary
+
+WP-B5.4 is complete only when tests prove the pure `AssistantDraft` contract,
+absence of HTTP/database/repository dependencies, input immutability, detached
+valid output, no silent normalization, deterministic RFC 6901 issues, safe
+aggregation of independent failures, all core/color/applicability/metadata and
+Preview cardinality/registry/schema/reference/seed rules, deterministic generated
+registry fingerprint, and TypeScript/Go parity/drift protection. Tests require no
+PostgreSQL. Both future Validate and Create are designated to use the one
+validator, while no API, database, or persistence behavior is implemented.
+Migration runtime acceptance remains separate verification debt.
+
+Completion does not mean the Validate endpoint, Create endpoint, Candidate
+persistence, or migration runtime acceptance is complete. Required order is:
+
+```text
+B5.4 decision freeze
+→ B5.4 implementation
+→ independent B5.4 review
+→ B6 scope-freeze
+→ B6 implementation
+```
+
 ### WP-B6 — Online validation and Candidate creation
 
 Analyze transport has been extracted in the contract and allocated to the separate WP-B4A dependency. WP-B6 continues to implement Validate and Create transport, duplicate/similarity findings, authoritative revalidation, online idempotency, atomic Candidate/related-record creation, rollback, stable receipt, and Admin Review redirect. Neither WP-B4A nor any part of WP-B6 is implemented by this allocation change.
@@ -629,7 +873,7 @@ Analyze transport has been extracted in the contract and allocated to the separa
 | WP-B2/WP-B3 execution | Yes | No | No | No |
 | Evidence/suggestion display | No | Yes | Optional read-only reuse only if separately frozen | No |
 | `AssistantDraft` editing | No | Yes | Consume Draft only | No |
-| Local validation | Transport checks only | Yes | Preview-specific only | Server final validation |
+| Local/domain validation | Transport checks only | Yes | Reusable backend Draft domain validation; no transport | Server entry checks, repository findings, and final revalidation through B5.4 |
 | Scientific Preview | No | No | Yes | No |
 | Candidate persistence | No | No | No | Yes |
 | Database transaction | No | No | No | Yes |
@@ -721,11 +965,15 @@ Feature-flag wiring, rollout metrics, and operational performance targets remain
 | Similarity warnings use exact finding-ID acknowledgment | Frozen by WP-B0 | One warning cannot authorize another finding sharing its code |
 | Production image limits are 8 MiB multipart, 6 MiB encoded, 4096×4096, 8 MP, 5 seconds | Frozen by WP-B0 | Bounds memory/CPU while accommodating realistic screenshots |
 | Analyze-only transport is a WP-B4A production dependency | Frozen by dependency closure | Breaks the WP-B4/WP-B6 dependency cycle without fixtures, parallel DTOs, or fake APIs |
+| Backend Draft validation uses one pure `ValidateAssistantDraft(AssistantDraft)` seam | Frozen by WP-B5.4 decision freeze | Gives future Validate/Create identical reject-or-accept domain semantics without HTTP, repository, or persistence coupling |
+| TypeScript Preview registry generates deterministic committed Go validation material | Frozen by WP-B5.4 decision freeze | Prevents a handwritten backend authority fork and makes registry drift testable |
 
 ## 17. Immediate Next Step
 
 WP-B0 through WP-B3 are complete. WP-B4A's backend implementation is committed
 at `395fbfa`; its production frontend Analyze client and drift tests are implemented
 as an uncommitted completion pending independent review. WP-B4 remains blocked
-until that review and a separate completion commit. WP-B5 and WP-B6 remain
-unimplemented; WP-B6 retains Validate/Create and persistence ownership.
+until that review and a separate completion commit. WP-B5.4's implementation
+contract is frozen above but its implementation remains blocked on the explicit
+online Draft name-length and maximum-color-count decisions. WP-B6 remains
+unimplemented and retains Validate/Create transport and persistence ownership.
