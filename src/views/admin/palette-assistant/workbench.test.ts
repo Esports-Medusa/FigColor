@@ -1,4 +1,4 @@
-import type { AnalyzeResponse } from '@/api/paletteAssistant'
+import type { AnalyzeResponse, DraftPreviewCase } from '@/api/paletteAssistant'
 import { compile } from '@vue/compiler-dom'
 import { parse } from '@vue/compiler-sfc'
 import * as Vue from 'vue'
@@ -8,9 +8,9 @@ import routerSourceText from '../../../router/index.ts?raw'
 import {
   AnalyzeWarningList, MAX_ASSISTANT_IMAGE_BYTES, PaletteAssistantWorkbench, addChartApplicability,
   auditFromAnalyze, confirmCurrentDraft, confirmDraftAbandonment, createInitialState,
-  createPaletteAssistantRoute,
+  clearDraftPreviewCases, createPaletteAssistantRoute,
   draftFromAnalyze, editChartApplicability, hasUnconfirmedDraft, isCurrentRevisionConfirmed, mutateDraft,
-  newAdminColor, removeChartApplicability, resetDraftToAnalyze, validateAssistantImage,
+  mutateDraftPreviewCase, newAdminColor, removeChartApplicability, replaceDraftPreviewCases, resetDraftToAnalyze, validateAssistantImage,
   validateDraft, warningOccurrences
 } from './workbench'
 
@@ -197,6 +197,55 @@ function testDraftInitializationAuditAndRevision(): void {
   expect(resetDraftToAnalyze(state) && state.draft.revision === changedRevision + 1 && state.draft.colors[0].hex === '#112233', 'reset must restore immutable Analyze suggestions as a new revision')
 }
 
+function draftPreviewCase(colorId: string): DraftPreviewCase {
+  return {
+    chart_type: 'bar_error', template_id: 'bar_error_v1', template_version: 1, schema_version: 1,
+    color_roles: {
+      groups: [{ key: 'group', label: 'Group', fill: { source: 'palette', color_id: colorId } }],
+      elements: { axis: { source: 'theme', token: 'foreground' }, grid: { source: 'theme', token: 'grid' }, text: { source: 'theme', token: 'muted_foreground' }, error_bar: { source: 'theme', token: 'foreground' }, background: { source: 'theme', token: 'background' } }
+    },
+    preview_config: { orientation: 'vertical', sample_size: 24, error_type: 'sem', data_pattern: 'mixed' }, seed_strategy: 'stable_id'
+  }
+}
+
+function testAdminUuidAndPreviewLifecycle(): void {
+  const response = analyzeResponse()
+  const state = createInitialState(); state.draft = draftFromAnalyze(response); state.latestDraftRevision = 1
+  expect(state.draft.colors[0].id === response.draft.colors[0].id && state.draft.colors[0].id[14] === '5', 'Analyze-created UUIDv5 identity must be preserved')
+  const first = newAdminColor(1); const second = newAdminColor(2)
+  const uuidV4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  expect(uuidV4.test(first.id) && uuidV4.test(second.id) && first.id !== second.id, 'admin adds must create distinct UUIDv4 IDs with standard version and variant bits')
+  mutateDraft(state, (draft) => { draft.colors.push(first, second); draft.name = 'Draft'; draft.type = 'categorical' })
+  const firstId = first.id
+  mutateDraft(state, (draft) => { const [moved] = draft.colors.splice(1, 1); draft.colors.push(moved) })
+  expect(state.draft.colors[2].id === firstId, 'reorder must preserve an admin color UUID')
+  mutateDraft(state, (draft) => { draft.colors[2].hex = '#AABBCC' })
+  expect(state.draft.colors[2].id === firstId, 'ordinary HEX edit must preserve an admin color UUID')
+
+  replaceDraftPreviewCases(state, [draftPreviewCase(firstId)])
+  state.confirmedRevision = state.draft.revision
+  const before = state.draft.revision
+  mutateDraftPreviewCase(state, (previewCase) => {
+    previewCase.preview_config = { orientation: 'horizontal', sample_size: 12, error_type: 'sd', data_pattern: 'treatment_higher' }
+    previewCase.seed_strategy = 'fixed'; previewCase.seed_value = 7
+  })
+  expect(state.draft.revision === before + 1 && state.confirmedRevision === null, 'one compound Preview mutation must increment revision once and clear confirmation')
+  const previewReference = ((state.draft.preview_cases[0].color_roles as any).groups[0].fill.color_id)
+  mutateDraft(state, (draft) => { draft.colors.splice(draft.colors.findIndex((color) => color.id === firstId), 1) })
+  const replacement = newAdminColor(state.draft.colors.length)
+  mutateDraft(state, (draft) => { draft.colors.push(replacement) })
+  state.draft.name = ''
+  const mergedIssues = validateDraft(state.draft)
+  expect(replacement.id !== firstId && previewReference === firstId && mergedIssues.some((item) => item.code === 'DRAFT_COLOR_NOT_FOUND'), 'delete-plus-add must create a new UUID and must not rebind the old Preview reference')
+  expect(mergedIssues.some((item) => item.path === 'name' && item.code === 'REQUIRED'), 'Preview issues must merge with existing Draft validation issues')
+  clearDraftPreviewCases(state)
+  expect(state.draft.preview_cases.length === 0, 'clear must replace the authoritative Preview Case array')
+
+  replaceDraftPreviewCases(state, [draftPreviewCase(state.draft.colors[0].id)])
+  state.audit = auditFromAnalyze(response)
+  expect(resetDraftToAnalyze(state) && state.draft.preview_cases.length === 0, 'reset must discard subsequent Preview mutations')
+}
+
 function testAbandonmentGuard(): void {
   const state = createInitialState()
   let prompts = 0
@@ -308,11 +357,11 @@ async function testAnalyzeSuccessRetryAbortAndStaleProtection(): Promise<void> {
   Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => { attempts++; return attempts === 1 ? Promise.reject(new TypeError('offline')) : Promise.resolve(jsonResponse(analyzeResponse())) } })
   await workbench.analyze(); expect(workbench.state.status === 'error' && workbench.state.error?.retryable === true, 'transport errors must be retryable and visible')
   await workbench.analyze(); expect(workbench.state.status === 'success' && workbench.state.draft?.colors[0].hex === '#112233' && workbench.state.draft.revision === 1, 'retry success must create the first local revision without rollback')
-  mutateDraft(workbench.state, (draft) => { draft.name = 'Edited' })
+  mutateDraft(workbench.state, (draft) => { draft.name = 'Edited'; draft.preview_cases = [draftPreviewCase(draft.colors[0].id)] })
   workbench.state.confirmedRevision = 2
   Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => Promise.resolve(jsonResponse(analyzeResponse('new'))) })
   await workbench.analyze()
-  expect(workbench.state.draft?.revision === 3 && workbench.state.confirmedRevision === null && workbench.state.draft.colors[0].hex === '#000000', 'Analyze again must allocate old revision + 1 and clear confirmation')
+  expect(workbench.state.draft?.revision === 3 && workbench.state.confirmedRevision === null && workbench.state.draft.colors[0].hex === '#000000' && workbench.state.draft.preview_cases.length === 0, 'Analyze again must allocate old revision + 1, clear confirmation, and discard old Preview Cases')
 
   let resolveCancelled!: (response: Response) => void
   Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => new Promise<Response>((resolve) => { resolveCancelled = resolve }) })
@@ -325,9 +374,18 @@ async function testAnalyzeSuccessRetryAbortAndStaleProtection(): Promise<void> {
   await workbench.analyze()
   expect(workbench.state.draft?.revision === 4, 'failure followed by retry must continue the monotonic revision source')
 
+  replaceDraftPreviewCases(workbench.state, [draftPreviewCase(workbench.state.draft!.colors[0].id)])
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => Promise.reject(new TypeError('failed re-analyze')) })
+  await workbench.analyze()
+  expect(workbench.state.status === 'error' && workbench.state.draft === null && workbench.state.audit === null, 'failed re-Analyze must leave the old Draft and its Preview Case cleared')
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => Promise.resolve(jsonResponse(analyzeResponse('new'))) })
+  await workbench.analyze()
+
   let resolveOld!: (response: Response) => void
   Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => new Promise<Response>((resolve) => { resolveOld = resolve }) })
+  replaceDraftPreviewCases(workbench.state, [draftPreviewCase(workbench.state.draft!.colors[0].id)])
   const old = workbench.analyze()
+  expect(workbench.state.draft === null && workbench.state.audit === null, 'Analyze request start must clear the old Draft, including its Preview Case')
   workbench.selectImage(new File(['y'], 'y.png', { type: 'image/png' }))
   Object.defineProperty(globalThis, 'fetch', { configurable: true, value: () => Promise.resolve(jsonResponse(analyzeResponse('new'))) })
   await workbench.analyze(); const latestRevision = workbench.state.draft?.revision; resolveOld(jsonResponse(analyzeResponse('old'))); await old
@@ -363,6 +421,7 @@ await testAdminBoundaryAndNoWrites()
 await testProductionAdminRouteRuntime()
 testFileValidation()
 testDraftInitializationAuditAndRevision()
+testAdminUuidAndPreviewLifecycle()
 testAbandonmentGuard()
 await testDuplicateWarningRendering()
 testProductionEvidenceRendering()

@@ -3,11 +3,13 @@ import type {
   AssistantDraft,
   ColorSuggestion,
   DraftColor,
+  DraftPreviewCase,
   PaletteAssistantProblem,
   SuggestionProvenance,
   WarningFinding
 } from '@/api/paletteAssistant'
 import { analyzePaletteImage, PaletteAssistantApiError } from '@/api/paletteAssistant'
+import { validateDraftPreviewCases } from './draftPreview'
 import type { ChartSuitability, ChartType, ValidationIssue } from '@/types/palette'
 import { defineComponent, h, type Component, type PropType } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'
@@ -101,11 +103,9 @@ export function auditFromAnalyze(response: AnalyzeResponse): AnalyzeAudit {
   })
 }
 
-let localColorSequence = 0
 export function newAdminColor(order: number): EditableDraftColor {
-  localColorSequence += 1
   return {
-    id: `admin-color-${Date.now().toString(36)}-${localColorSequence.toString(36)}`,
+    id: globalThis.crypto.randomUUID(),
     hex: '#000000', order, source: 'admin', state: 'modified', classification: 'data'
   }
 }
@@ -120,6 +120,23 @@ export function mutateDraft(state: WorkbenchState, mutation: (draft: EditableAss
   normalizeDraftOrders(state.draft)
   state.draft.revision = nextDraftRevision(state)
   state.confirmedRevision = null
+}
+
+export function replaceDraftPreviewCases(state: WorkbenchState, previewCases: DraftPreviewCase[]): void {
+  mutateDraft(state, (draft) => { draft.preview_cases = structuredClone(previewCases) })
+}
+
+export function clearDraftPreviewCases(state: WorkbenchState): void {
+  replaceDraftPreviewCases(state, [])
+}
+
+export function mutateDraftPreviewCase(
+  state: WorkbenchState,
+  mutation: (previewCase: DraftPreviewCase) => void
+): void {
+  mutateDraft(state, (draft) => {
+    if (draft.preview_cases.length === 1) mutation(draft.preview_cases[0])
+  })
 }
 
 export function confirmCurrentDraft(state: WorkbenchState): boolean {
@@ -211,6 +228,7 @@ export function validateDraft(draft: EditableAssistantDraft): ValidationIssue[] 
     if (chartTypes.has(item.chart_type)) issues.push(issue(`chart_applicability[${index}].chart_type`, 'DUPLICATE_CHART_TYPE', 'Each chart type may appear once.'))
     chartTypes.add(item.chart_type)
   })
+  issues.push(...validateDraftPreviewCases(draft))
   return issues
 }
 
