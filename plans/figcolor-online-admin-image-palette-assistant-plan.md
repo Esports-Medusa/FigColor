@@ -710,11 +710,14 @@ WP-B0/Plan B authorities and limits are reused rather than copied or changed.
   at most 500 Unicode code points, with the existing trim/control-character
   rejection semantics and no corrective mutation.
 - `accessibility` retains the frozen boolean shape; the validator does not infer
-  or upgrade any claim.
+  or upgrade any claim. At the typed validator boundary all eight combinations
+  of `colorblind_safe`, `print_friendly`, and `dark_background` are valid and
+  preserved unchanged. Strict wire-type rejection and Admin confirmation remain
+  outside WP-B5.4.
 
 There are 1..64 retained Draft colors. Zero is invalid, 1 and 64 satisfy this
 general count boundary, and 65 receives `/colors` code `TOO_MANY_COLORS`.
-Palette-type-specific minimums may additionally apply without changing the
+There is no palette-type-specific minimum in B5.4; all four types use this same
 general boundary. The Analyze suggestion maximum remains 12: an Admin may grow
 the editable Draft from 12 to 64 manually, but Analyze does not emit more than
 12 suggestions. The online value 64 is an independently authorized product
@@ -734,6 +737,9 @@ Chart applicability contains at least one item, has registered and unique
 or `limited`. Exactly one item is `best_fit`; the validator never selects or
 changes it. A supplied Preview's `chart_type` must appear in the Draft's chart
 applicability.
+Its effective maximum is the number of chart types in the generated registry:
+each item must be registered and chart types must be unique, so no separately
+maintained numeric maximum is introduced.
 
 Metadata field semantics are explicit:
 
@@ -747,9 +753,13 @@ Metadata field semantics are explicit:
 | Palette `name` | Bounded free text; required non-whitespace content and maximum 100 Unicode code points |
 
 Closed values require canonical exact matches: no trim/case conversion is used
-to accept them, collections contain no duplicates, and existing cardinality and
-item-length limits apply. Unknown values are issues. No vocabulary is recopied
+to accept them, collections contain no duplicates, and the frozen cardinalities
+below apply. Unknown values are issues. No vocabulary is recopied
 by hand into this validator; generated authority material is used where needed.
+The online Draft cardinalities are `disciplines` 0..8, `use_cases` 0..8,
+`avoid_cases` 0..8, and `tags` 0..16. Because these are closed canonical
+vocabularies, accepted item lengths are bounded by the vocabulary itself and no
+independent item-length rule is added.
 
 ##### Draft Preview validation and registry authority
 
@@ -799,6 +809,13 @@ session/database authority, and client provenance is never trusted as Candidate
 publication or audit authority. Analysis provenance remains Draft/receipt
 evidence and does not enter Candidate persistence; B6 may include it in the
 canonical digest/receipt.
+
+The frozen structural limits are 0..128 provenance entries; 1..100 Unicode code
+points for required `producer` and `algorithm_version`; 1..16 unique reason
+codes, each 1..100 Unicode code points; and an absent/empty or 1..100 Unicode
+code-point `ambiguity_group`. Required text contains non-whitespace and all
+these text fields reject control characters without normalization. The required
+`suggested_value` may be any valid JSON value up to 32 KiB encoded bytes.
 
 WP-B5.4 neither accepts nor trusts Palette ID, Preview Case ID, slug,
 `owner_user_id`, visibility, origin, status, `is_primary`, timestamps, or

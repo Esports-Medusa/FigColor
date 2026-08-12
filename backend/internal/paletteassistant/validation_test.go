@@ -3,9 +3,13 @@ package paletteassistant
 import (
 	"encoding/json"
 	"fmt"
+	"go/parser"
+	"go/token"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -456,6 +460,320 @@ func TestValidateAssistantDraftMetadataProvenanceAndPreviewMetadata(t *testing.T
 	}
 }
 
+func TestValidateAssistantDraftAccessibilityCombinations(t *testing.T) {
+	for bits := 0; bits < 8; bits++ {
+		d := goodDraft("bar_error")
+		d.Accessibility = DraftAccessibility{ColorblindSafe: bits&1 != 0, PrintFriendly: bits&2 != 0, DarkBackground: bits&4 != 0}
+		before := d.Accessibility
+		got := ValidateAssistantDraft(d)
+		if got.ValidatedDraft == nil || got.ValidatedDraft.Accessibility != before || d.Accessibility != before {
+			t.Fatalf("combination %03b changed or rejected: %+v", bits, got)
+		}
+		got.ValidatedDraft.Accessibility.ColorblindSafe = !before.ColorblindSafe
+		if d.Accessibility != before {
+			t.Fatalf("combination %03b aliases input", bits)
+		}
+	}
+}
+
+func TestValidateAssistantDraftMetadataCardinalityBoundaries(t *testing.T) {
+	authority, err := loadGeneratedRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name    string
+		allowed []string
+		maximum int
+		set     func(*AssistantDraft, []string)
+	}{
+		{"disciplines", authority.Vocabularies.Disciplines, maximumDisciplines, func(d *AssistantDraft, values []string) { d.Disciplines = values }},
+		{"use_cases", authority.Vocabularies.UseCases, maximumUseCases, func(d *AssistantDraft, values []string) { d.UseCases = values }},
+		{"avoid_cases", authority.Vocabularies.AvoidCases, maximumAvoidCases, func(d *AssistantDraft, values []string) { d.AvoidCases = values }},
+		{"tags", authority.Vocabularies.Tags, maximumTags, func(d *AssistantDraft, values []string) { d.Tags = values }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			atMaximum := make([]string, test.maximum)
+			for i := range atMaximum {
+				atMaximum[i] = test.allowed[i%len(test.allowed)]
+			}
+			d := goodDraft("bar_error")
+			test.set(&d, atMaximum)
+			at := ValidateAssistantDraft(d)
+			if issue(at, "/"+test.name, "TOO_MANY_VOCABULARY_VALUES") {
+				t.Fatalf("exact maximum rejected as overflow: %+v", at.Issues)
+			}
+			if len(test.allowed) >= test.maximum {
+				if at.ValidatedDraft == nil {
+					t.Fatalf("unique exact maximum rejected: %+v", at.Issues)
+				}
+				returned := metadataValues(at.ValidatedDraft, test.name)
+				returned[0] = test.allowed[len(test.allowed)-1]
+				if metadataValues(&d, test.name)[0] != atMaximum[0] {
+					t.Fatal("metadata result aliases input")
+				}
+			}
+			overflow := append(cloneSlice(atMaximum), test.allowed[0])
+			test.set(&d, overflow)
+			if got := ValidateAssistantDraft(d); !issue(got, "/"+test.name, "TOO_MANY_VOCABULARY_VALUES") || got.ValidatedDraft != nil {
+				t.Fatalf("overflow accepted: %+v", got)
+			}
+		})
+	}
+	for _, field := range []string{"disciplines", "use_cases", "avoid_cases", "tags"} {
+		d := goodDraft("bar_error")
+		switch field {
+		case "disciplines":
+			d.Disciplines = []string{"General"}
+		case "use_cases":
+			d.UseCases = []string{" publication"}
+		case "avoid_cases":
+			d.AvoidCases = []string{"HEATMAP"}
+		case "tags":
+			d.Tags = []string{"Clean"}
+		}
+		if got := ValidateAssistantDraft(d); !issue(got, "/"+field+"/0", "UNKNOWN_VOCABULARY_VALUE") {
+			t.Fatalf("%s canonical matching: %+v", field, got.Issues)
+		}
+	}
+}
+
+func TestValidateAssistantDraftProvenanceBoundaries(t *testing.T) {
+	entry := goodDraft("bar_error").Provenance[0]
+	entries := make([]SuggestionProvenance, maximumProvenanceEntries)
+	for i := range entries {
+		entries[i] = entry
+		entries[i].Path = "/name/" + strconv.Itoa(i)
+		entries[i].ReasonCodes = []string{"SUGGESTED"}
+		entries[i].SuggestedValue = json.RawMessage(`null`)
+	}
+	d := goodDraft("bar_error")
+	d.Provenance = entries
+	if got := ValidateAssistantDraft(d); got.ValidatedDraft == nil {
+		t.Fatalf("exact provenance maximum: %+v", got.Issues)
+	} else {
+		got.ValidatedDraft.Provenance[0].ReasonCodes[0] = "CHANGED"
+		got.ValidatedDraft.Provenance[0].SuggestedValue[0] = 'f'
+		if d.Provenance[0].ReasonCodes[0] != "SUGGESTED" || string(d.Provenance[0].SuggestedValue) != "null" {
+			t.Fatal("provenance result aliases input")
+		}
+	}
+	d.Provenance = append(d.Provenance, entry)
+	if got := ValidateAssistantDraft(d); !issue(got, "/provenance", "TOO_MANY_PROVENANCE_ENTRIES") {
+		t.Fatalf("provenance overflow: %+v", got.Issues)
+	}
+
+	validText := strings.Repeat("界", maximumProvenanceTextRunes)
+	tests := []struct {
+		name, path, code string
+		mutate           func(*SuggestionProvenance)
+	}{
+		{"producer max", "", "", func(p *SuggestionProvenance) { p.Producer = validText }},
+		{"producer overflow", "/provenance/0/producer", "PRODUCER_TOO_LONG", func(p *SuggestionProvenance) { p.Producer = validText + "界" }},
+		{"producer control", "/provenance/0/producer", "INVALID_PRODUCER", func(p *SuggestionProvenance) { p.Producer = "a\n" }},
+		{"algorithm max", "", "", func(p *SuggestionProvenance) { p.AlgorithmVersion = validText }},
+		{"algorithm overflow", "/provenance/0/algorithm_version", "ALGORITHM_VERSION_TOO_LONG", func(p *SuggestionProvenance) { p.AlgorithmVersion = validText + "界" }},
+		{"reason max", "", "", func(p *SuggestionProvenance) { p.ReasonCodes = []string{validText} }},
+		{"reason overflow", "/provenance/0/reason_codes/0", "REASON_CODE_TOO_LONG", func(p *SuggestionProvenance) { p.ReasonCodes = []string{validText + "界"} }},
+		{"ambiguity max", "", "", func(p *SuggestionProvenance) { p.AmbiguityGroup = validText; p.ReasonCodes = []string{"AMBIGUOUS"} }},
+		{"ambiguity overflow", "/provenance/0/ambiguity_group", "AMBIGUITY_GROUP_TOO_LONG", func(p *SuggestionProvenance) {
+			p.AmbiguityGroup = validText + "界"
+			p.ReasonCodes = []string{"AMBIGUOUS"}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			draft := goodDraft("bar_error")
+			test.mutate(&draft.Provenance[0])
+			got := ValidateAssistantDraft(draft)
+			if test.code == "" && got.ValidatedDraft == nil {
+				t.Fatalf("boundary rejected: %+v", got.Issues)
+			}
+			if test.code != "" && !issue(got, test.path, test.code) {
+				t.Fatalf("missing boundary issue: %+v", got.Issues)
+			}
+		})
+	}
+	d = goodDraft("bar_error")
+	d.Provenance[0].ReasonCodes = make([]string, maximumReasonCodes)
+	for i := range d.Provenance[0].ReasonCodes {
+		d.Provenance[0].ReasonCodes[i] = fmt.Sprintf("R%d", i)
+	}
+	if got := ValidateAssistantDraft(d); got.ValidatedDraft == nil {
+		t.Fatalf("reason exact max: %+v", got.Issues)
+	}
+	d.Provenance[0].ReasonCodes = append(d.Provenance[0].ReasonCodes, "OVER")
+	if got := ValidateAssistantDraft(d); !issue(got, "/provenance/0/reason_codes", "TOO_MANY_REASON_CODES") {
+		t.Fatal(got.Issues)
+	}
+
+	exactJSON := json.RawMessage(`"` + strings.Repeat("x", maximumSuggestedValueBytes-2) + `"`)
+	d = goodDraft("bar_error")
+	d.Provenance[0].SuggestedValue = exactJSON
+	if got := ValidateAssistantDraft(d); got.ValidatedDraft == nil {
+		t.Fatalf("exact JSON bytes: %+v", got.Issues)
+	}
+	d.Provenance[0].SuggestedValue = append(cloneSlice(exactJSON), ' ')
+	if got := ValidateAssistantDraft(d); !issue(got, "/provenance/0/suggested_value", "SUGGESTED_VALUE_TOO_LARGE") {
+		t.Fatal(got.Issues)
+	}
+}
+
+func metadataValues(d *AssistantDraft, field string) []string {
+	switch field {
+	case "disciplines":
+		return d.Disciplines
+	case "use_cases":
+		return d.UseCases
+	case "avoid_cases":
+		return d.AvoidCases
+	default:
+		return d.Tags
+	}
+}
+
+func TestValidateAssistantDraftOneColorAllPaletteTypesAndApplicabilityMaximum(t *testing.T) {
+	for _, typ := range []string{"categorical", "sequential", "diverging", "mixed"} {
+		d := goodDraft("bar_error")
+		d.Type, d.Colors, d.PreviewCases = typ, d.Colors[:1], nil
+		if got := ValidateAssistantDraft(d); got.ValidatedDraft == nil {
+			t.Fatalf("%s one color: %+v", typ, got.Issues)
+		}
+	}
+	authority, err := loadGeneratedRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := goodDraft("bar_error")
+	d.PreviewCases = nil
+	d.ChartApplicability = make([]DraftChartApplicability, len(authority.Charts))
+	for i, chart := range authority.Charts {
+		suitability := "compatible"
+		if i == 0 {
+			suitability = "best_fit"
+		}
+		d.ChartApplicability[i] = DraftChartApplicability{ChartType: chart.ChartType, Suitability: suitability}
+	}
+	if got := ValidateAssistantDraft(d); got.ValidatedDraft == nil {
+		t.Fatalf("all registered applicability: %+v", got.Issues)
+	}
+	d.ChartApplicability = append(d.ChartApplicability, DraftChartApplicability{ChartType: authority.Charts[0].ChartType, Suitability: "compatible"})
+	if got := ValidateAssistantDraft(d); !hasCode(got, "DUPLICATE_CHART_TYPE") {
+		t.Fatal(got.Issues)
+	}
+}
+
+func TestConditionalMinimumWrongTypeParity(t *testing.T) {
+	exact := true
+	arrayItems := schemaNode{Kind: "string"}
+	array := schemaNode{Kind: "array", Items: &arrayItems}
+	schema := schemaNode{Kind: "object", Exact: &exact, Fields: map[string]schemaField{
+		"type":  {Required: true, Schema: schemaNode{Kind: "string"}},
+		"stops": {Required: true, Schema: array},
+	}, Rules: []schemaRule{{Kind: "conditional_min_items", DiscriminatorField: "type", ArrayField: "stops", Cases: map[string]int{"sequential": 2}}}}
+	v := &draftValidator{}
+	_, err := v.validateSchema(map[string]any{"type": "sequential", "stops": "wrong"}, schema, "/scale", "INVALID_COLOR_ROLES")
+	if err != nil || len(v.issues) != 1 || v.issues[0].Path != "/scale/stops" || v.issues[0].Code != "INVALID_COLOR_ROLES" {
+		t.Fatalf("wrong-type parity emitted extra issue: %v %+v", err, v.issues)
+	}
+}
+
+func TestMalformedRolesAndConfigAreIndependent(t *testing.T) {
+	roles := goodDraft("bar_error")
+	roles.PreviewCases[0].ColorRoles = json.RawMessage(`{"groups":`)
+	if got := ValidateAssistantDraft(roles); !issue(got, "/preview_cases/0/color_roles", "INVALID_JSON_OBJECT") || issue(got, "/preview_cases/0/preview_config", "INVALID_JSON_OBJECT") {
+		t.Fatal(got.Issues)
+	}
+	config := goodDraft("bar_error")
+	config.PreviewCases[0].PreviewConfig = json.RawMessage(`{"orientation":`)
+	if got := ValidateAssistantDraft(config); !issue(got, "/preview_cases/0/preview_config", "INVALID_JSON_OBJECT") || issue(got, "/preview_cases/0/color_roles", "INVALID_JSON_OBJECT") {
+		t.Fatal(got.Issues)
+	}
+}
+
+func TestValidateAssistantDraftFrozenApplicabilityColorAndProvenanceValues(t *testing.T) {
+	for _, source := range []SuggestionSource{SourceAssistant, SourceAdmin} {
+		for _, state := range []SuggestionState{StateUnconfirmed, StateAccepted, StateModified} {
+			d := goodDraft("bar_error")
+			d.Colors[0].Source, d.Colors[0].State = source, state
+			if got := ValidateAssistantDraft(d); got.ValidatedDraft == nil {
+				t.Fatalf("color %s/%s: %+v", source, state, got.Issues)
+			}
+		}
+	}
+	for _, mutation := range []func(*DraftColor){
+		func(c *DraftColor) { c.Source = "system" },
+		func(c *DraftColor) { c.State = StateCleared },
+	} {
+		d := goodDraft("bar_error")
+		mutation(&d.Colors[0])
+		if got := ValidateAssistantDraft(d); got.ValidatedDraft != nil {
+			t.Fatal("invalid active color source/state accepted")
+		}
+	}
+	for _, source := range []SuggestionSource{SourceAssistant, SourceAdmin} {
+		for _, state := range []SuggestionState{StateUnconfirmed, StateAccepted, StateModified, StateCleared} {
+			d := goodDraft("bar_error")
+			d.Provenance[0].Source, d.Provenance[0].State = source, state
+			if got := ValidateAssistantDraft(d); got.ValidatedDraft == nil {
+				t.Fatalf("provenance %s/%s: %+v", source, state, got.Issues)
+			}
+		}
+	}
+	for _, count := range []int{maximumApplicabilityRunes, maximumApplicabilityRunes + 1} {
+		d := goodDraft("bar_error")
+		d.ChartApplicability[0].Notes = strings.Repeat("界", count)
+		got := ValidateAssistantDraft(d)
+		if count == maximumApplicabilityRunes && got.ValidatedDraft == nil {
+			t.Fatalf("notes exact maximum: %+v", got.Issues)
+		}
+		if count > maximumApplicabilityRunes && !issue(got, "/chart_applicability/0/notes", "INVALID_APPLICABILITY_NOTES") {
+			t.Fatalf("notes overflow: %+v", got.Issues)
+		}
+	}
+}
+
+func TestSixPreviewConfigConstraintFamilies(t *testing.T) {
+	tests := []struct {
+		chart     string
+		mutations []func(map[string]any)
+	}{
+		{"bar_error", []func(map[string]any){func(c map[string]any) { c["orientation"] = "diagonal" }, func(c map[string]any) { c["sample_size"] = 0 }, func(c map[string]any) { c["sample_size"] = 1.5 }}},
+		{"boxplot_jitter", []func(map[string]any){func(c map[string]any) { c["jitter_density"] = "extreme" }, func(c map[string]any) { c["show_outliers"] = "true" }}},
+		{"line_multiseries", []func(map[string]any){func(c map[string]any) { c["curve_shape"] = "flat" }, func(c map[string]any) { c["point_count"] = 5 }, func(c map[string]any) { c["point_count"] = 6.5 }}},
+		{"heatmap_annotated", []func(map[string]any){func(c map[string]any) { c["data_pattern"] = "noise" }, func(c map[string]any) { c["rows"] = 3 }, func(c map[string]any) { c["columns"] = 4.5 }, func(c map[string]any) { c["cluster_rows"] = "false" }}},
+		{"scatter_grouped", []func(map[string]any){func(c map[string]any) { c["point_size"] = "huge" }, func(c map[string]any) { c["point_count"] = 31 }, func(c map[string]any) { c["point_opacity"] = 0.24 }}},
+		{"violin_distribution", []func(map[string]any){func(c map[string]any) { c["bandwidth"] = "automatic" }, func(c map[string]any) { c["sample_count"] = 15 }, func(c map[string]any) { c["sample_count"] = 16.5 }, func(c map[string]any) { c["show_summary"] = 1 }}},
+	}
+	for _, test := range tests {
+		for i, mutate := range test.mutations {
+			t.Run(fmt.Sprintf("%s/%d", test.chart, i), func(t *testing.T) {
+				d := goodDraft(test.chart)
+				config := decodeMap(d.PreviewCases[0].PreviewConfig)
+				mutate(config)
+				d.PreviewCases[0].PreviewConfig = mustJSON(config)
+				if got := ValidateAssistantDraft(d); !hasCode(got, "INVALID_PREVIEW_CONFIG") || got.ValidatedDraft != nil {
+					t.Fatalf("constraint accepted: %+v", got)
+				}
+			})
+		}
+	}
+}
+
+func TestUniqueByIssuePathAndDeterminism(t *testing.T) {
+	d := goodDraft("bar_error")
+	roles := decodeMap(d.PreviewCases[0].ColorRoles)
+	groups := roles["groups"].([]any)
+	duplicate := map[string]any{"key": "a", "label": "B", "fill": map[string]any{"source": "palette", "color_id": colorTwo}}
+	roles["groups"] = append(groups, duplicate)
+	d.PreviewCases[0].ColorRoles = mustJSON(roles)
+	first, second := ValidateAssistantDraft(d), ValidateAssistantDraft(d)
+	if !reflect.DeepEqual(first.Issues, second.Issues) || !issue(first, "/preview_cases/0/color_roles/groups/1/key", "DUPLICATE_ROLE_KEY") {
+		t.Fatalf("unique_by issue: %+v", first.Issues)
+	}
+}
+
 func TestValidationDependencyBoundary(t *testing.T) {
 	source, err := os.ReadFile("validation.go")
 	if err != nil {
@@ -465,6 +783,28 @@ func TestValidationDependencyBoundary(t *testing.T) {
 	for _, forbidden := range []string{"github.com/gin-gonic", "net/http", "database/sql", "internal/repository", "CandidateAggregate", "CreateCandidate"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("validation boundary contains %q", forbidden)
+		}
+	}
+	fset := token.NewFileSet()
+	packages, err := parser.ParseDir(fset, ".", func(info os.FileInfo) bool {
+		return filepath.Ext(info.Name()) == ".go" && !strings.HasSuffix(info.Name(), "_test.go")
+	}, parser.ImportsOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := packages["paletteassistant"]
+	if pkg == nil {
+		t.Fatal("paletteassistant package not parsed")
+	}
+	for filename, file := range pkg.Files {
+		for _, spec := range file.Imports {
+			path, err := strconv.Unquote(spec.Path.Value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(path, ".") || path == "net/http" || path == "database/sql" {
+				t.Fatalf("production package import %q in %s violates dependency boundary", path, filename)
+			}
 		}
 	}
 }

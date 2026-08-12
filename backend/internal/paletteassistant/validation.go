@@ -21,6 +21,14 @@ const (
 	maximumDraftColors           = 64
 	maximumSourceNoteRunes       = 500
 	maximumApplicabilityRunes    = 1000
+	maximumDisciplines           = 8
+	maximumUseCases              = 8
+	maximumAvoidCases            = 8
+	maximumTags                  = 16
+	maximumProvenanceEntries     = 128
+	maximumProvenanceTextRunes   = 100
+	maximumReasonCodes           = 16
+	maximumSuggestedValueBytes   = 32 * 1024
 	validationAuthorityIssueCode = "VALIDATION_AUTHORITY_INVALID"
 )
 
@@ -107,10 +115,10 @@ func (v *draftValidator) validateCore(d AssistantDraft) {
 	v.validateColors(d.Colors)
 	v.validateApplicability(d.ChartApplicability)
 	if v.authority != nil {
-		v.validateVocabulary("/disciplines", d.Disciplines, v.authority.Vocabularies.Disciplines)
-		v.validateVocabulary("/use_cases", d.UseCases, v.authority.Vocabularies.UseCases)
-		v.validateVocabulary("/avoid_cases", d.AvoidCases, v.authority.Vocabularies.AvoidCases)
-		v.validateVocabulary("/tags", d.Tags, v.authority.Vocabularies.Tags)
+		v.validateVocabulary("/disciplines", d.Disciplines, v.authority.Vocabularies.Disciplines, maximumDisciplines)
+		v.validateVocabulary("/use_cases", d.UseCases, v.authority.Vocabularies.UseCases, maximumUseCases)
+		v.validateVocabulary("/avoid_cases", d.AvoidCases, v.authority.Vocabularies.AvoidCases, maximumAvoidCases)
+		v.validateVocabulary("/tags", d.Tags, v.authority.Vocabularies.Tags, maximumTags)
 	}
 	if d.SourceType != OnlineSourceType {
 		v.add("/source_type", "INVALID_SOURCE_TYPE", "Source type must be figure_extracted.")
@@ -187,7 +195,10 @@ func (v *draftValidator) validateApplicability(items []DraftChartApplicability) 
 	}
 }
 
-func (v *draftValidator) validateVocabulary(path string, values, allowed []string) {
+func (v *draftValidator) validateVocabulary(path string, values, allowed []string, maximum int) {
+	if len(values) > maximum {
+		v.add(path, "TOO_MANY_VOCABULARY_VALUES", fmt.Sprintf("Collection may contain at most %d values.", maximum))
+	}
 	set := map[string]bool{}
 	for _, value := range allowed {
 		set[value] = true
@@ -207,6 +218,9 @@ func (v *draftValidator) validateVocabulary(path string, values, allowed []strin
 }
 
 func (v *draftValidator) validateProvenance(items []SuggestionProvenance) {
+	if len(items) > maximumProvenanceEntries {
+		v.add("/provenance", "TOO_MANY_PROVENANCE_ENTRIES", "Draft may contain at most 128 provenance entries.")
+	}
 	ambiguityCounts := map[string]int{}
 	for _, p := range items {
 		if p.AmbiguityGroup != "" {
@@ -227,17 +241,38 @@ func (v *draftValidator) validateProvenance(items []SuggestionProvenance) {
 		if !containsNonWhitespace(p.Producer) {
 			v.add(base+"/producer", "PRODUCER_REQUIRED", "Producer is required.")
 		}
+		if utf8.RuneCountInString(p.Producer) > maximumProvenanceTextRunes {
+			v.add(base+"/producer", "PRODUCER_TOO_LONG", "Producer must contain at most 100 Unicode code points.")
+		}
+		if containsControl(p.Producer) {
+			v.add(base+"/producer", "INVALID_PRODUCER", "Producer contains unsupported control characters.")
+		}
 		if !containsNonWhitespace(p.AlgorithmVersion) {
 			v.add(base+"/algorithm_version", "ALGORITHM_VERSION_REQUIRED", "Algorithm version is required.")
 		}
+		if utf8.RuneCountInString(p.AlgorithmVersion) > maximumProvenanceTextRunes {
+			v.add(base+"/algorithm_version", "ALGORITHM_VERSION_TOO_LONG", "Algorithm version must contain at most 100 Unicode code points.")
+		}
+		if containsControl(p.AlgorithmVersion) {
+			v.add(base+"/algorithm_version", "INVALID_ALGORITHM_VERSION", "Algorithm version contains unsupported control characters.")
+		}
 		if len(p.ReasonCodes) == 0 {
 			v.add(base+"/reason_codes", "REASON_CODES_REQUIRED", "At least one reason code is required.")
+		}
+		if len(p.ReasonCodes) > maximumReasonCodes {
+			v.add(base+"/reason_codes", "TOO_MANY_REASON_CODES", "Provenance may contain at most 16 reason codes.")
 		}
 		seen := map[string]bool{}
 		for j, code := range p.ReasonCodes {
 			at := base + "/reason_codes/" + strconv.Itoa(j)
 			if !containsNonWhitespace(code) {
 				v.add(at, "INVALID_REASON_CODE", "Reason code must be non-empty.")
+			}
+			if utf8.RuneCountInString(code) > maximumProvenanceTextRunes {
+				v.add(at, "REASON_CODE_TOO_LONG", "Reason code must contain at most 100 Unicode code points.")
+			}
+			if containsControl(code) {
+				v.add(at, "INVALID_REASON_CODE", "Reason code contains unsupported control characters.")
 			}
 			if seen[code] {
 				v.add(at, "DUPLICATE_REASON_CODE", "Reason code is duplicated.")
@@ -246,9 +281,17 @@ func (v *draftValidator) validateProvenance(items []SuggestionProvenance) {
 		}
 		if len(p.SuggestedValue) == 0 || !json.Valid(p.SuggestedValue) {
 			v.add(base+"/suggested_value", "INVALID_SUGGESTED_VALUE", "Suggested value must be valid JSON.")
+		} else if len(p.SuggestedValue) > maximumSuggestedValueBytes {
+			v.add(base+"/suggested_value", "SUGGESTED_VALUE_TOO_LARGE", "Suggested value may contain at most 32768 encoded bytes.")
 		}
-		if containsControl(p.Producer) || containsControl(p.AlgorithmVersion) || containsControl(p.AmbiguityGroup) {
-			v.add(base, "INVALID_PROVENANCE_TEXT", "Provenance contains unsupported control characters.")
+		if p.AmbiguityGroup != "" && !containsNonWhitespace(p.AmbiguityGroup) {
+			v.add(base+"/ambiguity_group", "INVALID_AMBIGUITY_GROUP", "Ambiguity group must contain a non-whitespace character.")
+		}
+		if utf8.RuneCountInString(p.AmbiguityGroup) > maximumProvenanceTextRunes {
+			v.add(base+"/ambiguity_group", "AMBIGUITY_GROUP_TOO_LONG", "Ambiguity group must contain at most 100 Unicode code points.")
+		}
+		if containsControl(p.AmbiguityGroup) {
+			v.add(base+"/ambiguity_group", "INVALID_AMBIGUITY_GROUP", "Ambiguity group contains unsupported control characters.")
 		}
 		if p.AmbiguityGroup != "" && ambiguityCounts[p.AmbiguityGroup] < 2 && !containsAmbiguityReason(p.ReasonCodes) {
 			v.add(base+"/ambiguity_group", "INVALID_AMBIGUITY_GROUP", "Ambiguity group must identify alternatives or carry an ambiguity reason.")
@@ -546,9 +589,9 @@ func (v *draftValidator) validateSchema(value any, n schemaNode, path, code stri
 			refs = append(refs, nested...)
 		}
 		for _, rule := range n.Rules {
-			array, _ := obj[rule.ArrayField].([]any)
-			discriminator, _ := obj[rule.DiscriminatorField].(string)
-			if minimum, ok := rule.Cases[discriminator]; ok && len(array) < minimum {
+			array, arrayOK := obj[rule.ArrayField].([]any)
+			discriminator, discriminatorOK := obj[rule.DiscriminatorField].(string)
+			if minimum, ok := rule.Cases[discriminator]; arrayOK && discriminatorOK && ok && len(array) < minimum {
 				v.add(path+"/"+escapePointer(rule.ArrayField), code, "Array does not meet the conditional minimum.")
 			}
 		}
