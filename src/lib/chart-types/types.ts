@@ -17,6 +17,7 @@ export type ChartRegistryIssueCode =
   | 'UNSUPPORTED_SCHEMA_VERSION'
   | 'INVALID_COLOR_ROLES'
   | 'INVALID_PREVIEW_CONFIG'
+  | 'DUPLICATE_ROLE_KEY'
   | 'DUPLICATE_CHART_TYPE'
   | 'DUPLICATE_TEMPLATE_ID'
 
@@ -28,9 +29,51 @@ export interface ChartTemplateDefinition<
   chartType: ChartType
   templateVersion: number
   schemaVersion: number
+  rolesSchema: PreviewSchema
+  configSchema: PreviewSchema
 
   validateRoles(value: unknown): ValidationResult & { value?: TRoles }
   validateConfig(value: unknown): ValidationResult & { value?: TConfig }
+}
+
+export type PreviewSchema =
+  | { kind: 'object'; fields: Record<string, PreviewSchemaField>; exact: boolean; rules?: PreviewObjectRule[] }
+  | { kind: 'array'; items: PreviewSchema; minItems?: number; maxItems?: number; rules?: PreviewSchemaRule[] }
+  | { kind: 'string'; nonWhitespace?: boolean; enum?: string[] }
+  | { kind: 'number'; integer?: boolean; min?: number; max?: number }
+  | { kind: 'boolean' }
+  | { kind: 'palette_reference' }
+  | { kind: 'visual_reference'; themeTokens: string[] }
+
+export interface PreviewSchemaField {
+  required: boolean
+  schema: PreviewSchema
+}
+
+export type PreviewSchemaRule =
+  | { kind: 'unique_by'; field: string; issueCode?: ChartRegistryIssueCode }
+  | { kind: 'strictly_increasing'; field: string }
+
+export type PreviewObjectRule = { kind: 'conditional_min_items'; arrayField: string; discriminatorField: string; cases: Record<string, number> }
+
+export interface PreviewRegistryProjection {
+  projection_format_version: number
+  charts: Array<{
+    chart_type: string
+    templates: Array<{
+      template_id: string
+      template_version: number
+      schema_version: number
+      roles_schema: PreviewSchema
+      config_schema: PreviewSchema
+    }>
+  }>
+  vocabularies: {
+    disciplines: string[]
+    use_cases: string[]
+    avoid_cases: string[]
+    tags: string[]
+  }
 }
 
 export interface ChartTypeDefinition {

@@ -1,4 +1,5 @@
 import type { ChartType } from '@/types/palette'
+import controlledVocabularies from '../../../contracts/palette-ingestion/v1/controlled-vocabularies.json'
 import { barErrorTemplate } from './bar-error/definition'
 import { boxplotJitterTemplate } from './boxplot-jitter/definition'
 import { heatmapAnnotatedTemplate } from './heatmap-annotated/definition'
@@ -13,6 +14,7 @@ import {
   type ChartTypeDefinition,
   type PreviewCaseRegistryInput,
   type RegistryValidationResult,
+  type PreviewRegistryProjection,
   type TemplateLookupResult,
   type ValidationResult
 } from './types'
@@ -43,6 +45,30 @@ export const CHART_TYPE_DEFINITIONS: readonly ChartTypeDefinition[] = registerCh
     templates: [violinDistributionTemplate]
   }
 ])
+
+export const PREVIEW_REGISTRY_PROJECTION_FORMAT_VERSION = 1
+
+export function createPreviewRegistryProjection(): PreviewRegistryProjection {
+  return {
+    projection_format_version: PREVIEW_REGISTRY_PROJECTION_FORMAT_VERSION,
+    charts: CHART_TYPE_DEFINITIONS.map((chart) => ({
+      chart_type: chart.chartType,
+      templates: chart.templates.map((template) => ({
+        template_id: template.id,
+        template_version: template.templateVersion,
+        schema_version: template.schemaVersion,
+        roles_schema: template.rolesSchema,
+        config_schema: template.configSchema
+      }))
+    })),
+    vocabularies: {
+      disciplines: [...controlledVocabularies.disciplines],
+      use_cases: [...controlledVocabularies.use_cases],
+      avoid_cases: [...controlledVocabularies.avoid_cases],
+      tags: [...controlledVocabularies.tags]
+    }
+  }
+}
 
 export function getChartTypeDefinition(chartType: ChartType | string): ChartTypeDefinition | undefined {
   return CHART_TYPE_DEFINITIONS.find((definition) => definition.chartType === chartType)
