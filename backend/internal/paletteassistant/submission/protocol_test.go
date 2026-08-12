@@ -89,6 +89,84 @@ func TestStrictDecoderRejectsTransportMatrix(t *testing.T) {
 	}
 }
 
+func TestStrictDecoderClassifiesSyntaxFailures(t *testing.T) {
+	cases := []struct{ name, body, code, path string }{{"duplicate root", `{"draft":{},"draft":{},"confirmed_revision":1}`, "DUPLICATE_JSON_MEMBER", "/draft"}, {"duplicate deep", `{"draft":{"colors":[{"id":"a","id":"b"}]},"confirmed_revision":1}`, "DUPLICATE_JSON_MEMBER", "/draft/colors/0/id"}, {"malformed", `{"draft":`, "MALFORMED_JSON", "/draft"}, {"trailing object", `{"draft":{},"confirmed_revision":1} {}`, "TRAILING_JSON_VALUE", "/"}, {"trailing primitive", `{"draft":{},"confirmed_revision":1} 1`, "TRAILING_JSON_VALUE", "/"}}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := decodeValidateBody(tc.body)
+			if p == nil || len(p.Issues) != 1 || p.Issues[0].Code != tc.code || p.Issues[0].Path != tc.path {
+				t.Fatalf("problem=%+v", p)
+			}
+		})
+	}
+}
+
+func TestStrictDecoderRejectsNestedNullsAndAllowsFrozenNullableJSON(t *testing.T) {
+	base := validDraft()
+	request := pa.ValidateRequest{Draft: base, ConfirmedRevision: 1}
+	raw, _ := json.Marshal(request)
+	var root map[string]any
+	if json.Unmarshal(raw, &root) != nil {
+		t.Fatal("fixture")
+	}
+	mutations := []struct {
+		name, path string
+		mutate     func(map[string]any)
+	}{{"accessibility bool", "/draft/accessibility/colorblind_safe", func(r map[string]any) { draftMap(r)["accessibility"].(map[string]any)["colorblind_safe"] = nil }}, {"color id", "/draft/colors/0/id", func(r map[string]any) { draftMap(r)["colors"].([]any)[0].(map[string]any)["id"] = nil }}, {"color order", "/draft/colors/0/order", func(r map[string]any) { draftMap(r)["colors"].([]any)[0].(map[string]any)["order"] = nil }}, {"applicability", "/draft/chart_applicability/0/chart_type", func(r map[string]any) {
+		draftMap(r)["chart_applicability"].([]any)[0].(map[string]any)["chart_type"] = nil
+	}}, {"metadata element", "/draft/disciplines/0", func(r map[string]any) { draftMap(r)["disciplines"].([]any)[0] = nil }}, {"provenance field", "/draft/provenance/0/producer", func(r map[string]any) { draftMap(r)["provenance"].([]any)[0].(map[string]any)["producer"] = nil }}, {"reason code", "/draft/provenance/0/reason_codes/0", func(r map[string]any) {
+		draftMap(r)["provenance"].([]any)[0].(map[string]any)["reason_codes"].([]any)[0] = nil
+	}}, {"preview version", "/draft/preview_cases/0/template_version", func(r map[string]any) {
+		draftMap(r)["preview_cases"].([]any)[0].(map[string]any)["template_version"] = nil
+	}}, {"confirmation", "/confirmed_revision", func(r map[string]any) { r["confirmed_revision"] = nil }}}
+	for _, tc := range mutations {
+		t.Run(tc.name, func(t *testing.T) {
+			var clone map[string]any
+			encoded, _ := json.Marshal(root)
+			json.Unmarshal(encoded, &clone)
+			tc.mutate(clone)
+			body, _ := json.Marshal(clone)
+			p := decodeValidateBody(string(body))
+			if p == nil || len(p.Issues) != 1 || p.Issues[0].Code != "NULL_NOT_ALLOWED" && p.Issues[0].Code != "REQUIRED_FIELD" || p.Issues[0].Path != tc.path {
+				t.Fatalf("problem=%+v", p)
+			}
+		})
+	}
+	for _, test := range []struct {
+		name   string
+		mutate func(map[string]any)
+	}{{"stable omitted", func(r map[string]any) {
+		preview := draftMap(r)["preview_cases"].([]any)[0].(map[string]any)
+		preview["seed_strategy"] = "stable_id"
+		delete(preview, "seed_value")
+	}}, {"stable explicit null", func(r map[string]any) {
+		preview := draftMap(r)["preview_cases"].([]any)[0].(map[string]any)
+		preview["seed_strategy"] = "stable_id"
+		preview["seed_value"] = nil
+	}}, {"suggested clear", func(r map[string]any) { draftMap(r)["provenance"].([]any)[0].(map[string]any)["suggested_value"] = nil }}} {
+		t.Run(test.name, func(t *testing.T) {
+			var clone map[string]any
+			encoded, _ := json.Marshal(root)
+			json.Unmarshal(encoded, &clone)
+			test.mutate(clone)
+			body, _ := json.Marshal(clone)
+			if p := decodeValidateBody(string(body)); p != nil {
+				t.Fatalf("problem=%+v", p)
+			}
+		})
+	}
+}
+
+func decodeValidateBody(body string) *pa.Problem {
+	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = r
+	var req pa.ValidateRequest
+	return decodeStrict(c, &req, []string{"draft", "confirmed_revision"})
+}
+func draftMap(root map[string]any) map[string]any { return root["draft"].(map[string]any) }
+
 func TestDraftColorMappingOnlyRewritesPaletteReferences(t *testing.T) {
 	ids := map[string]string{"draft": "persisted"}
 	raw, err := mapReferences(json.RawMessage(`{"fill":{"source":"palette","color_id":"draft","hex":"#000000","index":9},"theme":{"source":"theme","token":"foreground"}}`), ids)
@@ -116,6 +194,30 @@ func TestInvalidDraftDoesNotQueryRepository(t *testing.T) {
 	result := service.Validate(context.Background(), "actor", pa.ValidateRequest{})
 	if result.Problem == nil || result.Problem.Code != pa.ErrInvalidDraft || repo.calls != 0 {
 		t.Fatalf("result=%+v calls=%d", result, repo.calls)
+	}
+}
+
+func TestPreviewRawMessageNullUsesGeneratedSchemaValidation(t *testing.T) {
+	repo := &countingRepo{}
+	service, _ := NewService(repo, bytes.Repeat([]byte("s"), 32), time.Now)
+	draft := validDraft()
+	draft.PreviewCases[0].ColorRoles = json.RawMessage(`{"groups":[{"key":null,"label":"A","fill":{"source":"palette","color_id":"11111111-1111-4111-8111-111111111111"}}],"elements":{"axis":{"source":"theme","token":"foreground"},"grid":{"source":"theme","token":"grid"},"text":{"source":"theme","token":"foreground"},"error_bar":{"source":"theme","token":"foreground"},"background":{"source":"theme","token":"background"}}}`)
+	raw, _ := json.Marshal(pa.ValidateRequest{Draft: draft, ConfirmedRevision: 1})
+	if p := decodeValidateBody(string(raw)); p != nil {
+		t.Fatalf("transport duplicated Preview schema: %+v", p)
+	}
+	result := service.Validate(context.Background(), "actor", pa.ValidateRequest{Draft: draft, ConfirmedRevision: 1})
+	if result.Problem == nil || result.Problem.Code != pa.ErrInvalidDraft || repo.calls != 0 {
+		t.Fatalf("result=%+v calls=%d", result, repo.calls)
+	}
+	found := false
+	for _, issue := range result.Problem.Issues {
+		if issue.Path == "/preview_cases/0/color_roles/groups/0/key" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("missing generated-schema pointer: %+v", result.Problem.Issues)
 	}
 }
 

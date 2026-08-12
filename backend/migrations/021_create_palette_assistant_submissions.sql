@@ -4,6 +4,46 @@ ALTER TABLE palettes
     ADD COLUMN exact_fingerprint CHAR(64),
     ADD COLUMN exact_fingerprint_version INTEGER;
 
+-- Fail closed before any fingerprint backfill. Legacy JSON is inspected, not
+-- repaired or normalized, so the SQL projection has exactly the Go/JCS input.
+DO $$
+DECLARE
+    palette_row RECORD;
+    color_row RECORD;
+    color_total INTEGER;
+    order_total INTEGER;
+BEGIN
+    FOR palette_row IN SELECT id, colors FROM palettes LOOP
+        IF jsonb_typeof(palette_row.colors) IS DISTINCT FROM 'array'
+           OR jsonb_array_length(palette_row.colors) = 0 THEN
+            RAISE EXCEPTION 'migration 021 legacy palette color shape is invalid for palette %', palette_row.id;
+        END IF;
+        color_total := jsonb_array_length(palette_row.colors);
+        FOR color_row IN SELECT value FROM jsonb_array_elements(palette_row.colors) LOOP
+            IF jsonb_typeof(color_row.value) IS DISTINCT FROM 'object'
+               OR jsonb_typeof(color_row.value->'hex') IS DISTINCT FROM 'string'
+               OR (color_row.value->>'hex') !~ '^#[0-9A-F]{6}$'
+               OR jsonb_typeof(color_row.value->'order') IS DISTINCT FROM 'number'
+               OR (color_row.value->>'order')::numeric <> trunc((color_row.value->>'order')::numeric)
+               OR (color_row.value->>'order')::numeric < 0
+               OR (color_row.value->>'order')::numeric >= color_total THEN
+                RAISE EXCEPTION 'migration 021 legacy palette color shape is invalid for palette %', palette_row.id;
+            END IF;
+        END LOOP;
+        SELECT count(DISTINCT (value->>'order')::integer)
+          INTO order_total FROM jsonb_array_elements(palette_row.colors);
+        IF order_total <> color_total OR EXISTS (
+            SELECT 1 FROM generate_series(0, color_total - 1) expected
+            WHERE NOT EXISTS (
+                SELECT 1 FROM jsonb_array_elements(palette_row.colors) color
+                WHERE (color->>'order')::integer = expected
+            )
+        ) THEN
+            RAISE EXCEPTION 'migration 021 legacy palette color order is invalid for palette %', palette_row.id;
+        END IF;
+    END LOOP;
+END $$;
+
 UPDATE palettes p SET
     exact_fingerprint = (
       SELECT encode(digest(convert_to(
@@ -12,6 +52,18 @@ UPDATE palettes p SET
       FROM jsonb_array_elements(p.colors) AS color
     ),
     exact_fingerprint_version = 1;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM palettes
+        WHERE owner_user_id IS NULL AND visibility = 'public'
+          AND status IN ('candidate', 'published')
+          AND (exact_fingerprint IS NULL OR exact_fingerprint_version <> 1)
+    ) THEN
+        RAISE EXCEPTION 'migration 021 active public Palette exact fingerprint could not be computed';
+    END IF;
+END $$;
 
 DO $$
 BEGIN

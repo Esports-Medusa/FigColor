@@ -3,10 +3,11 @@ package submission
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,10 @@ import (
 const jsonBodyLimit = 512 * 1024
 
 var uuidV4 = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+
+type jsonBoundaryError struct{ code, path string }
+
+func (e *jsonBoundaryError) Error() string { return e.code }
 
 type Handler struct{ service *Service }
 
@@ -72,8 +77,13 @@ func decodeStrict(c *gin.Context, target any, required []string) *pa.Problem {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return &pa.Problem{Code: pa.ErrMalformedRequest, Message: "The JSON request body is required."}
 	}
-	if err := rejectDuplicateKeys(raw); err != nil {
-		return &pa.Problem{Code: pa.ErrMalformedRequest, Message: "The JSON request body contains duplicate object members."}
+	if err := inspectJSON(raw); err != nil {
+		boundary, ok := err.(*jsonBoundaryError)
+		if !ok {
+			boundary = &jsonBoundaryError{code: "MALFORMED_JSON", path: "/"}
+		}
+		messages := map[string]string{"DUPLICATE_JSON_MEMBER": "The JSON request body contains a duplicate object member.", "TRAILING_JSON_VALUE": "The JSON request body contains a trailing JSON value.", "MALFORMED_JSON": "The JSON request body is malformed."}
+		return &pa.Problem{Code: pa.ErrMalformedRequest, Message: messages[boundary.code], Issues: []pa.FieldIssue{{Path: boundary.path, Code: boundary.code, Message: messages[boundary.code]}}}
 	}
 	var envelope map[string]json.RawMessage
 	if json.Unmarshal(raw, &envelope) != nil || envelope == nil {
@@ -99,6 +109,13 @@ func decodeStrict(c *gin.Context, target any, required []string) *pa.Problem {
 	if len(issues) > 0 {
 		return &pa.Problem{Code: pa.ErrMalformedRequest, Message: "Required request fields are missing.", Issues: issues}
 	}
+	var untyped any
+	if json.Unmarshal(raw, &untyped) != nil {
+		return &pa.Problem{Code: pa.ErrMalformedRequest, Message: "The JSON request body is malformed."}
+	}
+	if nullPath := firstForbiddenNull(untyped, ""); nullPath != "" {
+		return &pa.Problem{Code: pa.ErrMalformedRequest, Message: "A required JSON field cannot be null.", Issues: []pa.FieldIssue{{Path: nullPath, Code: "NULL_NOT_ALLOWED", Message: "This field cannot be null."}}}
+	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(target); err != nil {
@@ -109,13 +126,13 @@ func decodeStrict(c *gin.Context, target any, required []string) *pa.Problem {
 	}
 	return nil
 }
-func rejectDuplicateKeys(raw []byte) error {
+func inspectJSON(raw []byte) error {
 	d := json.NewDecoder(bytes.NewReader(raw))
-	var value func() error
-	value = func() error {
+	var value func(string) error
+	value = func(path string) error {
 		tok, e := d.Token()
 		if e != nil {
-			return e
+			return &jsonBoundaryError{code: "MALFORMED_JSON", path: pathOrRoot(path)}
 		}
 		delim, ok := tok.(json.Delim)
 		if !ok {
@@ -130,35 +147,101 @@ func rejectDuplicateKeys(raw []byte) error {
 					return e
 				}
 				key, ok := k.(string)
+				memberPath := path + "/" + escapePointer(key)
 				if !ok || seen[key] {
-					return errors.New("duplicate")
+					return &jsonBoundaryError{code: "DUPLICATE_JSON_MEMBER", path: memberPath}
 				}
 				seen[key] = true
-				if e = value(); e != nil {
+				if e = value(memberPath); e != nil {
 					return e
 				}
 			}
 			_, e = d.Token()
-			return e
+			if e != nil {
+				return &jsonBoundaryError{code: "MALFORMED_JSON", path: pathOrRoot(path)}
+			}
+			return nil
 		case '[':
-			for d.More() {
-				if e := value(); e != nil {
+			for index := 0; d.More(); index++ {
+				if e := value(path + "/" + strconv.Itoa(index)); e != nil {
 					return e
 				}
 			}
 			_, e = d.Token()
-			return e
+			if e != nil {
+				return &jsonBoundaryError{code: "MALFORMED_JSON", path: pathOrRoot(path)}
+			}
+			return nil
 		default:
-			return errors.New("unexpected delimiter")
+			return &jsonBoundaryError{code: "MALFORMED_JSON", path: pathOrRoot(path)}
 		}
 	}
-	if e := value(); e != nil {
+	if e := value(""); e != nil {
 		return e
 	}
 	if _, e := d.Token(); e != io.EOF {
-		return errors.New("trailing")
+		if e == nil {
+			return &jsonBoundaryError{code: "TRAILING_JSON_VALUE", path: "/"}
+		}
+		return &jsonBoundaryError{code: "MALFORMED_JSON", path: "/"}
 	}
 	return nil
+}
+func firstForbiddenNull(value any, path string) string {
+	if suggestedValuePath(path) || previewRawPath(path) {
+		return ""
+	}
+	switch current := value.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(current))
+		for key := range current {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			item := current[key]
+			next := path + "/" + escapePointer(key)
+			if item == nil && !nullableJSONPath(next) {
+				return next
+			}
+			if found := firstForbiddenNull(item, next); found != "" {
+				return found
+			}
+		}
+	case []any:
+		for i, item := range current {
+			next := path + "/" + strconv.Itoa(i)
+			if item == nil {
+				return next
+			}
+			if found := firstForbiddenNull(item, next); found != "" {
+				return found
+			}
+		}
+	}
+	return ""
+}
+func nullableJSONPath(path string) bool { return seedValuePath(path) || suggestedValuePath(path) }
+func seedValuePath(path string) bool {
+	parts := strings.Split(path, "/")
+	return len(parts) == 5 && parts[1] == "draft" && parts[2] == "preview_cases" && parts[4] == "seed_value"
+}
+func suggestedValuePath(path string) bool {
+	parts := strings.Split(path, "/")
+	return len(parts) == 5 && parts[1] == "draft" && parts[2] == "provenance" && parts[4] == "suggested_value"
+}
+func previewRawPath(path string) bool {
+	parts := strings.Split(path, "/")
+	return len(parts) == 5 && parts[1] == "draft" && parts[2] == "preview_cases" && (parts[4] == "color_roles" || parts[4] == "preview_config")
+}
+func escapePointer(value string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(value, "~", "~0"), "/", "~1")
+}
+func pathOrRoot(path string) string {
+	if path == "" {
+		return "/"
+	}
+	return path
 }
 func writeResult(c *gin.Context, r Result) {
 	if r.Problem != nil {
