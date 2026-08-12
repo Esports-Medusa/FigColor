@@ -1,5 +1,5 @@
 import type { DraftPreviewCase } from '@/api/paletteAssistant'
-import { validatePreviewCaseAgainstRegistry } from '@/lib/chart-types/registry'
+import { getChartTemplateDefinition, validatePreviewCaseAgainstRegistry } from '@/lib/chart-types/registry'
 import type { ValidationIssue } from '@/types/palette'
 import type { EditableAssistantDraft, EditableDraftColor } from './workbench'
 
@@ -41,7 +41,9 @@ export function validateDraftPreviewCase(
   const issues = registryValidation.issues.map((item) => ({ ...item, path: `${path}.${item.path}` }))
   issues.push(...validateSeed(previewCase, path))
 
-  if (registryValidation.valid) {
+  const template = getChartTemplateDefinition(previewCase.chart_type, previewCase.template_id)
+  const rolesAreSafeToInterpret = template?.validateRoles(previewCase.color_roles).valid === true
+  if (rolesAreSafeToInterpret) {
     for (const reference of collectValidatedPaletteReferences(previewCase.color_roles, `${path}.color_roles`)) {
       if (!UUID_PATTERN.test(reference.colorId)) {
         issues.push({
@@ -66,11 +68,16 @@ function validateSeed(previewCase: DraftPreviewCase, path: string): ValidationIs
   if (previewCase.seed_strategy !== 'stable_id' && previewCase.seed_strategy !== 'fixed') {
     return [{ path: `${path}.seed_strategy`, code: 'INVALID_SEED_STRATEGY', message: 'Preview seed_strategy must be stable_id or fixed.' }]
   }
-  if (previewCase.seed_strategy === 'fixed' && !Number.isInteger(previewCase.seed_value)) {
+  if (previewCase.seed_strategy === 'stable_id') {
+    return previewCase.seed_value === undefined
+      ? []
+      : [{ path: `${path}.seed_value`, code: 'INVALID_SEED_VALUE', message: 'Stable ID Preview seed_strategy requires seed_value to be omitted.' }]
+  }
+  if (!Number.isInteger(previewCase.seed_value)) {
     return [{ path: `${path}.seed_value`, code: 'INVALID_SEED_VALUE', message: 'Fixed Preview seed_strategy requires an integer seed_value.' }]
   }
-  if (previewCase.seed_value !== undefined && !Number.isInteger(previewCase.seed_value)) {
-    return [{ path: `${path}.seed_value`, code: 'INVALID_SEED_VALUE', message: 'Preview seed_value must be an integer when present.' }]
+  if (previewCase.seed_value! < -2147483648 || previewCase.seed_value! > 2147483647) {
+    return [{ path: `${path}.seed_value`, code: 'INVALID_SEED_VALUE', message: 'Fixed Preview seed_value must be a signed 32-bit integer.' }]
   }
   return []
 }
