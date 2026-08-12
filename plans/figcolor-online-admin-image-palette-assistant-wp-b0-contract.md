@@ -91,9 +91,9 @@ The labels used below are normative: **Verified repository fact**, **Frozen WP-B
 
 | Label | Draft field | Type | Authority | Suggest? | Confirm? | Candidate required? | Persisted? | Editable? | Default / behavior |
 |---|---|---|---|---:|---:|---:|---:|---:|---|
-| Frozen WP-B0 decision | `name` | bounded string | Palette validation | yes | yes | yes | yes | yes | blocking if blank/invalid |
+| Frozen WP-B0 decision | `name` | bounded string | Palette validation | yes | yes | yes | yes | yes | required non-whitespace content; maximum 100 Unicode code points; no silent trim/truncation |
 | Frozen WP-B0 decision | `type` | enum | Go Palette validation | yes | yes | yes | yes | yes | blocking; four canonical values |
-| Frozen WP-B0 decision | `colors` | ordered objects | Go color validation | yes | yes | yes | yes | yes | canonical HEX/order required; invalid values block rather than being silently normalized |
+| Frozen WP-B0 decision | `colors` | 1..64 ordered objects | Go color validation | yes | yes | yes | yes | yes | editable Draft maximum is 64; canonical HEX/order required; invalid values block rather than being silently normalized or truncated |
 | Frozen WP-B0 decision | `chart_applicability` | array | Go preview vocabulary | yes | yes | yes, ≥1 | yes | yes | source persisted as server-derived `curated`; blocking |
 | Frozen WP-B0 decision | `disciplines` | string array | `contracts/palette-ingestion/v1/controlled-vocabularies.json` | yes | yes | yes, may be empty | yes | yes | unknown value blocks |
 | Frozen WP-B0 decision | `use_cases` | string array | same file | yes | yes | yes, may be empty | yes as `use_case` | yes | unknown value blocks |
@@ -108,6 +108,7 @@ The labels used below are normative: **Verified repository fact**, **Frozen WP-B
 | Deferred | `tasks`, `user_suitability` | absent | none | no | no | no | no | no | not mapped elsewhere |
 
 - **Frozen WP-B0 decision:** `figure_extracted` accurately describes an Admin-confirmed palette derived from a figure even though the request-scoped image is not retained. It is distinct from offline package `manual_colors`.
+- **Frozen WP-B5.4 allocation:** Analyze emits at most 12 retained color suggestions, while the Admin-editable online Draft accepts 1..64 colors. The online maximum 64 is independently authorized and does not inherit from or change the offline `manual_colors` contract. Preview defaults continue using their existing chart-specific subset and need not reference every Draft color.
 - **Frozen WP-B0 decision:** `source_image` is the database empty string for online Candidates. `source_note` never contains filename/path, DOI/inferred identity, assistant reasoning, hidden metadata, or raw evidence.
 - **Verified repository fact:** Controlled vocabulary JSON is currently consumed by Node/offline code, while Go duplicates chart/type rules and TypeScript owns chart registries. There is no single generated cross-language owner today.
 - **Frozen WP-B5.4 allocation:** WP-B5.4 loads the existing controlled-vocabulary authority into its deterministic generated validation material and adds the applicable cross-language parity/drift tests without forking a vocabulary. WP-B6 consumes and binds that validator vocabulary version in online Validate/Create receipts and retains endpoint/database drift checks that require its transport or persistence scope.

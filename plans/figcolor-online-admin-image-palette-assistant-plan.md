@@ -696,10 +696,13 @@ Validation covers `contract_version`, positive `revision`, `name`, Palette
 `source_type`, `source_note`, Preview Cases, and provenance structure. Existing
 WP-B0/Plan B authorities and limits are reused rather than copied or changed.
 
-- `name` must be non-empty after trimming, but its bytes are never modified. No
-  name maximum is frozen by the current authoritative plan; that maximum remains
-  an explicit decision required before WP-B5.4 implementation and must not be
-  guessed.
+- `name` is required, must contain at least one non-whitespace Unicode code
+  point, and contains at most 100 Unicode code points. Counting uses Unicode
+  code points (Go semantics equivalent to `utf8.RuneCountInString`), not UTF-8
+  bytes, UTF-16 code units, or grapheme clusters. Exactly 100 is valid and 101
+  receives `/name` code `NAME_TOO_LONG`. The validator neither trims nor
+  truncates and preserves the actual input string; existing sanitizer and
+  control-character rules continue unchanged.
 - `type` is exactly one of `categorical`, `sequential`, `diverging`, or `mixed`.
 - `source_type` is exactly `figure_extracted`. Client input never chooses
   persisted origin, status, or visibility.
@@ -709,12 +712,17 @@ WP-B0/Plan B authorities and limits are reused rather than copied or changed.
 - `accessibility` retains the frozen boolean shape; the validator does not infer
   or upgrade any claim.
 
-There is at least one retained Draft color. No online Draft maximum color count
-is frozen by the current authoritative plan: the Analyze suggestion cap and the
-offline ingestion cap govern different boundaries and are not B5.4 authority.
-The Draft maximum therefore remains an explicit decision required before
-WP-B5.4 implementation and must not be guessed. Each ID is a canonical lowercase
-hyphenated UUID and is unique. HEX is
+There are 1..64 retained Draft colors. Zero is invalid, 1 and 64 satisfy this
+general count boundary, and 65 receives `/colors` code `TOO_MANY_COLORS`.
+Palette-type-specific minimums may additionally apply without changing the
+general boundary. The Analyze suggestion maximum remains 12: an Admin may grow
+the editable Draft from 12 to 64 manually, but Analyze does not emit more than
+12 suggestions. The online value 64 is an independently authorized product
+limit, not inheritance from the numerically equal offline `manual_colors` limit,
+and changes no offline contract. Preview defaults retain their existing
+chart-specific 2/3/5-color behavior, and a Preview may reference only the subset
+it needs rather than every Draft color. Validation never truncates or mutates
+the array. Each ID is a canonical lowercase hyphenated UUID and is unique. HEX is
 canonical uppercase six-digit `#[0-9A-F]{6}` and unique; duplicate HEX is an
 issue, never deduplicated. Each `order` equals its array position, producing a
 zero-based contiguous sequence. Identity is never substituted by HEX, index,
@@ -736,7 +744,7 @@ Metadata field semantics are explicit:
 | `avoid_cases` | Closed vocabulary from the same authority |
 | `tags` | Closed vocabulary from the same authority |
 | `source_note` | Bounded free text under the online sanitizer |
-| Palette `name` | Bounded free text; maximum unresolved as stated above |
+| Palette `name` | Bounded free text; required non-whitespace content and maximum 100 Unicode code points |
 
 Closed values require canonical exact matches: no trim/case conversion is used
 to accept them, collections contain no duplicates, and existing cardinality and
@@ -847,6 +855,14 @@ registry fingerprint, and TypeScript/Go parity/drift protection. Tests require n
 PostgreSQL. Both future Validate and Create are designated to use the one
 validator, while no API, database, or persistence behavior is implemented.
 Migration runtime acceptance remains separate verification debt.
+
+The future boundary test matrix includes:
+
+- name: empty, whitespace-only, one code point, exactly 100 code points, 101
+  code points, multibyte Unicode counted by code point, and input immutability;
+- colors: counts 0, 1, 12, 13, 64, and 65; an Analyze-seeded 12-color Draft;
+  an Admin-expanded 64-color Draft; a Preview referencing only a color subset;
+  and proof the input is neither truncated nor mutated.
 
 Completion does not mean the Validate endpoint, Create endpoint, Candidate
 persistence, or migration runtime acceptance is complete. Required order is:
@@ -974,6 +990,6 @@ WP-B0 through WP-B3 are complete. WP-B4A's backend implementation is committed
 at `395fbfa`; its production frontend Analyze client and drift tests are implemented
 as an uncommitted completion pending independent review. WP-B4 remains blocked
 until that review and a separate completion commit. WP-B5.4's implementation
-contract is frozen above but its implementation remains blocked on the explicit
-online Draft name-length and maximum-color-count decisions. WP-B6 remains
-unimplemented and retains Validate/Create transport and persistence ownership.
+contract, including its online name and color-count bounds, is frozen above.
+WP-B6 remains unimplemented and retains Validate/Create transport and
+persistence ownership.
