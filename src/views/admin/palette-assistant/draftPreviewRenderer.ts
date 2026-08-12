@@ -22,17 +22,29 @@ export function renderDraftPreview(
 ): DraftPreviewRenderModel {
   const issues = validateDraftPreviewCase(previewCase, draft.colors)
   if (issues.length > 0) return { state: 'invalid', markup: '', message: 'Draft Preview validation failed.', issues }
-  const result = render(toRenderPalette(draft), toRenderPreviewCase(previewCase))
-  return modelFromResult(result)
+  const referencedColorIds = collectReferencedColorIds(previewCase.color_roles)
+  const hexIssues = draft.colors.flatMap((color, index) =>
+    referencedColorIds.has(color.id) && !/^#[0-9A-F]{6}$/.test(color.hex)
+      ? [{ path: `colors[${index}].hex`, code: 'INVALID_HEX', message: 'Referenced Draft color must use canonical HEX such as #1A2B3C.' }]
+      : []
+  )
+  if (hexIssues.length > 0) return { state: 'invalid', markup: '', message: 'Draft Preview validation failed.', issues: hexIssues }
+
+  try {
+    const result = render(toRenderPalette(draft, referencedColorIds), toRenderPreviewCase(previewCase))
+    return modelFromResult(result)
+  } catch {
+    return { state: 'error', markup: '', message: 'Draft Preview could not be rendered.', issues: [] }
+  }
 }
 
-export function toRenderPalette(draft: EditableAssistantDraft): CanonicalPalette {
-  const colors = draft.colors.map((color, index) => ({
+export function toRenderPalette(draft: EditableAssistantDraft, referencedColorIds?: ReadonlySet<string>): CanonicalPalette {
+  const colors = draft.colors.filter((color) => !referencedColorIds || referencedColorIds.has(color.id)).map((color) => ({
     id: color.id,
     hex: color.hex,
     rgb: hexToRgb(color.hex),
     label: color.label,
-    order: index
+    order: color.order
   }))
   return {
     id: DRAFT_RENDER_PALETTE_KEY, slug: DRAFT_RENDER_PALETTE_KEY, name: draft.name,
@@ -72,6 +84,17 @@ function modelFromResult(result: PreviewRenderResult): DraftPreviewRenderModel {
 }
 
 function hexToRgb(hex: string): [number, number, number] {
-  if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return [0, 0, 0]
+  if (!/^#[0-9A-F]{6}$/.test(hex)) throw new Error('Invalid canonical Draft color HEX.')
   return [Number.parseInt(hex.slice(1, 3), 16), Number.parseInt(hex.slice(3, 5), 16), Number.parseInt(hex.slice(5, 7), 16)]
+}
+
+function collectReferencedColorIds(value: unknown, result = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectReferencedColorIds(item, result))
+  } else if (typeof value === 'object' && value !== null) {
+    const record = value as Record<string, unknown>
+    if (record.source === 'palette' && typeof record.color_id === 'string') result.add(record.color_id)
+    Object.values(record).forEach((item) => collectReferencedColorIds(item, result))
+  }
+  return result
 }

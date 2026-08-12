@@ -41,3 +41,25 @@ const errored = renderDraftPreview(renderableDraft, renderableDraft.preview_case
 expect(unsupported.state === 'unsupported' && errored.state === 'error', 'adapter must preserve distinct unsupported and renderer-error states')
 const maxSeed = createPreviewDefaults('bar_error', ids, 2147483647)
 expect(maxSeed.ok && renderDraftPreview(renderableDraft, maxSeed.value).state === 'svg', 'signed 32-bit maximum seed must be renderable')
+
+const throwingDraft = structuredClone(renderableDraft)
+const beforeThrow = JSON.stringify(throwingDraft)
+const thrown = renderDraftPreview(throwingDraft, throwingDraft.preview_cases[0], () => { throw new Error('sensitive renderer detail') })
+expect(thrown.state === 'error' && thrown.markup === '' && thrown.message === 'Draft Preview could not be rendered.', 'thrown renderer errors must be contained without leaking internal details')
+expect(!thrown.message.includes('sensitive') && JSON.stringify(throwingDraft) === beforeThrow && throwingDraft.revision === 1, 'thrown renderer must not leak details, mutate Draft, or change revision')
+
+const invalidHexDraft = structuredClone(renderableDraft)
+invalidHexDraft.colors[1].hex = 'not-a-hex'
+let invalidRendererCalls = 0
+const invalidHex = renderDraftPreview(invalidHexDraft, invalidHexDraft.preview_cases[0], () => {
+  invalidRendererCalls += 1
+  return { ok: true, kind: 'svg', markup: '<svg>success-looking fallback</svg>', width: 1, height: 1 }
+})
+expect(invalidHex.state === 'invalid' && invalidHex.markup === '' && invalidRendererCalls === 0, 'malformed referenced HEX must fail before renderer invocation and cannot produce success-looking SVG')
+expect(invalidHex.issues.some((issue) => issue.path === 'colors[1].hex' && issue.code === 'INVALID_HEX'), 'invalid HEX issue must point to the actual referenced Draft color')
+expect(!JSON.stringify(invalidHex).includes('[0,0,0]') && !JSON.stringify(invalidHex).includes('#000000'), 'invalid HEX must not silently fall back to black')
+
+const validAfterInvalid = structuredClone(renderableDraft)
+validAfterInvalid.colors[1].hex = '#00AA77'
+const validAgain = renderDraftPreview(validAfterInvalid, validAfterInvalid.preview_cases[0])
+expect(validAgain.state === 'svg' && validAgain.markup.includes('<svg') && validAgain.markup.includes('#00AA77'), 'valid referenced HEX must continue to render real SVG')
