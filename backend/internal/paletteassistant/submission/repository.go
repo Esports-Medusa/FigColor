@@ -56,6 +56,29 @@ func (r *SQLRepository) Snapshot(ctx context.Context) ([]Comparison, error) {
 	return out, rows.Err()
 }
 
+func (r *SQLRepository) Replay(ctx context.Context, actor, key, intent string) (*pa.CandidateReceipt, Outcome, error) {
+	var digest, status string
+	var raw []byte
+	err := r.db.QueryRowContext(ctx, `SELECT create_intent_digest,status,candidate_receipt FROM palette_assistant_submissions WHERE actor_user_id=$1 AND operation=$2 AND idempotency_key=$3`, actor, operation, key).Scan(&digest, &status, &raw)
+	if err == sql.ErrNoRows {
+		return nil, "", nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	if digest != intent {
+		return nil, OutcomeConflict, nil
+	}
+	if status != "succeeded" {
+		return nil, OutcomeInProgress, nil
+	}
+	var receipt pa.CandidateReceipt
+	if json.Unmarshal(raw, &receipt) != nil {
+		return nil, "", errors.New("invalid stored receipt")
+	}
+	return &receipt, OutcomeReplay, nil
+}
+
 func (r *SQLRepository) Create(ctx context.Context, actor, key, intent, draftDigestValue, findingDigestValue string, draft pa.AssistantDraft, findings []pa.ProtocolFinding) (*pa.CandidateReceipt, Outcome, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {

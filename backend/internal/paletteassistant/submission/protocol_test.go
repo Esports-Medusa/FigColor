@@ -184,6 +184,9 @@ func TestDraftColorMappingOnlyRewritesPaletteReferences(t *testing.T) {
 type countingRepo struct{ calls int }
 
 func (r *countingRepo) Snapshot(context.Context) ([]Comparison, error) { r.calls++; return nil, nil }
+func (r *countingRepo) Replay(context.Context, string, string, string) (*pa.CandidateReceipt, Outcome, error) {
+	return nil, "", nil
+}
 func (r *countingRepo) Create(context.Context, string, string, string, string, string, pa.AssistantDraft, []pa.ProtocolFinding) (*pa.CandidateReceipt, Outcome, error) {
 	r.calls++
 	return nil, "", nil
@@ -228,6 +231,9 @@ type serviceRepo struct {
 
 func (r *serviceRepo) Snapshot(context.Context) ([]Comparison, error) {
 	return append([]Comparison(nil), r.snapshot...), nil
+}
+func (r *serviceRepo) Replay(context.Context, string, string, string) (*pa.CandidateReceipt, Outcome, error) {
+	return nil, "", nil
 }
 func (r *serviceRepo) Create(_ context.Context, actor, key, intent, draftDigest, findingDigest string, draft pa.AssistantDraft, findings []pa.ProtocolFinding) (*pa.CandidateReceipt, Outcome, error) {
 	r.createCalls++

@@ -22,6 +22,7 @@ type Comparison struct {
 
 type Repository interface {
 	Snapshot(context.Context) ([]Comparison, error)
+	Replay(context.Context, string, string, string) (*pa.CandidateReceipt, Outcome, error)
 	Create(context.Context, string, string, string, string, string, pa.AssistantDraft, []pa.ProtocolFinding) (*pa.CandidateReceipt, Outcome, error)
 }
 
@@ -92,6 +93,40 @@ func (s *Service) Create(ctx context.Context, actor, key string, request pa.Crea
 	if p != nil {
 		return Result{Problem: p, Status: statusFor(p.Code)}
 	}
+	digest, err := draftDigest(*draft)
+	if err != nil {
+		return internal()
+	}
+	payload, err := verifyReceipt(request.ValidationReceipt, s.secret, s.now())
+	if errors.Is(err, errReceiptExpired) {
+		return problem(pa.ErrValidationReceiptExpired, "The validation receipt has expired.", 409, nil)
+	}
+	if err != nil {
+		return problem(pa.ErrValidationReceiptInvalid, "The validation receipt is invalid.", 400, nil)
+	}
+	if payload.ActorUserID != actor {
+		return problem(pa.ErrValidationActorMismatch, "The validation receipt belongs to another actor.", 403, nil)
+	}
+	if payload.DraftDigest != digest {
+		return problem(pa.ErrValidationPolicyChanged, "The validated Draft or findings have changed.", 409, nil)
+	}
+	if payload.RegistryFingerprint != pa.PreviewRegistryFingerprint || payload.DuplicatePolicyVersion != pa.DuplicatePolicyVersion || payload.SimilarityPolicyVersion != pa.SimilarityPolicyVersion {
+		return problem(pa.ErrValidationPolicyChanged, "The validation policy has changed.", 409, nil)
+	}
+	receiptIntent, err := createIntentDigest(actor, digest, request.ConfirmedRevision, request.WarningAcknowledgments, payload.FindingSetDigest)
+	if err != nil {
+		return internal()
+	}
+	if replay, outcome, replayErr := s.repo.Replay(ctx, actor, key, receiptIntent); replayErr != nil {
+		return problem(pa.ErrCandidateTransactionFailed, "Candidate creation could not be completed.", 503, nil)
+	} else if outcome == OutcomeReplay {
+		replay.Replay = true
+		return Result{Receipt: replay, Status: 201}
+	} else if outcome == OutcomeConflict {
+		return problem(pa.ErrIdempotencyConflict, "The idempotency key was already used for another request.", 409, nil)
+	} else if outcome == OutcomeInProgress {
+		return problem(pa.ErrIdempotencyInProgress, "The request is already in progress.", 409, nil)
+	}
 	snapshot, err := s.repo.Snapshot(ctx)
 	if err != nil {
 		return internal()
@@ -107,21 +142,8 @@ func (s *Service) Create(ctx context.Context, actor, key string, request pa.Crea
 	if err != nil {
 		return internal()
 	}
-	payload, err := verifyReceipt(request.ValidationReceipt, s.secret, s.now())
-	if errors.Is(err, errReceiptExpired) {
-		return problem(pa.ErrValidationReceiptExpired, "The validation receipt has expired.", 409, nil)
-	}
-	if err != nil {
-		return problem(pa.ErrValidationReceiptInvalid, "The validation receipt is invalid.", 400, nil)
-	}
-	if payload.ActorUserID != actor {
-		return problem(pa.ErrValidationActorMismatch, "The validation receipt belongs to another actor.", 403, nil)
-	}
-	if payload.DraftDigest != digest || payload.FindingSetDigest != findingDigest {
+	if payload.FindingSetDigest != findingDigest {
 		return problem(pa.ErrValidationPolicyChanged, "The validated Draft or findings have changed.", 409, nil)
-	}
-	if payload.RegistryFingerprint != pa.PreviewRegistryFingerprint || payload.DuplicatePolicyVersion != pa.DuplicatePolicyVersion || payload.SimilarityPolicyVersion != pa.SimilarityPolicyVersion {
-		return problem(pa.ErrValidationPolicyChanged, "The validation policy has changed.", 409, nil)
 	}
 	if ackProblem := validateAcknowledgments(findings, request.WarningAcknowledgments); ackProblem != nil {
 		return Result{Problem: ackProblem, Status: statusFor(ackProblem.Code)}

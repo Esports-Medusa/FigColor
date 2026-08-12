@@ -24,15 +24,16 @@ BEGIN
                OR jsonb_typeof(color_row.value->'hex') IS DISTINCT FROM 'string'
                OR (color_row.value->>'hex') !~ '^#[0-9A-F]{6}$'
                OR jsonb_typeof(color_row.value->'order') IS DISTINCT FROM 'number'
-               OR (color_row.value->>'order')::numeric <> trunc((color_row.value->>'order')::numeric)
-               OR (color_row.value->>'order')::numeric < 0
-               OR (color_row.value->>'order')::numeric >= color_total THEN
+               OR (color_row.value->>'order')::numeric <> trunc((color_row.value->>'order')::numeric) THEN
                 RAISE EXCEPTION 'migration 021 legacy palette color shape is invalid for palette %', palette_row.id;
             END IF;
         END LOOP;
         SELECT count(DISTINCT (value->>'order')::integer)
           INTO order_total FROM jsonb_array_elements(palette_row.colors);
-        IF order_total <> color_total OR EXISTS (
+        IF order_total <> color_total
+           OR (SELECT min((value->>'order')::integer) FROM jsonb_array_elements(palette_row.colors)) < 0
+           OR (SELECT max((value->>'order')::integer) FROM jsonb_array_elements(palette_row.colors)) >= color_total
+           OR EXISTS (
             SELECT 1 FROM generate_series(0, color_total - 1) expected
             WHERE NOT EXISTS (
                 SELECT 1 FROM jsonb_array_elements(palette_row.colors) color
