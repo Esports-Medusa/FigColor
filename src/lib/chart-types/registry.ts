@@ -18,6 +18,7 @@ import {
   type TemplateLookupResult,
   type ValidationResult
 } from './types'
+import { validateSchemaDeclaration } from './validation'
 
 export const CHART_TYPE_DEFINITIONS: readonly ChartTypeDefinition[] = registerChartTypes([
   {
@@ -49,6 +50,10 @@ export const CHART_TYPE_DEFINITIONS: readonly ChartTypeDefinition[] = registerCh
 export const PREVIEW_REGISTRY_PROJECTION_FORMAT_VERSION = 1
 
 export function createPreviewRegistryProjection(): PreviewRegistryProjection {
+  for (const chart of CHART_TYPE_DEFINITIONS) for (const template of chart.templates) {
+    const errors = [...validateSchemaDeclaration(template.rolesSchema, `${template.id}.roles`), ...validateSchemaDeclaration(template.configSchema, `${template.id}.config`)]
+    if (errors.length > 0) throw new Error(`Invalid structured Preview schema: ${errors.join(' ')}`)
+  }
   return {
     projection_format_version: PREVIEW_REGISTRY_PROJECTION_FORMAT_VERSION,
     charts: CHART_TYPE_DEFINITIONS.map((chart) => ({

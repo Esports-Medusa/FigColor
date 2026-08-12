@@ -136,24 +136,46 @@ function validateSchemaValue(value: unknown, schema: PreviewSchema, path: string
       return []
     case 'number':
       if (typeof value !== 'number' || !Number.isFinite(value) || (schema.integer && !Number.isInteger(value))) return [registryIssue(path, code, `${path} must be ${schema.integer ? 'an integer' : 'a number'}.`)]
-      return (schema.min !== undefined && value < schema.min) || (schema.max !== undefined && value > schema.max)
-        ? [registryIssue(path, code, `${path} must be between ${schema.min} and ${schema.max}.`)] : []
+      if (schema.min !== undefined && value < schema.min) return [registryIssue(path, code, schema.max === undefined ? `${path} must be at least ${schema.min}.` : `${path} must be between ${schema.min} and ${schema.max}.`)]
+      if (schema.max !== undefined && value > schema.max) return [registryIssue(path, code, schema.min === undefined ? `${path} must be at most ${schema.max}.` : `${path} must be between ${schema.min} and ${schema.max}.`)]
+      return []
     case 'boolean': return typeof value === 'boolean' ? [] : [registryIssue(path, code, `${path} must be a boolean.`)]
-    case 'palette_reference': return validatePaletteReference(value, path, code)
-    case 'visual_reference': return validateVisualReference(value, schema.themeTokens, path, code)
+    case 'palette_reference': return validatePaletteReference(value, schema.unknownMembers, path, code)
+    case 'visual_reference': return validateVisualReference(value, schema.themeTokens, schema.unknownMembers, path, code)
   }
 }
 
-function validatePaletteReference(value: unknown, path: string, code: 'INVALID_COLOR_ROLES' | 'INVALID_PREVIEW_CONFIG') {
+function validatePaletteReference(value: unknown, unknownMembers: 'allow' | 'reject', path: string, code: 'INVALID_COLOR_ROLES' | 'INVALID_PREVIEW_CONFIG') {
   if (!isRecord(value) || value.source !== 'palette' || typeof value.color_id !== 'string' || value.color_id.trim() === '') return [registryIssue(path, code, `${path} must be a palette color reference with color_id.`)]
-  return value.opacity === undefined || (typeof value.opacity === 'number' && Number.isFinite(value.opacity) && value.opacity >= 0 && value.opacity <= 1) ? [] : [registryIssue(`${path}.opacity`, code, `${path}.opacity must be between 0 and 1.`)]
+  const issues = unknownMembers === 'reject' ? rejectUnknownProperties(value, ['source', 'color_id', 'opacity'], path, code) : []
+  if (!(value.opacity === undefined || (typeof value.opacity === 'number' && Number.isFinite(value.opacity) && value.opacity >= 0 && value.opacity <= 1))) issues.push(registryIssue(`${path}.opacity`, code, `${path}.opacity must be between 0 and 1.`))
+  return issues
 }
 
-function validateVisualReference(value: unknown, tokens: string[], path: string, code: 'INVALID_COLOR_ROLES' | 'INVALID_PREVIEW_CONFIG') {
+function validateVisualReference(value: unknown, tokens: string[], unknownMembers: 'allow' | 'reject', path: string, code: 'INVALID_COLOR_ROLES' | 'INVALID_PREVIEW_CONFIG') {
   if (!isRecord(value)) return [registryIssue(path, code, `${path} must be a color reference.`)]
-  if (value.source === 'palette') return validatePaletteReference(value, path, code)
-  if (value.source === 'theme' && typeof value.token === 'string' && tokens.includes(value.token)) return value.opacity === undefined || (typeof value.opacity === 'number' && Number.isFinite(value.opacity) && value.opacity >= 0 && value.opacity <= 1) ? [] : [registryIssue(`${path}.opacity`, code, `${path}.opacity must be between 0 and 1.`)]
+  if (value.source === 'palette') return validatePaletteReference(value, unknownMembers, path, code)
+  if (value.source === 'theme' && typeof value.token === 'string' && tokens.includes(value.token)) {
+    const issues = unknownMembers === 'reject' ? rejectUnknownProperties(value, ['source', 'token', 'opacity'], path, code) : []
+    if (!(value.opacity === undefined || (typeof value.opacity === 'number' && Number.isFinite(value.opacity) && value.opacity >= 0 && value.opacity <= 1))) issues.push(registryIssue(`${path}.opacity`, code, `${path}.opacity must be between 0 and 1.`))
+    return issues
+  }
   return [registryIssue(path, code, `${path} must use a palette color or approved theme token.`)]
+}
+
+export function validateSchemaDeclaration(schema: PreviewSchema, path = 'schema'): string[] {
+  const errors: string[] = []
+  const visit = (node: PreviewSchema, at: string) => {
+    if (node.kind === 'number' && node.min !== undefined && node.max !== undefined && node.min > node.max) errors.push(`${at} has min greater than max.`)
+    if (node.kind === 'array') {
+      if (node.minItems !== undefined && node.minItems < 0) errors.push(`${at}.minItems is invalid.`)
+      if (node.maxItems !== undefined && (node.maxItems < 0 || (node.minItems !== undefined && node.minItems > node.maxItems))) errors.push(`${at}.maxItems is invalid.`)
+      visit(node.items, `${at}.items`)
+    }
+    if (node.kind === 'object') Object.entries(node.fields).forEach(([key, field]) => visit(field.schema, `${at}.fields.${key}`))
+  }
+  visit(schema, path)
+  return errors
 }
 
 function validateArrayRule(value: unknown[], rule: PreviewSchemaRule, path: string, code: 'INVALID_COLOR_ROLES' | 'INVALID_PREVIEW_CONFIG') {

@@ -10,6 +10,7 @@ const testModules = [
   '/src/lib/chart-types/previewDefaults.test.ts',
   '/src/views/admin/palette-assistant/draftPreviewRenderer.test.ts',
   '/src/lib/chart-types.registry.test.ts',
+  '/src/lib/chart-types/structuredSchema.test.ts',
   '/src/lib/chart-types/bar-error/suggestion.test.ts',
   '/src/lib/chart-types/bar-error/admin.test.ts',
   '/src/lib/chart-types/bar-error/lifecycle.test.ts',

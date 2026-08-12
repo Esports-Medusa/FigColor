@@ -42,8 +42,8 @@ export type PreviewSchema =
   | { kind: 'string'; nonWhitespace?: boolean; enum?: string[] }
   | { kind: 'number'; integer?: boolean; min?: number; max?: number }
   | { kind: 'boolean' }
-  | { kind: 'palette_reference' }
-  | { kind: 'visual_reference'; themeTokens: string[] }
+  | { kind: 'palette_reference'; unknownMembers: 'allow' | 'reject' }
+  | { kind: 'visual_reference'; themeTokens: string[]; unknownMembers: 'allow' | 'reject' }
 
 export interface PreviewSchemaField {
   required: boolean
