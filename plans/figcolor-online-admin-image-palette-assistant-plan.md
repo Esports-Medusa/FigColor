@@ -892,6 +892,54 @@ B5.4 decision freeze
 → B6 implementation
 ```
 
+### WP-B6a — Frozen online submission protocol
+
+WP-B6a freezes the remaining transport-independent protocol. Exact identity
+version 1 hashes the RFC 8785 projection `{version:1,ordered_hex:[...]}` with
+SHA-256 lowercase hexadecimal; order and count participate and all other Draft
+fields do not. Comparison and database uniqueness cover only ownerless public
+Palettes in `candidate` or `published` status. The future partial unique index
+stores fingerprint/version in the Candidate transaction, blocks concurrent
+duplicates, and releases mechanically when rows leave that lifecycle scope.
+
+Similarity policy version 1 is the existing Node authority unchanged: OKLab
+D65 Euclidean ΔEOK, same color count, index-to-index order-preserving pairs,
+inclusive mean `0.035` and maximum `0.06` thresholds, and six-decimal evidence.
+It compares the same lifecycle scope after exact exclusion and is an
+acknowledgeable warning, never a normalized score or blocking publication
+claim. WP-B6b must add deterministic language-neutral policy/parity vectors and
+a parity-constrained Go implementation before WP-B6 runtime; request handling
+must not execute Node or parse JavaScript.
+
+Finding envelope version 1 orders findings by deterministic ID and permits
+`exact_duplicate`/`blocking` and `similar_palette`/`warning`. Every item has
+`id`, `kind`, `severity`, JSON Pointer `path`, `code`, safe `message`, integer
+`policy_version`, safe comparison Palette ID, and non-null structured `evidence`
+bounded to 32 KiB. Exact evidence contains fingerprint version, comparison ID
+and status. Similarity evidence contains policy version, `oklab_d65`,
+`canonical_index_order_preserving_one_to_one`, color count, finite mean/maximum
+distances and thresholds, comparison ID and status; no owner, SQL, image data,
+reasoning or normalized score is present. Finding IDs are SHA-256 JCS hashes of
+the item without `id`; finding-set digest hashes the ID-sorted versioned
+envelope. Existing `warning_acknowledgments` must exactly equal the current
+warning ID set, ignoring order but rejecting missing, extra, duplicate, unknown
+and blocking IDs.
+
+Draft digest version 1 hashes JCS `{version:1,draft:<complete validated Draft>}`.
+Create-intent version 1 binds actor, Draft digest, confirmation version 1 and
+`confirmed_revision`, sorted warning IDs, finding-set digest, duplicate and
+similarity policy versions, and registry fingerprint. It excludes raw receipt,
+idempotency key, timestamps, database identities and transport formatting.
+`confirmed_revision` is the only confirmation and must equal Draft revision.
+
+The stateless validation receipt is JCS payload plus HMAC-SHA-256 in two
+unpadded base64url segments. Version 1 binds Draft, actor, finding set, registry,
+policy versions, and UTC Unix-second issue/expiry times for 15 minutes. Runtime
+uses only `PALETTE_ASSISTANT_VALIDATION_RECEIPT_SECRET` (minimum 32 bytes), never
+JWT fallback, and verifies in constant time. CandidateReceipt remains unchanged.
+An internal submission record owns actor/key, intent/Draft/finding digests,
+registry/policies, state, Candidate identity, stable response and timestamps.
+
 ### WP-B6 — Online validation and Candidate creation
 
 Analyze transport has been extracted in the contract and allocated to the separate WP-B4A dependency. WP-B6 continues to implement Validate and Create transport, duplicate/similarity findings, authoritative revalidation, online idempotency, atomic Candidate/related-record creation, rollback, stable receipt, and Admin Review redirect. Neither WP-B4A nor any part of WP-B6 is implemented by this allocation change.
@@ -994,7 +1042,8 @@ Feature-flag wiring, rollout metrics, and operational performance targets remain
 | Draft color identity uses UUIDv5 for analysis and UUIDv4 for Admin additions | Frozen by WP-B0 | Preserves Draft-local references; Candidate transaction remaps to server-authoritative formal IDs |
 | Online Palette source type is `figure_extracted`; image is not `source_image` | Frozen by WP-B0 | Uses an existing Palette value without retaining uploaded content |
 | MVP accepts zero or one optional Draft Preview Case | Frozen by WP-B0 | Keeps Palette/Preview ownership separate and avoids requiring unsupported renderer paths |
-| Exact Palette duplicate fields/scope/enforcement | Deferred to WP-B6 | Offline normalized identity is ingestion-specific; global uniqueness could break private/custom palettes |
+| Exact Palette duplicate fields/scope/enforcement | Decided by WP-B6a | Ordered HEX fingerprint; ownerless public candidate/published scope; future partial unique index |
+| Go similarity parity | Blocked with exact missing authority seam | WP-B6b must generate policy/parity vectors from the existing Node implementation before Go runtime work |
 | Similarity warnings use exact finding-ID acknowledgment | Frozen by WP-B0 | One warning cannot authorize another finding sharing its code |
 | Production image limits are 8 MiB multipart, 6 MiB encoded, 4096×4096, 8 MP, 5 seconds | Frozen by WP-B0 | Bounds memory/CPU while accommodating realistic screenshots |
 | Analyze-only transport is a WP-B4A production dependency | Frozen by dependency closure | Breaks the WP-B4/WP-B6 dependency cycle without fixtures, parallel DTOs, or fake APIs |

@@ -12,25 +12,35 @@ import (
 const (
 	ContractVersion = "palette-assistant.v1"
 
-	AnalyzePath                 = "/api/admin/palette-assistant/analyze"
-	ValidatePath                = "/api/admin/palette-assistant/validate"
-	CreateCandidatePath         = "/api/admin/palette-assistant/candidates"
-	AnalyzeImageField           = "image"
-	ImageFormatPNG              = "png"
-	ImageFormatJPEG             = "jpeg"
-	MultipartBodyLimit          = 8 * 1024 * 1024
-	EncodedImageLimit           = 6 * 1024 * 1024
-	MaximumImageWidth           = 4096
-	MaximumImageHeight          = 4096
-	MaximumImagePixels          = 8_000_000
-	AnalysisTimeout             = 5 * time.Second
-	ReceiptLifetime             = 15 * time.Minute
-	PreviewJSONByteLimit        = 32 * 1024
-	OnlineSourceType            = "figure_extracted"
-	RejectMissingRequiredFields = true
-	RejectNullRequiredFields    = true
-	RejectUnknownFields         = true
-	RejectDuplicateJSONKeys     = true
+	AnalyzePath                     = "/api/admin/palette-assistant/analyze"
+	ValidatePath                    = "/api/admin/palette-assistant/validate"
+	CreateCandidatePath             = "/api/admin/palette-assistant/candidates"
+	AnalyzeImageField               = "image"
+	ImageFormatPNG                  = "png"
+	ImageFormatJPEG                 = "jpeg"
+	MultipartBodyLimit              = 8 * 1024 * 1024
+	EncodedImageLimit               = 6 * 1024 * 1024
+	MaximumImageWidth               = 4096
+	MaximumImageHeight              = 4096
+	MaximumImagePixels              = 8_000_000
+	AnalysisTimeout                 = 5 * time.Second
+	ReceiptLifetime                 = 15 * time.Minute
+	DraftDigestVersion              = 1
+	CreateIntentDigestVersion       = 1
+	ExactFingerprintVersion         = 1
+	FindingEnvelopeVersion          = 1
+	ValidationReceiptVersion        = 1
+	ConfirmationVersion             = 1
+	DuplicatePolicyVersion          = 1
+	SimilarityPolicyVersion         = 1
+	ValidationReceiptSecretEnv      = "PALETTE_ASSISTANT_VALIDATION_RECEIPT_SECRET"
+	ValidationReceiptMinSecretBytes = 32
+	PreviewJSONByteLimit            = 32 * 1024
+	OnlineSourceType                = "figure_extracted"
+	RejectMissingRequiredFields     = true
+	RejectNullRequiredFields        = true
+	RejectUnknownFields             = true
+	RejectDuplicateJSONKeys         = true
 )
 
 var SupportedImageFormats = [...]string{ImageFormatPNG, ImageFormatJPEG}
@@ -268,6 +278,71 @@ type CreateCandidateRequest struct {
 	ConfirmedRevision      uint64         `json:"confirmed_revision"`
 	ValidationReceipt      string         `json:"validation_receipt"`
 	WarningAcknowledgments []string       `json:"warning_acknowledgments"`
+}
+
+// ValidationReceiptPayload is the canonical authenticated payload. Runtime
+// signing is owned by WP-B6 and uses HMAC-SHA-256 over its JCS bytes.
+type ValidationReceiptPayload struct {
+	Version                 int    `json:"version"`
+	DraftDigest             string `json:"draft_digest"`
+	ActorUserID             string `json:"actor_user_id"`
+	RegistryFingerprint     string `json:"registry_fingerprint"`
+	FindingSetDigest        string `json:"finding_set_digest"`
+	DuplicatePolicyVersion  int    `json:"duplicate_policy_version"`
+	SimilarityPolicyVersion int    `json:"similarity_policy_version"`
+	IssuedAt                int64  `json:"issued_at"`
+	ExpiresAt               int64  `json:"expires_at"`
+}
+
+type exactFingerprintProjection struct {
+	Version    int      `json:"version"`
+	OrderedHEX []string `json:"ordered_hex"`
+}
+
+type findingEnvelope struct {
+	Version  int               `json:"version"`
+	Findings []protocolFinding `json:"findings"`
+}
+
+type protocolFinding struct {
+	ID                  string          `json:"id"`
+	Kind                string          `json:"kind"`
+	Severity            string          `json:"severity"`
+	Path                string          `json:"path"`
+	Code                string          `json:"code"`
+	Message             string          `json:"message"`
+	PolicyVersion       int             `json:"policy_version"`
+	ComparisonPaletteID string          `json:"comparison_palette_id"`
+	Evidence            json.RawMessage `json:"evidence"`
+}
+
+type createIntentProjection struct {
+	Version                 int      `json:"version"`
+	ActorUserID             string   `json:"actor_user_id"`
+	DraftDigest             string   `json:"draft_digest"`
+	ConfirmationVersion     int      `json:"confirmation_version"`
+	ConfirmedRevision       uint64   `json:"confirmed_revision"`
+	AcknowledgedFindingIDs  []string `json:"acknowledged_finding_ids"`
+	FindingSetDigest        string   `json:"finding_set_digest"`
+	DuplicatePolicyVersion  int      `json:"duplicate_policy_version"`
+	SimilarityPolicyVersion int      `json:"similarity_policy_version"`
+	RegistryFingerprint     string   `json:"registry_fingerprint"`
+}
+
+// submissionRecordProjection is internal persistence authority, not a public
+// response DTO. WP-B6 freezes its database representation in a migration.
+type submissionRecordProjection struct {
+	ActorUserID             string          `json:"actor_user_id"`
+	IdempotencyKey          string          `json:"idempotency_key"`
+	CreateIntentDigest      string          `json:"create_intent_digest"`
+	DraftDigest             string          `json:"draft_digest"`
+	FindingSetDigest        string          `json:"finding_set_digest"`
+	RegistryFingerprint     string          `json:"registry_fingerprint"`
+	DuplicatePolicyVersion  int             `json:"duplicate_policy_version"`
+	SimilarityPolicyVersion int             `json:"similarity_policy_version"`
+	CandidateID             string          `json:"candidate_id,omitempty"`
+	Receipt                 json.RawMessage `json:"candidate_receipt,omitempty"`
+	Status                  string          `json:"status"`
 }
 
 func (r CreateCandidateRequest) MarshalJSON() ([]byte, error) {

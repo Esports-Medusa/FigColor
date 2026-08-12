@@ -2,12 +2,15 @@ package paletteassistant
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	figjcs "github.com/qiqi/figcolor/backend/internal/jcs"
 )
 
 func minimalDraft() AssistantDraft {
@@ -134,6 +137,231 @@ func TestFindingGoldenAndParamsEnforcement(t *testing.T) {
 			t.Fatalf("SimilarityFinding accepted invalid params of %d bytes", len(params))
 		}
 	}
+}
+
+func TestSubmissionProtocolKnownVectorsAndIdentityBoundaries(t *testing.T) {
+	draft := minimalDraft()
+	draft.Colors = []DraftColor{{ID: "11111111-1111-4111-8111-111111111111", Hex: "#112233", Order: 0}, {ID: "22222222-2222-4222-8222-222222222222", Hex: "#AABBCC", Order: 1}}
+	exact, err := exactFingerprint(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exact != "5467606b7a5203a8f5cb2fce27bb0c3b0c496c37c61cbd1db8fab3c48016d6a5" {
+		t.Fatalf("exact vector = %s", exact)
+	}
+	reordered := draft
+	reordered.Colors = []DraftColor{draft.Colors[1], draft.Colors[0]}
+	reordered.Colors[0].Order, reordered.Colors[1].Order = 0, 1
+	other, _ := exactFingerprint(reordered)
+	if other == exact {
+		t.Fatal("ordered HEX identity ignored order")
+	}
+	metadata := draft
+	metadata.Name, metadata.Type, metadata.Tags = "Different", "mixed", []string{"clean"}
+	if got, _ := exactFingerprint(metadata); got != exact {
+		t.Fatal("non-identity metadata changed exact fingerprint")
+	}
+
+	digest, err := draftDigest(draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if digest != "02199becb3750267b357672b0376300bce60613945d5e711409a3feb71686b02" {
+		t.Fatalf("draft vector = %s", digest)
+	}
+	preview := draft
+	preview.PreviewCases = []DraftPreviewCase{{ColorRoles: json.RawMessage(`{"z":1,"a":2}`), PreviewConfig: json.RawMessage(`{"b":true,"a":false}`)}}
+	previewReordered := preview
+	previewReordered.PreviewCases = []DraftPreviewCase{{ColorRoles: json.RawMessage(`{"a":2,"z":1}`), PreviewConfig: json.RawMessage(`{"a":false,"b":true}`)}}
+	a, _ := draftDigest(preview)
+	b, _ := draftDigest(previewReordered)
+	if a != b {
+		t.Fatal("RawMessage object member order changed Draft digest")
+	}
+
+	intent := createIntentProjection{ActorUserID: "actor-1", DraftDigest: digest, ConfirmedRevision: 1, AcknowledgedFindingIDs: []string{"b", "a"}, FindingSetDigest: strings.Repeat("c", 64), DuplicatePolicyVersion: 1, SimilarityPolicyVersion: 1, RegistryFingerprint: PreviewRegistryFingerprint}
+	intentDigest, err := createIntentDigest(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if intentDigest != "3a73d37d6dca7996c9a9449d15bfa6387ca449a520566baef037f275b96ed36e" {
+		t.Fatalf("intent vector = %s", intentDigest)
+	}
+	intent.AcknowledgedFindingIDs = []string{"a", "b"}
+	if got, _ := createIntentDigest(intent); got != intentDigest {
+		t.Fatal("acknowledgment order changed intent")
+	}
+	for name, mutate := range map[string]func(*createIntentProjection){
+		"actor":          func(p *createIntentProjection) { p.ActorUserID = "actor-2" },
+		"confirmation":   func(p *createIntentProjection) { p.ConfirmedRevision++ },
+		"acknowledgment": func(p *createIntentProjection) { p.AcknowledgedFindingIDs = []string{"a"} },
+		"finding":        func(p *createIntentProjection) { p.FindingSetDigest = strings.Repeat("d", 64) },
+		"policy":         func(p *createIntentProjection) { p.SimilarityPolicyVersion++ },
+		"registry":       func(p *createIntentProjection) { p.RegistryFingerprint = strings.Repeat("e", 64) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := intent
+			mutate(&changed)
+			if got, _ := createIntentDigest(changed); got == intentDigest {
+				t.Fatal("identity mutation did not change intent")
+			}
+		})
+	}
+}
+
+func TestFindingEnvelopeAcknowledgmentsAndReceiptContract(t *testing.T) {
+	exactEvidence := json.RawMessage(`{"comparison_palette_id":"palette-1","comparison_status":"candidate","fingerprint_version":1}`)
+	similarEvidence := json.RawMessage(`{"color_count":2,"color_space":"oklab_d65","comparison_palette_id":"palette-2","comparison_status":"published","matching":"canonical_index_order_preserving_one_to_one","maximum_pair_distance":0.04,"maximum_pair_distance_threshold":0.06,"mean_distance":0.02,"mean_distance_threshold":0.035,"policy_version":1}`)
+	findings := []protocolFinding{
+		{Kind: "exact_duplicate", Severity: "blocking", Path: "/colors", Code: "EXACT_DUPLICATE_CANDIDATE", Message: "An exact Palette already exists.", PolicyVersion: 1, ComparisonPaletteID: "palette-1", Evidence: exactEvidence},
+		{Kind: "similar_palette", Severity: "warning", Path: "/colors", Code: "SIMILAR_PALETTE", Message: "A similar Palette requires review.", PolicyVersion: 1, ComparisonPaletteID: "palette-2", Evidence: similarEvidence},
+	}
+	for i := range findings {
+		findings[i].ID, _ = protocolFindingID(findings[i])
+	}
+	envelope := findingEnvelope{Version: FindingEnvelopeVersion, Findings: findings}
+	encoded := marshal(t, envelope)
+	assertTopLevelKeys(t, encoded, "findings", "version")
+	for _, key := range []string{"id", "kind", "severity", "path", "code", "message", "policy_version", "comparison_palette_id", "evidence"} {
+		if !strings.Contains(string(encoded), `"`+key+`"`) {
+			t.Fatalf("finding envelope missing %s", key)
+		}
+	}
+	assertContainsNone(t, string(encoded), "owner_user_id", "sql", "filename", "image_metadata", "assistant_reasoning", "normalized_score")
+	if findings[0].ID == findings[1].ID || !validateAcknowledgmentSet([]string{findings[1].ID}, findings) {
+		t.Fatal("finding identity or exact warning acknowledgment failed")
+	}
+	for _, invalid := range [][]string{nil, {findings[0].ID}, {findings[1].ID, findings[1].ID}, {findings[1].ID, "unknown"}} {
+		if validateAcknowledgmentSet(invalid, findings) {
+			t.Fatalf("accepted acknowledgment set %#v", invalid)
+		}
+	}
+	first, _ := findingSetDigest(findings)
+	reversed := []protocolFinding{findings[1], findings[0]}
+	second, _ := findingSetDigest(reversed)
+	if first != second {
+		t.Fatal("finding order changed set digest")
+	}
+
+	payload := ValidationReceiptPayload{Version: 1, DraftDigest: strings.Repeat("a", 64), ActorUserID: "actor-1", RegistryFingerprint: PreviewRegistryFingerprint, FindingSetDigest: first, DuplicatePolicyVersion: 1, SimilarityPolicyVersion: 1, IssuedAt: 1_786_195_200, ExpiresAt: 1_786_196_100}
+	assertJSONGolden(t, payload, `{"version":1,"draft_digest":"`+strings.Repeat("a", 64)+`","actor_user_id":"actor-1","registry_fingerprint":"`+PreviewRegistryFingerprint+`","finding_set_digest":"`+first+`","duplicate_policy_version":1,"similarity_policy_version":1,"issued_at":1786195200,"expires_at":1786196100}`)
+	if ValidationReceiptSecretEnv != "PALETTE_ASSISTANT_VALIDATION_RECEIPT_SECRET" || ValidationReceiptMinSecretBytes != 32 || ReceiptLifetime != 15*time.Minute {
+		t.Fatal("receipt configuration contract drifted")
+	}
+	assertStructExcludes(t, reflect.TypeOf(ValidationReceiptPayload{}), "draft", "candidate_id", "idempotency_key", "image", "filename", "path", "provenance")
+	assertStructExcludes(t, reflect.TypeOf(CandidateReceipt{}), "draft_digest", "actor_user_id", "idempotency_key", "registry_fingerprint", "color_mapping")
+	if reflect.TypeOf(submissionRecordProjection{}).NumField() < 10 {
+		t.Fatal("internal submission record lost replay bindings")
+	}
+}
+
+func TestDraftDigestMutationMatrixAndLifecycleScope(t *testing.T) {
+	seed := 7
+	base := minimalDraft()
+	base.Revision = 2
+	base.Colors = []DraftColor{{ID: "11111111-1111-4111-8111-111111111111", Hex: "#112233", Label: "A", Order: 0, Source: SourceAssistant, State: StateAccepted}}
+	base.ChartApplicability = []DraftChartApplicability{{ChartType: "bar_error", Suitability: "best_fit", Notes: "note"}}
+	base.Disciplines, base.UseCases, base.AvoidCases, base.Tags = []string{"general"}, []string{"publication"}, []string{"small_print"}, []string{"clean"}
+	base.SourceNote = "source"
+	base.PreviewCases = []DraftPreviewCase{{ChartType: "bar_error", TemplateID: "bar_error_v1", TemplateVersion: 1, SchemaVersion: 1, ColorRoles: json.RawMessage(`{"x":1}`), PreviewConfig: json.RawMessage(`{"x":true}`), SeedStrategy: "fixed", SeedValue: &seed}}
+	base.Provenance = []SuggestionProvenance{{Path: "/name", Source: SourceAssistant, State: StateAccepted, Producer: "p", AlgorithmVersion: "v", ReasonCodes: []string{"R"}, SuggestedValue: json.RawMessage(`"A"`)}}
+	want, _ := draftDigest(base)
+	mutations := map[string]func(*AssistantDraft){
+		"contract": func(d *AssistantDraft) { d.ContractVersion = "v2" }, "revision": func(d *AssistantDraft) { d.Revision++ },
+		"name": func(d *AssistantDraft) { d.Name += "x" }, "type": func(d *AssistantDraft) { d.Type = "mixed" },
+		"color id": func(d *AssistantDraft) { d.Colors[0].ID = "22222222-2222-4222-8222-222222222222" }, "color hex": func(d *AssistantDraft) { d.Colors[0].Hex = "#112234" },
+		"color label": func(d *AssistantDraft) { d.Colors[0].Label = "B" }, "color source": func(d *AssistantDraft) { d.Colors[0].Source = SourceAdmin }, "color state": func(d *AssistantDraft) { d.Colors[0].State = StateModified },
+		"applicability": func(d *AssistantDraft) { d.ChartApplicability[0].Notes += "x" }, "disciplines": func(d *AssistantDraft) { d.Disciplines = []string{"clinical"} },
+		"use cases": func(d *AssistantDraft) { d.UseCases = []string{"poster"} }, "avoid cases": func(d *AssistantDraft) { d.AvoidCases = nil }, "tags": func(d *AssistantDraft) { d.Tags = nil },
+		"accessibility": func(d *AssistantDraft) { d.Accessibility.ColorblindSafe = true }, "source type": func(d *AssistantDraft) { d.SourceType = "other" }, "source note": func(d *AssistantDraft) { d.SourceNote += "x" },
+		"preview": func(d *AssistantDraft) { d.PreviewCases[0].SeedValue = intPtr(8) }, "provenance": func(d *AssistantDraft) { d.Provenance[0].Producer = "q" },
+	}
+	for name, mutate := range mutations {
+		t.Run(name, func(t *testing.T) {
+			changed := cloneAssistantDraft(base)
+			mutate(&changed)
+			if got, _ := draftDigest(changed); got == want {
+				t.Fatal("mutation did not change digest")
+			}
+		})
+	}
+	for _, tc := range []struct {
+		owner              bool
+		visibility, status string
+		eligible           bool
+	}{
+		{false, "public", "candidate", true}, {false, "public", "published", true}, {false, "public", "rejected", false}, {false, "public", "archived", false}, {false, "private", "published", false}, {true, "public", "published", false},
+	} {
+		if got := onlineComparisonEligible(tc.owner, tc.visibility, tc.status); got != tc.eligible {
+			t.Fatalf("scope %+v = %v", tc, got)
+		}
+	}
+}
+
+func onlineComparisonEligible(hasOwner bool, visibility, status string) bool {
+	return !hasOwner && visibility == "public" && (status == "candidate" || status == "published")
+}
+
+func canonicalContractHash(value any) (string, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	_, hash, err := figjcs.Hash(raw)
+	return hash, err
+}
+func exactFingerprint(draft AssistantDraft) (string, error) {
+	hexes := make([]string, len(draft.Colors))
+	for i := range draft.Colors {
+		hexes[i] = draft.Colors[i].Hex
+	}
+	return canonicalContractHash(exactFingerprintProjection{Version: ExactFingerprintVersion, OrderedHEX: hexes})
+}
+func draftDigest(draft AssistantDraft) (string, error) {
+	return canonicalContractHash(struct {
+		Version int            `json:"version"`
+		Draft   AssistantDraft `json:"draft"`
+	}{DraftDigestVersion, draft})
+}
+func protocolFindingID(finding protocolFinding) (string, error) {
+	finding.ID = ""
+	return canonicalContractHash(finding)
+}
+func findingSetDigest(findings []protocolFinding) (string, error) {
+	ordered := append([]protocolFinding(nil), findings...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
+	return canonicalContractHash(findingEnvelope{Version: FindingEnvelopeVersion, Findings: ordered})
+}
+func validateAcknowledgmentSet(acknowledged []string, findings []protocolFinding) bool {
+	want := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		if finding.Severity == "warning" {
+			want = append(want, finding.ID)
+		}
+	}
+	got := append([]string(nil), acknowledged...)
+	sort.Strings(want)
+	sort.Strings(got)
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] == "" || got[i] != want[i] || i > 0 && got[i] == got[i-1] {
+			return false
+		}
+	}
+	return true
+}
+func createIntentDigest(projection createIntentProjection) (string, error) {
+	projection.Version, projection.ConfirmationVersion = CreateIntentDigestVersion, ConfirmationVersion
+	projection.AcknowledgedFindingIDs = append([]string(nil), projection.AcknowledgedFindingIDs...)
+	sort.Strings(projection.AcknowledgedFindingIDs)
+	for i := 1; i < len(projection.AcknowledgedFindingIDs); i++ {
+		if projection.AcknowledgedFindingIDs[i] == projection.AcknowledgedFindingIDs[i-1] {
+			return "", fmt.Errorf("duplicate acknowledgment")
+		}
+	}
+	return canonicalContractHash(projection)
 }
 
 func TestDraftAndCreateExcludeProhibitedFields(t *testing.T) {
