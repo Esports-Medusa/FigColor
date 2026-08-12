@@ -316,6 +316,25 @@ type protocolFinding struct {
 	Evidence            json.RawMessage `json:"evidence"`
 }
 
+type ProtocolFinding = protocolFinding
+
+func ExactFingerprintProjectionValue(hexes []string) any {
+	return exactFingerprintProjection{Version: ExactFingerprintVersion, OrderedHEX: append([]string(nil), hexes...)}
+}
+func FindingEnvelopeValue(findings []ProtocolFinding) any {
+	return findingEnvelope{Version: FindingEnvelopeVersion, Findings: append([]protocolFinding(nil), findings...)}
+}
+func CreateIntentProjectionValue(actor, draftDigest string, revision uint64, acknowledgments []string, findingDigest string) any {
+	return createIntentProjection{Version: CreateIntentDigestVersion, ActorUserID: actor, DraftDigest: draftDigest, ConfirmationVersion: ConfirmationVersion, ConfirmedRevision: revision, AcknowledgedFindingIDs: append([]string(nil), acknowledgments...), FindingSetDigest: findingDigest, DuplicatePolicyVersion: DuplicatePolicyVersion, SimilarityPolicyVersion: SimilarityPolicyVersion, RegistryFingerprint: PreviewRegistryFingerprint}
+}
+func NewProtocolFindingValue(kind, severity, path, code, message string, policyVersion int, paletteID string, evidence json.RawMessage) ProtocolFinding {
+	return protocolFinding{Kind: kind, Severity: severity, Path: path, Code: code, Message: message, PolicyVersion: policyVersion, ComparisonPaletteID: paletteID, Evidence: append(json.RawMessage(nil), evidence...)}
+}
+func SetProtocolFindingID(f ProtocolFinding, id string) ProtocolFinding { f.ID = id; return f }
+func ProtocolFindingFields(f ProtocolFinding) (id, kind, severity, path, code, message, paletteID string, evidence json.RawMessage) {
+	return f.ID, f.Kind, f.Severity, f.Path, f.Code, f.Message, f.ComparisonPaletteID, append(json.RawMessage(nil), f.Evidence...)
+}
+
 type createIntentProjection struct {
 	Version                 int      `json:"version"`
 	ActorUserID             string   `json:"actor_user_id"`

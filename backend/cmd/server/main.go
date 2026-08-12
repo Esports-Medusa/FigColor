@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/qiqi/figcolor/backend/internal/auth"
@@ -12,6 +13,7 @@ import (
 	"github.com/qiqi/figcolor/backend/internal/middleware"
 	"github.com/qiqi/figcolor/backend/internal/palette"
 	"github.com/qiqi/figcolor/backend/internal/paletteassistant/analyze"
+	"github.com/qiqi/figcolor/backend/internal/paletteassistant/submission"
 	"github.com/qiqi/figcolor/backend/internal/project"
 	"github.com/qiqi/figcolor/backend/internal/user"
 )
@@ -68,6 +70,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize Palette Assistant Analyze handler: %v", err)
 	}
+	submissionService, submissionErr := submission.NewService(submission.NewSQLRepository(), []byte(os.Getenv("PALETTE_ASSISTANT_VALIDATION_RECEIPT_SECRET")), nil)
+	var submissionHandler *submission.Handler
+	if submissionErr != nil {
+		log.Printf("Palette Assistant Validate/Create disabled: validation receipt secret is missing or too short")
+		submissionHandler = submission.NewHandler(nil)
+	} else {
+		submissionHandler = submission.NewHandler(submissionService)
+	}
 
 	// Create middleware
 	authMiddleware := middleware.Auth(cfg.JWTSecret, userRepo)
@@ -92,6 +102,7 @@ func main() {
 	paletteHandler.RegisterRoutes(api, cfg.JWTSecret, authMiddleware, adminMiddleware)
 	ingestionHandler.RegisterRoutes(api, authMiddleware, adminMiddleware)
 	analyzeHandler.RegisterRoutes(api, authMiddleware, adminMiddleware)
+	submissionHandler.RegisterRoutes(api, authMiddleware, adminMiddleware)
 
 	// Start server
 	addr := fmt.Sprintf(":%s", cfg.ServerPort)

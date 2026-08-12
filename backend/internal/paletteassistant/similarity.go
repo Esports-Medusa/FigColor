@@ -82,6 +82,14 @@ func EvaluatePaletteSimilarity(left, right []string) (SimilarityEvaluation, erro
 	return result, nil
 }
 
+func SimilarityPolicyThresholds() (float64, float64, error) {
+	policy, err := loadSimilarityProjection()
+	if err != nil {
+		return 0, 0, ErrSimilarityInput
+	}
+	return policy.MeanDistanceThreshold, policy.MaximumPairDistanceThreshold, nil
+}
+
 type okLab struct{ l, a, b float64 }
 
 func hexToOKLab(value string) okLab {
