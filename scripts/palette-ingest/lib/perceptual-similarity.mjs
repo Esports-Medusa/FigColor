@@ -37,6 +37,59 @@ export function deltaEOk(left, right) {
   return Math.hypot(left.l - right.l, left.a - right.a, left.b - right.b)
 }
 
+export function evaluatePaletteSimilarity(left, right) {
+  const policy = PERCEPTUAL_POLICY
+  if (!Array.isArray(left) || !Array.isArray(right)) throw new Error('Palette colors must be arrays.')
+  const canonical = (values) => values.map((hex) => {
+    if (typeof hex !== 'string' || !/^#[0-9A-F]{6}$/.test(hex)) throw new Error('Palette colors must use canonical uppercase HEX.')
+    return hex
+  })
+  const comparison = comparePalettes(canonical(left), canonical(right), policy)
+  if (!comparison) return { comparable: false, pair_distances: [], mean_distance: 0, maximum_pair_distance: 0, similar: false }
+  return {
+    comparable: true,
+    pair_distances: comparison.pairs.map((pair) => pair.rawDistance),
+    mean_distance: comparison.mean,
+    maximum_pair_distance: comparison.maximum,
+    similar: comparison.near
+  }
+}
+
+export function createPerceptualSimilarityPolicyProjection() {
+  const cases = [
+    ['black', ['#000000'], ['#000000']], ['white', ['#FFFFFF'], ['#FFFFFF']],
+    ['red', ['#FF0000'], ['#FF0000']], ['green', ['#00FF00'], ['#00FF00']], ['blue', ['#0000FF'], ['#0000FF']],
+    ['grey_short', ['#808080'], ['#818181']], ['muted', ['#6B7C93'], ['#6C7D94']], ['saturated', ['#E63946'], ['#E83A47']],
+    ['identity_multi', ['#112233', '#AABBCC', '#445566'], ['#112233', '#AABBCC', '#445566']],
+    ['reversed', ['#FF0000', '#00FF00', '#0000FF'], ['#0000FF', '#00FF00', '#FF0000']],
+    ['permuted', ['#112233', '#AABBCC', '#445566'], ['#445566', '#112233', '#AABBCC']],
+    ['unequal', ['#112233'], ['#112233', '#445566']], ['empty', [], []], ['left_empty', [], ['#112233']],
+    ['mean_below', ['#808080'], ['#8A8A8A']], ['mean_above', ['#808080'], ['#8B8B8B']],
+    ['max_below', ['#112233', '#445566'], ['#332233', '#445566']], ['max_above', ['#112233', '#445566'], ['#342233', '#445566']],
+    ['mean_pass_max_fail', ['#112233', '#445566', '#778899', '#AABBCC'], ['#342233', '#445566', '#778899', '#AABBCC']],
+    ['repeated', ['#112233', '#112233'], ['#112233', '#112234']],
+    ['scientific_bar', ['#4C78A8', '#F58518', '#54A24B'], ['#4D79A9', '#F48619', '#55A34C']],
+    ['sequential', ['#EFF3FF', '#6BAED6', '#08519C'], ['#EEF2FE', '#6CAFD7', '#09529D']],
+    ['diverging', ['#B2182B', '#F7F7F7', '#2166AC'], ['#B3192C', '#F6F6F6', '#2267AD']],
+    ['near_duplicate', ['#4477AA', '#EE6677', '#228833'], ['#4578AB', '#ED6878', '#238934']],
+    ['unrelated', ['#000000', '#FFFFFF'], ['#FF0000', '#00FF00']]
+  ]
+  return {
+    projection_format_version: 1,
+    policy_version: PERCEPTUAL_POLICY_VERSION,
+    color_space: PERCEPTUAL_POLICY.color_space,
+    distance_metric: PERCEPTUAL_POLICY.distance_metric,
+    matching: PERCEPTUAL_POLICY.matching,
+    color_count_policy: PERCEPTUAL_POLICY.same_color_count_only ? 'equal_count_required' : 'unsupported',
+    mean_distance_threshold: PERCEPTUAL_POLICY.mean_threshold,
+    maximum_pair_distance_threshold: PERCEPTUAL_POLICY.max_threshold,
+    threshold_inclusive: true,
+    hex_format: 'canonical_uppercase_rrggbb',
+    numerical_tolerance: 1e-12,
+    vectors: cases.map(([id, left, right]) => ({ id, left, right, ...evaluatePaletteSimilarity(left, right) }))
+  }
+}
+
 export function classifyPerceptualDistances(distances, policy = PERCEPTUAL_POLICY) {
   if (!Array.isArray(distances) || distances.length === 0 || distances.some((value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
     throw new Error('Perceptual distances must be a non-empty array of finite non-negative numbers.')
