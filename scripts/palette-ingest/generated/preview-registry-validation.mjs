@@ -1,4 +1,101 @@
 // Generated from src/lib/chart-types/registry.ts. Do not edit by hand.
+var controlled_vocabularies_default = {
+	contract_version: 1,
+	palette_types: [
+		"categorical",
+		"sequential",
+		"diverging",
+		"mixed"
+	],
+	chart_types: [
+		"bar_error",
+		"boxplot_jitter",
+		"line_multiseries",
+		"heatmap_annotated",
+		"scatter_grouped",
+		"violin_distribution"
+	],
+	chart_suitabilities: [
+		"best_fit",
+		"recommended",
+		"compatible",
+		"limited"
+	],
+	disciplines: [
+		"biomedical",
+		"clinical",
+		"genomics",
+		"single_cell",
+		"neuroscience",
+		"immunology",
+		"oncology",
+		"AI",
+		"machine_learning",
+		"statistics",
+		"engineering",
+		"chemistry",
+		"materials_science",
+		"environmental_science",
+		"general"
+	],
+	use_cases: [
+		"publication",
+		"presentation",
+		"thesis",
+		"poster",
+		"multi_group_comparison",
+		"control_vs_treatment",
+		"time_series",
+		"omics",
+		"clinical"
+	],
+	avoid_cases: [
+		"too_many_groups",
+		"small_print",
+		"grayscale_print",
+		"colorblind_sensitive",
+		"heatmap",
+		"continuous_variable",
+		"dark_background",
+		"low_contrast_required"
+	],
+	tags: [
+		"muted",
+		"pastel",
+		"high_contrast",
+		"low_saturation",
+		"publication_ready",
+		"presentation_friendly",
+		"colorblind_friendly",
+		"clean",
+		"soft",
+		"vivid",
+		"minimal",
+		"professional",
+		"warm",
+		"cool"
+	],
+	preview_templates: {
+		"bar_error": "bar_error_v1",
+		"boxplot_jitter": "boxplot_jitter_v1",
+		"line_multiseries": "line_multiseries_v1",
+		"heatmap_annotated": "heatmap_annotated_v1",
+		"scatter_grouped": "scatter_grouped_v1",
+		"violin_distribution": "violin_distribution_v1"
+	},
+	runtime_sources: {
+		"frontend_metadata": "src/types/palette.ts",
+		"frontend_chart_registry": "src/lib/chart-types/registry.ts",
+		"backend_palette_and_chart_validation": "backend/internal/palette/validation.go",
+		"backend_preview_validation": "backend/internal/palette/preview_case_validation.go"
+	},
+	known_differences: [
+		"The backend does not currently enforce disciplines, use_cases, avoid_cases, or tags against the frontend lists.",
+		"Legacy broad chart filter values are not ingestion chart types.",
+		"Legacy palette types qualitative and heatmap remain readable but are forbidden for ingestion writes."
+	]
+};
+//#endregion
 //#region src/lib/chart-types/types.ts
 function validResult() {
 	return {
@@ -24,24 +121,6 @@ function registryIssue(path, code, message) {
 function isRecord(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function validateObject(value, path, code) {
-	return isRecord(value) ? validResult() : invalidResult([registryIssue(path, code, `${path} must be an object.`)]);
-}
-function requireObjectProperty(value, key, path, code) {
-	return isRecord(value[key]) ? [] : [registryIssue(`${path}.${key}`, code, `${path}.${key} must be an object.`)];
-}
-function requireArrayProperty(value, key, path, code) {
-	return Array.isArray(value[key]) ? [] : [registryIssue(`${path}.${key}`, code, `${path}.${key} must be an array.`)];
-}
-function requirePrimitiveProperty(value, key, kind, path, code) {
-	return typeof value[key] === kind ? [] : [registryIssue(`${path}.${key}`, code, `${path}.${key} must be a ${kind}.`)];
-}
-function requirePositiveIntegerProperty(value, key, path, code) {
-	return Number.isInteger(value[key]) && Number(value[key]) > 0 ? [] : [registryIssue(`${path}.${key}`, code, `${path}.${key} must be a positive integer.`)];
-}
-function requireEnumProperty(value, key, allowed, path, code) {
-	return typeof value[key] === "string" && allowed.includes(value[key]) ? [] : [registryIssue(`${path}.${key}`, code, `${path}.${key} must be one of: ${allowed.join(", ")}.`)];
-}
 function rejectUnknownProperties(value, allowed, path, code) {
 	if (!isRecord(value)) return [];
 	return Object.keys(value).filter((key) => !allowed.includes(key)).map((key) => registryIssue(`${path}.${key}`, code, `${path}.${key} is not supported.`));
@@ -49,916 +128,760 @@ function rejectUnknownProperties(value, allowed, path, code) {
 function combineIssues(issues) {
 	return issues.length > 0 ? invalidResult(issues) : validResult();
 }
-//#endregion
-//#region src/lib/chart-types/bar-error/definition.ts
-var barErrorRolesPath = "color_roles";
-var barErrorConfigPath = "preview_config";
-var requiredElementRoleKeys = [
-	"axis",
-	"grid",
-	"text",
-	"error_bar",
-	"background"
-];
-var themeTokens$2 = [
-	"foreground",
-	"muted_foreground",
-	"grid",
-	"background"
-];
-var barErrorTemplate = {
-	id: "bar_error_v1",
-	chartType: "bar_error",
-	templateVersion: 1,
-	schemaVersion: 1,
-	validateRoles(value) {
-		const objectResult = validateObject(value, barErrorRolesPath, "INVALID_COLOR_ROLES");
-		if (!objectResult.valid) return objectResult;
-		const roles = value;
-		return combineIssues([
-			...rejectUnknownProperties(roles, ["groups", "elements"], barErrorRolesPath, "INVALID_COLOR_ROLES"),
-			...requireArrayProperty(roles, "groups", barErrorRolesPath, "INVALID_COLOR_ROLES"),
-			...requireObjectProperty(roles, "elements", barErrorRolesPath, "INVALID_COLOR_ROLES"),
-			...validateGroupItems(roles.groups, `${barErrorRolesPath}.groups`),
-			...validateRequiredElementRoles(roles.elements, `${barErrorRolesPath}.elements`)
-		]);
-	},
-	validateConfig(value) {
-		const objectResult = validateObject(value, barErrorConfigPath, "INVALID_PREVIEW_CONFIG");
-		if (!objectResult.valid) return objectResult;
-		const config = value;
-		return combineIssues([
-			...requireEnumProperty(config, "orientation", ["vertical", "horizontal"], barErrorConfigPath, "INVALID_PREVIEW_CONFIG"),
-			...requirePositiveIntegerProperty(config, "sample_size", barErrorConfigPath, "INVALID_PREVIEW_CONFIG"),
-			...requireEnumProperty(config, "error_type", [
-				"sd",
-				"sem",
-				"ci"
-			], barErrorConfigPath, "INVALID_PREVIEW_CONFIG"),
-			...requireEnumProperty(config, "data_pattern", [
-				"treatment_higher",
-				"treatment_lower",
-				"dose_response",
-				"mixed"
-			], barErrorConfigPath, "INVALID_PREVIEW_CONFIG")
-		]);
+function validateSchema(value, schema, path, code) {
+	return combineIssues(validateSchemaValue(value, schema, path, code));
+}
+function validateSchemaValue(value, schema, path, code) {
+	switch (schema.kind) {
+		case "object": {
+			if (!isRecord(value)) return [registryIssue(path, code, `${path} must be an object.`)];
+			const issues = schema.exact ? rejectUnknownProperties(value, Object.keys(schema.fields), path, code) : [];
+			for (const [key, field] of Object.entries(schema.fields)) {
+				const childPath = `${path}.${key}`;
+				if (!Object.prototype.hasOwnProperty.call(value, key) || value[key] === void 0) {
+					if (field.required) issues.push(registryIssue(childPath, code, `${childPath} is required.`));
+					continue;
+				}
+				issues.push(...validateSchemaValue(value[key], field.schema, childPath, code));
+			}
+			for (const rule of schema.rules ?? []) if (rule.kind === "conditional_min_items" && typeof value[rule.discriminatorField] === "string" && Array.isArray(value[rule.arrayField])) {
+				const minimum = rule.cases[value[rule.discriminatorField]];
+				if (minimum !== void 0 && value[rule.arrayField].length < minimum) issues.push(registryIssue(`${path}.${rule.arrayField}`, code, `${path}.${rule.arrayField} must contain at least ${minimum} items.`));
+			}
+			return issues;
+		}
+		case "array": {
+			if (!Array.isArray(value)) return [registryIssue(path, code, `${path} must be an array.`)];
+			const issues = [];
+			if (schema.minItems !== void 0 && value.length < schema.minItems || schema.maxItems !== void 0 && value.length > schema.maxItems) {
+				const range = schema.maxItems === void 0 ? `at least ${schema.minItems}` : `${schema.minItems} to ${schema.maxItems}`;
+				issues.push(registryIssue(path, code, `${path} must contain ${range} items.`));
+			}
+			value.forEach((item, index) => issues.push(...validateSchemaValue(item, schema.items, `${path}[${index}]`, code)));
+			for (const rule of schema.rules ?? []) issues.push(...validateArrayRule(value, rule, path, code));
+			return issues;
+		}
+		case "string":
+			if (typeof value !== "string") return [registryIssue(path, code, `${path} must be a string.`)];
+			if (schema.nonWhitespace && value.trim() === "") return [registryIssue(path, code, `${path} must be a non-empty string.`)];
+			if (schema.enum && !schema.enum.includes(value)) return [registryIssue(path, code, `${path} must be one of: ${schema.enum.join(", ")}.`)];
+			return [];
+		case "number":
+			if (typeof value !== "number" || !Number.isFinite(value) || schema.integer && !Number.isInteger(value)) return [registryIssue(path, code, `${path} must be ${schema.integer ? "an integer" : "a number"}.`)];
+			if (schema.min !== void 0 && value < schema.min) return [registryIssue(path, code, schema.max === void 0 ? `${path} must be at least ${schema.min}.` : `${path} must be between ${schema.min} and ${schema.max}.`)];
+			if (schema.max !== void 0 && value > schema.max) return [registryIssue(path, code, schema.min === void 0 ? `${path} must be at most ${schema.max}.` : `${path} must be between ${schema.min} and ${schema.max}.`)];
+			return [];
+		case "boolean": return typeof value === "boolean" ? [] : [registryIssue(path, code, `${path} must be a boolean.`)];
+		case "palette_reference": return validatePaletteReference(value, schema.unknownMembers, path, code);
+		case "visual_reference": return validateVisualReference(value, schema.themeTokens, schema.unknownMembers, path, code);
 	}
-};
-function validateGroupItems(value, path) {
-	if (!Array.isArray(value)) return [];
-	if (value.length < 1 || value.length > 5) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must contain 1 to 5 groups.`
-	}];
-	const seenKeys = /* @__PURE__ */ new Set();
-	return value.flatMap((item, index) => {
-		const itemPath = `${path}[${index}]`;
-		if (!isRecord(item)) return [{
-			path: itemPath,
-			code: "INVALID_COLOR_ROLES",
-			message: `${itemPath} must be an object.`
-		}];
-		const duplicateKeyIssue = typeof item.key === "string" && seenKeys.has(item.key) ? [{
-			path: `${itemPath}.key`,
-			code: "DUPLICATE_ROLE_KEY",
-			message: `Duplicate group key: ${item.key}.`
-		}] : [];
-		if (typeof item.key === "string") seenKeys.add(item.key);
-		return [
-			...duplicateKeyIssue,
-			...requireEnumLikeString(item, "key", itemPath),
-			...requireEnumLikeString(item, "label", itemPath),
-			...validatePaletteColorReference$3(item.fill, `${itemPath}.fill`)
-		];
-	});
 }
-function validateRequiredElementRoles(value, path) {
-	if (!isRecord(value)) return [];
-	return [...rejectUnknownProperties(value, requiredElementRoleKeys, path, "INVALID_COLOR_ROLES"), ...requiredElementRoleKeys.flatMap((key) => Object.prototype.hasOwnProperty.call(value, key) ? validateVisualColorReference$3(value[key], `${path}.${key}`) : requireObjectProperty(value, key, path, "INVALID_COLOR_ROLES"))];
+function validatePaletteReference(value, unknownMembers, path, code) {
+	if (!isRecord(value) || value.source !== "palette" || typeof value.color_id !== "string" || value.color_id.trim() === "") return [registryIssue(path, code, `${path} must be a palette color reference with color_id.`)];
+	const issues = unknownMembers === "reject" ? rejectUnknownProperties(value, [
+		"source",
+		"color_id",
+		"opacity"
+	], path, code) : [];
+	if (!(value.opacity === void 0 || typeof value.opacity === "number" && Number.isFinite(value.opacity) && value.opacity >= 0 && value.opacity <= 1)) issues.push(registryIssue(`${path}.opacity`, code, `${path}.opacity must be between 0 and 1.`));
+	return issues;
 }
-function requireEnumLikeString(value, key, path) {
-	return typeof value[key] === "string" && String(value[key]).trim() !== "" ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.${key} must be a non-empty string.`
-	}];
-}
-function validatePaletteColorReference$3(value, path) {
-	if (!isRecord(value) || value.source !== "palette" || typeof value.color_id !== "string" || value.color_id.trim() === "") return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a palette color reference with color_id.`
-	}];
-	return validateOpacity$3(value.opacity, path);
-}
-function validateVisualColorReference$3(value, path) {
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a color reference.`
-	}];
-	if (value.source === "palette") return validatePaletteColorReference$3(value, path);
-	if (value.source === "theme" && typeof value.token === "string" && themeTokens$2.includes(value.token)) return validateOpacity$3(value.opacity, path);
-	return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must use a palette color or approved theme token.`
-	}];
-}
-function validateOpacity$3(value, path) {
-	return value === void 0 || typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? [] : [{
-		path: `${path}.opacity`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.opacity must be between 0 and 1.`
-	}];
-}
-//#endregion
-//#region src/lib/chart-types/boxplot-jitter/definition.ts
-var rolesPath$4 = "color_roles";
-var configPath$4 = "preview_config";
-var optionalElementRoleKeys$2 = [
-	"jitter_point",
-	"median_line",
-	"whisker",
-	"outline",
-	"axis",
-	"grid",
-	"text",
-	"box_stroke",
-	"median",
-	"jitter",
-	"outlier",
-	"background"
-];
-var boxplotJitterTemplate = {
-	id: "boxplot_jitter_v1",
-	chartType: "boxplot_jitter",
-	templateVersion: 1,
-	schemaVersion: 1,
-	validateRoles(value) {
-		const objectResult = validateObject(value, rolesPath$4, "INVALID_COLOR_ROLES");
-		if (!objectResult.valid) return objectResult;
-		const roles = value;
-		return combineIssues([
-			...rejectUnknownProperties(roles, ["groups", "elements"], rolesPath$4, "INVALID_COLOR_ROLES"),
-			...requireArrayProperty(roles, "groups", rolesPath$4, "INVALID_COLOR_ROLES"),
-			...validateNamedRoles(roles.groups, `${rolesPath$4}.groups`),
-			...validateOptionalElements$2(roles.elements, `${rolesPath$4}.elements`)
-		]);
-	},
-	validateConfig(value) {
-		const objectResult = validateObject(value, configPath$4, "INVALID_PREVIEW_CONFIG");
-		if (!objectResult.valid) return objectResult;
-		const config = value;
-		return combineIssues([
-			...requireEnumProperty(config, "jitter_density", [
-				"low",
-				"medium",
-				"high"
-			], configPath$4, "INVALID_PREVIEW_CONFIG"),
-			...requirePrimitiveProperty(config, "show_outliers", "boolean", configPath$4, "INVALID_PREVIEW_CONFIG"),
-			...validateOptionalString$2(config, "y_axis_label", configPath$4)
-		]);
+function validateVisualReference(value, tokens, unknownMembers, path, code) {
+	if (!isRecord(value)) return [registryIssue(path, code, `${path} must be a color reference.`)];
+	if (value.source === "palette") return validatePaletteReference(value, unknownMembers, path, code);
+	if (value.source === "theme" && typeof value.token === "string" && tokens.includes(value.token)) {
+		const issues = unknownMembers === "reject" ? rejectUnknownProperties(value, [
+			"source",
+			"token",
+			"opacity"
+		], path, code) : [];
+		if (!(value.opacity === void 0 || typeof value.opacity === "number" && Number.isFinite(value.opacity) && value.opacity >= 0 && value.opacity <= 1)) issues.push(registryIssue(`${path}.opacity`, code, `${path}.opacity must be between 0 and 1.`));
+		return issues;
 	}
-};
-function validateNamedRoles(value, path) {
-	if (!Array.isArray(value)) return [];
-	if (value.length < 1 || value.length > 5) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must contain 1 to 5 groups.`
-	}];
-	const seenKeys = /* @__PURE__ */ new Set();
-	return value.flatMap((item, index) => {
-		const itemPath = `${path}[${index}]`;
-		if (!isRecord(item)) return [{
-			path: itemPath,
-			code: "INVALID_COLOR_ROLES",
-			message: `${itemPath} must be an object.`
-		}];
-		const duplicateKeyIssue = typeof item.key === "string" && seenKeys.has(item.key) ? [{
-			path: `${itemPath}.key`,
-			code: "INVALID_COLOR_ROLES",
-			message: `Duplicate group key: ${item.key}.`
-		}] : [];
-		if (typeof item.key === "string") seenKeys.add(item.key);
-		return [
-			...duplicateKeyIssue,
-			...requireText$2(item, "key", itemPath),
-			...requireText$2(item, "label", itemPath),
-			...validatePaletteColorReference$2(item.color, `${itemPath}.color`)
-		];
-	});
+	return [registryIssue(path, code, `${path} must use a palette color or approved theme token.`)];
 }
-function validateOptionalElements$2(value, path) {
-	if (value === void 0) return [];
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be an object when present.`
-	}];
-	return [...rejectUnknownProperties(value, optionalElementRoleKeys$2, path, "INVALID_COLOR_ROLES"), ...Object.entries(value).flatMap(([key, reference]) => optionalElementRoleKeys$2.includes(key) ? validateVisualColorReference$2(reference, `${path}.${key}`) : [])];
+function validateSchemaDeclaration(schema, path = "schema") {
+	const errors = [];
+	const visit = (node, at) => {
+		if (node.kind === "number" && node.min !== void 0 && node.max !== void 0 && node.min > node.max) errors.push(`${at} has min greater than max.`);
+		if (node.kind === "array") {
+			if (node.minItems !== void 0 && node.minItems < 0) errors.push(`${at}.minItems is invalid.`);
+			if (node.maxItems !== void 0 && (node.maxItems < 0 || node.minItems !== void 0 && node.minItems > node.maxItems)) errors.push(`${at}.maxItems is invalid.`);
+			visit(node.items, `${at}.items`);
+		}
+		if (node.kind === "object") Object.entries(node.fields).forEach(([key, field]) => visit(field.schema, `${at}.fields.${key}`));
+	};
+	visit(schema, path);
+	return errors;
 }
-function requireText$2(value, key, path) {
-	return typeof value[key] === "string" && String(value[key]).trim() !== "" ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.${key} must be a non-empty string.`
-	}];
-}
-function validateOptionalString$2(value, key, path) {
-	return value[key] === void 0 || typeof value[key] === "string" ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_PREVIEW_CONFIG",
-		message: `${path}.${key} must be a string when present.`
-	}];
-}
-function validatePaletteColorReference$2(value, path) {
-	if (!isRecord(value) || value.source !== "palette" || typeof value.color_id !== "string" || value.color_id.trim() === "") return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a palette color reference with color_id.`
-	}];
-	return validateOpacity$2(value.opacity, path);
-}
-function validateVisualColorReference$2(value, path) {
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a color reference.`
-	}];
-	if (value.source === "palette") return validatePaletteColorReference$2(value, path);
-	if (value.source === "theme" && typeof value.token === "string" && [
-		"foreground",
-		"muted_foreground",
-		"grid",
-		"background"
-	].includes(value.token)) return validateOpacity$2(value.opacity, path);
-	return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must use a palette color or approved theme token.`
-	}];
-}
-function validateOpacity$2(value, path) {
-	return value === void 0 || typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? [] : [{
-		path: `${path}.opacity`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.opacity must be between 0 and 1.`
-	}];
-}
-//#endregion
-//#region src/lib/chart-types/heatmap-annotated/definition.ts
-var rolesPath$3 = "color_roles";
-var configPath$3 = "preview_config";
-var optionalElementRoleKeys$1 = [
-	"missing_value",
-	"text",
-	"border",
-	"grid",
-	"background",
-	"annotation_text"
-];
-var heatmapAnnotatedTemplate = {
-	id: "heatmap_annotated_v1",
-	chartType: "heatmap_annotated",
-	templateVersion: 1,
-	schemaVersion: 1,
-	validateRoles(value) {
-		const objectResult = validateObject(value, rolesPath$3, "INVALID_COLOR_ROLES");
-		if (!objectResult.valid) return objectResult;
-		const roles = value;
-		const scale = roles.scale;
-		return combineIssues([
-			...rejectUnknownProperties(roles, [
-				"scale",
-				"elements",
-				"annotations"
-			], rolesPath$3, "INVALID_COLOR_ROLES"),
-			...validateScaleObject(roles.scale, `${rolesPath$3}.scale`),
-			...validateOptionalElements$1(roles.elements, `${rolesPath$3}.elements`),
-			...validateAnnotations(roles.annotations, `${rolesPath$3}.annotations`),
-			...isRecord(scale) ? [
-				...requireEnumProperty(scale, "type", ["sequential", "diverging"], `${rolesPath$3}.scale`, "INVALID_COLOR_ROLES"),
-				...requireArrayProperty(scale, "stops", `${rolesPath$3}.scale`, "INVALID_COLOR_ROLES"),
-				...validateScaleStopCount(scale, `${rolesPath$3}.scale`),
-				...validateScaleStops(scale.stops, `${rolesPath$3}.scale.stops`)
-			] : []
-		]);
-	},
-	validateConfig(value) {
-		const objectResult = validateObject(value, configPath$3, "INVALID_PREVIEW_CONFIG");
-		if (!objectResult.valid) return objectResult;
-		const config = value;
-		return combineIssues([
-			...requirePositiveIntegerProperty(config, "rows", configPath$3, "INVALID_PREVIEW_CONFIG"),
-			...validateIntegerRange(config.rows, `${configPath$3}.rows`, 4, 8),
-			...requirePositiveIntegerProperty(config, "columns", configPath$3, "INVALID_PREVIEW_CONFIG"),
-			...validateIntegerRange(config.columns, `${configPath$3}.columns`, 4, 8),
-			...requirePrimitiveProperty(config, "cluster_rows", "boolean", configPath$3, "INVALID_PREVIEW_CONFIG"),
-			...requirePrimitiveProperty(config, "cluster_columns", "boolean", configPath$3, "INVALID_PREVIEW_CONFIG"),
-			...requirePrimitiveProperty(config, "show_row_labels", "boolean", configPath$3, "INVALID_PREVIEW_CONFIG"),
-			...requirePrimitiveProperty(config, "show_column_labels", "boolean", configPath$3, "INVALID_PREVIEW_CONFIG"),
-			...requirePrimitiveProperty(config, "show_values", "boolean", configPath$3, "INVALID_PREVIEW_CONFIG"),
-			...requireEnumProperty(config, "data_pattern", [
-				"two_clusters",
-				"three_clusters",
-				"gradient",
-				"mixed"
-			], configPath$3, "INVALID_PREVIEW_CONFIG")
-		]);
-	}
-};
-function validateScaleObject(value, path) {
-	return isRecord(value) ? [] : [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be an object.`
-	}];
-}
-function validateOptionalElements$1(value, path) {
-	if (value === void 0) return [];
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be an object when present.`
-	}];
-	return [...rejectUnknownProperties(value, optionalElementRoleKeys$1, path, "INVALID_COLOR_ROLES"), ...Object.entries(value).flatMap(([key, reference]) => optionalElementRoleKeys$1.includes(key) ? validateVisualColorReference$1(reference, `${path}.${key}`) : [])];
-}
-function validateAnnotations(value, path) {
-	if (value === void 0) return [];
-	if (!Array.isArray(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be an array when present.`
-	}];
-	const seenKeys = /* @__PURE__ */ new Set();
-	return value.flatMap((item, index) => {
-		const itemPath = `${path}[${index}]`;
-		if (!isRecord(item)) return [{
-			path: itemPath,
-			code: "INVALID_COLOR_ROLES",
-			message: `${itemPath} must be an object.`
-		}];
-		const duplicateKeyIssue = typeof item.key === "string" && seenKeys.has(item.key) ? [{
-			path: `${itemPath}.key`,
-			code: "INVALID_COLOR_ROLES",
-			message: `Duplicate annotation key: ${item.key}.`
-		}] : [];
-		if (typeof item.key === "string") seenKeys.add(item.key);
-		return [
-			...duplicateKeyIssue,
-			...requireText$1(item, "key", itemPath),
-			...requireText$1(item, "label", itemPath),
-			...validatePaletteColorReference$1(item.color, `${itemPath}.color`)
-		];
-	});
-}
-function validateScaleStopCount(scale, path) {
-	if (!Array.isArray(scale.stops)) return [];
-	if (scale.type === "sequential" && scale.stops.length < 2) return [{
-		path: `${path}.stops`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.stops must contain at least 2 stops for a sequential scale.`
-	}];
-	if (scale.type === "diverging" && scale.stops.length < 3) return [{
-		path: `${path}.stops`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.stops must contain at least 3 stops for a diverging scale.`
-	}];
-	return scale.stops.length > 0 ? [] : [{
-		path: `${path}.stops`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.stops must not be empty.`
-	}];
-}
-function validateScaleStops(value, path) {
-	if (!Array.isArray(value)) return [];
-	const issues = value.flatMap((item, index) => {
-		const itemPath = `${path}[${index}]`;
-		if (!isRecord(item)) return [{
-			path: itemPath,
-			code: "INVALID_COLOR_ROLES",
-			message: `${itemPath} must be an object.`
-		}];
-		return [
-			...requirePositiveNumber(item, "position", itemPath),
-			...validateStopPositionRange(item.position, `${itemPath}.position`),
-			...validatePaletteColorReference$1(item.color, `${itemPath}.color`),
-			...validateOptionalString$1(item, "label", itemPath, "INVALID_COLOR_ROLES")
-		];
-	});
-	for (let index = 1; index < value.length; index += 1) {
-		const previous = isRecord(value[index - 1]) ? value[index - 1].position : void 0;
-		const current = isRecord(value[index]) ? value[index].position : void 0;
-		if (typeof previous === "number" && typeof current === "number" && Number.isFinite(previous) && Number.isFinite(current) && current <= previous) issues.push({
-			path: `${path}[${index}].position`,
-			code: "INVALID_COLOR_ROLES",
-			message: `${path}[${index}].position must be greater than the previous stop position.`
+function validateArrayRule(value, rule, path, code) {
+	const issues = [];
+	if (rule.kind === "unique_by") {
+		const seen = /* @__PURE__ */ new Set();
+		value.forEach((item, index) => {
+			const candidate = isRecord(item) ? item[rule.field] : void 0;
+			if (typeof candidate === "string" || typeof candidate === "number") {
+				if (seen.has(candidate)) issues.push(registryIssue(`${path}[${index}].${rule.field}`, rule.issueCode ?? code, `Duplicate ${rule.field}.`));
+				seen.add(candidate);
+			}
 		});
+	} else if (rule.kind === "strictly_increasing") for (let index = 1; index < value.length; index += 1) {
+		const previous = value[index - 1];
+		const current = value[index];
+		const a = isRecord(previous) ? previous[rule.field] : void 0;
+		const b = isRecord(current) ? current[rule.field] : void 0;
+		if (typeof a === "number" && typeof b === "number" && Number.isFinite(a) && Number.isFinite(b) && b <= a) issues.push(registryIssue(`${path}[${index}].${rule.field}`, code, `${path}[${index}].${rule.field} must be greater than the previous value.`));
 	}
 	return issues;
 }
-function requirePositiveNumber(value, key, path) {
-	return typeof value[key] === "number" && Number.isFinite(value[key]) ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.${key} must be a number.`
-	}];
-}
-function validateStopPositionRange(value, path) {
-	return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? [] : [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be between 0 and 1.`
-	}];
-}
-function validateIntegerRange(value, path, min, max) {
-	return Number.isInteger(value) && Number(value) >= min && Number(value) <= max ? [] : [{
-		path,
-		code: "INVALID_PREVIEW_CONFIG",
-		message: `${path} must be between ${min} and ${max}.`
-	}];
-}
-function requireText$1(value, key, path) {
-	return typeof value[key] === "string" && String(value[key]).trim() !== "" ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.${key} must be a non-empty string.`
-	}];
-}
-function validateOptionalString$1(value, key, path, code) {
-	return value[key] === void 0 || typeof value[key] === "string" ? [] : [{
-		path: `${path}.${key}`,
-		code,
-		message: `${path}.${key} must be a string when present.`
-	}];
-}
-function validatePaletteColorReference$1(value, path) {
-	if (!isRecord(value) || value.source !== "palette" || typeof value.color_id !== "string" || value.color_id.trim() === "") return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a palette color reference with color_id.`
-	}];
-	return validateOpacity$1(value.opacity, path);
-}
-function validateVisualColorReference$1(value, path) {
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a color reference.`
-	}];
-	if (value.source === "palette") return validatePaletteColorReference$1(value, path);
-	if (value.source === "theme" && typeof value.token === "string" && [
-		"foreground",
-		"muted_foreground",
-		"grid",
-		"background"
-	].includes(value.token)) return validateOpacity$1(value.opacity, path);
-	return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must use a palette color or approved theme token.`
-	}];
-}
-function validateOpacity$1(value, path) {
-	return value === void 0 || typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? [] : [{
-		path: `${path}.opacity`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.opacity must be between 0 and 1.`
-	}];
+function defineTemplate(definition) {
+	return {
+		...definition,
+		validateRoles: (value) => validateSchema(value, definition.rolesSchema, "color_roles", "INVALID_COLOR_ROLES"),
+		validateConfig: (value) => validateSchema(value, definition.configSchema, "preview_config", "INVALID_PREVIEW_CONFIG")
+	};
 }
 //#endregion
-//#region src/lib/chart-types/line-multiseries/definition.ts
-var rolesPath$2 = "color_roles";
-var configPath$2 = "preview_config";
-var optionalElementRoleKeys = [
-	"axis",
-	"grid",
-	"reference_line",
-	"text",
-	"marker_stroke",
-	"background"
-];
-var lineMultiseriesTemplate = {
-	id: "line_multiseries_v1",
-	chartType: "line_multiseries",
-	templateVersion: 1,
-	schemaVersion: 1,
-	validateRoles(value) {
-		const objectResult = validateObject(value, rolesPath$2, "INVALID_COLOR_ROLES");
-		if (!objectResult.valid) return objectResult;
-		const roles = value;
-		return combineIssues([
-			...rejectUnknownProperties(roles, ["series", "elements"], rolesPath$2, "INVALID_COLOR_ROLES"),
-			...requireArrayProperty(roles, "series", rolesPath$2, "INVALID_COLOR_ROLES"),
-			...validateSeriesItems(roles.series, `${rolesPath$2}.series`),
-			...validateOptionalElements(roles.elements, `${rolesPath$2}.elements`)
-		]);
-	},
-	validateConfig(value) {
-		const objectResult = validateObject(value, configPath$2, "INVALID_PREVIEW_CONFIG");
-		if (!objectResult.valid) return objectResult;
-		const config = value;
-		return combineIssues([
-			...requirePositiveIntegerProperty(config, "point_count", configPath$2, "INVALID_PREVIEW_CONFIG"),
-			...validatePointCountRange(config.point_count, `${configPath$2}.point_count`),
-			...requireEnumProperty(config, "curve_shape", [
-				"increasing",
-				"decreasing",
-				"sigmoid",
-				"peak",
-				"mixed"
-			], configPath$2, "INVALID_PREVIEW_CONFIG"),
-			...validateOptionalString(config, "x_axis_label", configPath$2),
-			...validateOptionalString(config, "y_axis_label", configPath$2)
-		]);
-	}
-};
-function validateSeriesItems(value, path) {
-	if (!Array.isArray(value)) return [];
-	if (value.length < 1 || value.length > 5) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must contain 1 to 5 series.`
-	}];
-	const seenKeys = /* @__PURE__ */ new Set();
-	return value.flatMap((item, index) => {
-		const itemPath = `${path}[${index}]`;
-		if (!isRecord(item)) return [{
-			path: itemPath,
-			code: "INVALID_COLOR_ROLES",
-			message: `${itemPath} must be an object.`
-		}];
-		const duplicateKeyIssue = typeof item.key === "string" && seenKeys.has(item.key) ? [{
-			path: `${itemPath}.key`,
-			code: "INVALID_COLOR_ROLES",
-			message: `Duplicate series key: ${item.key}.`
-		}] : [];
-		if (typeof item.key === "string") seenKeys.add(item.key);
-		return [
-			...duplicateKeyIssue,
-			...requireText(item, "key", itemPath),
-			...requireText(item, "label", itemPath),
-			...validatePaletteColorReference(item.line, `${itemPath}.line`),
-			...validateOptionalVisualColorReference(item.confidence_band, `${itemPath}.confidence_band`),
-			...validateOptionalVisualColorReference(item.marker, `${itemPath}.marker`)
-		];
-	});
-}
-function validateOptionalElements(value, path) {
-	if (value === void 0) return [];
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be an object when present.`
-	}];
-	return [...rejectUnknownProperties(value, optionalElementRoleKeys, path, "INVALID_COLOR_ROLES"), ...Object.entries(value).flatMap(([key, reference]) => optionalElementRoleKeys.includes(key) ? validateVisualColorReference(reference, `${path}.${key}`) : [])];
-}
-function validatePointCountRange(value, path) {
-	return Number.isInteger(value) && Number(value) >= 6 && Number(value) <= 12 ? [] : [{
-		path,
-		code: "INVALID_PREVIEW_CONFIG",
-		message: `${path} must be between 6 and 12.`
-	}];
-}
-function requireText(value, key, path) {
-	return typeof value[key] === "string" && String(value[key]).trim() !== "" ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.${key} must be a non-empty string.`
-	}];
-}
-function validateOptionalString(value, key, path) {
-	return value[key] === void 0 || typeof value[key] === "string" ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_PREVIEW_CONFIG",
-		message: `${path}.${key} must be a string when present.`
-	}];
-}
-function validateOptionalVisualColorReference(value, path) {
-	return value === void 0 ? [] : validateVisualColorReference(value, path);
-}
-function validatePaletteColorReference(value, path) {
-	if (!isRecord(value) || value.source !== "palette" || typeof value.color_id !== "string" || value.color_id.trim() === "") return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a palette color reference with color_id.`
-	}];
-	return validateOpacity(value.opacity, path);
-}
-function validateVisualColorReference(value, path) {
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a color reference.`
-	}];
-	if (value.source === "palette") return validatePaletteColorReference(value, path);
-	if (value.source === "theme" && typeof value.token === "string" && [
-		"foreground",
-		"muted_foreground",
-		"grid",
-		"background"
-	].includes(value.token)) return validateOpacity(value.opacity, path);
-	return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must use a palette color or approved theme token.`
-	}];
-}
-function validateOpacity(value, path) {
-	return value === void 0 || typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? [] : [{
-		path: `${path}.opacity`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.opacity must be between 0 and 1.`
-	}];
-}
-//#endregion
-//#region src/lib/chart-types/scatter-grouped/definition.ts
-var rolesPath$1 = "color_roles";
-var configPath$1 = "preview_config";
-var elementKeys$1 = [
-	"axis",
-	"muted_foreground",
-	"grid",
-	"background"
-];
-var themeTokens$1 = [
-	"foreground",
-	"muted_foreground",
-	"grid",
-	"background"
-];
-var scatterGroupedTemplate = {
-	id: "scatter_grouped_v1",
-	chartType: "scatter_grouped",
-	templateVersion: 1,
-	schemaVersion: 1,
-	validateRoles(value) {
-		const objectResult = validateObject(value, rolesPath$1, "INVALID_COLOR_ROLES");
-		if (!objectResult.valid) return objectResult;
-		const roles = value;
-		return combineIssues([
-			...rejectUnknownProperties(roles, ["groups", "elements"], rolesPath$1, "INVALID_COLOR_ROLES"),
-			...requireArrayProperty(roles, "groups", rolesPath$1, "INVALID_COLOR_ROLES"),
-			...validateGroups$1(roles.groups, `${rolesPath$1}.groups`),
-			...validateElements$1(roles.elements, `${rolesPath$1}.elements`)
-		]);
-	},
-	validateConfig(value) {
-		const objectResult = validateObject(value, configPath$1, "INVALID_PREVIEW_CONFIG");
-		if (!objectResult.valid) return objectResult;
-		const config = value;
-		return combineIssues([
-			...requirePositiveIntegerProperty(config, "point_count", configPath$1, "INVALID_PREVIEW_CONFIG"),
-			...integerRange$1(config.point_count, `${configPath$1}.point_count`, 8, 30),
-			...requireEnumProperty(config, "data_pattern", [
-				"clusters",
-				"positive",
-				"negative",
-				"mixed"
-			], configPath$1, "INVALID_PREVIEW_CONFIG"),
-			...requireEnumProperty(config, "point_size", [
-				"small",
-				"medium",
-				"large"
-			], configPath$1, "INVALID_PREVIEW_CONFIG"),
-			...optionalNumber(config, "point_opacity", configPath$1, .25, 1)
-		]);
-	}
-};
-function validateGroups$1(value, path) {
-	if (!Array.isArray(value)) return [];
-	if (value.length < 1 || value.length > 5) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must contain 1 to 5 groups.`
-	}];
-	const seen = /* @__PURE__ */ new Set();
-	return value.flatMap((item, index) => {
-		const itemPath = `${path}[${index}]`;
-		if (!isRecord(item)) return [{
-			path: itemPath,
-			code: "INVALID_COLOR_ROLES",
-			message: `${itemPath} must be an object.`
-		}];
-		const issues = [
-			...text$1(item, "key", itemPath),
-			...text$1(item, "label", itemPath),
-			...paletteReference$1(item.color, `${itemPath}.color`)
-		];
-		if (typeof item.key === "string" && seen.has(item.key)) issues.push({
-			path: `${itemPath}.key`,
-			code: "DUPLICATE_ROLE_KEY",
-			message: `Duplicate group key: ${item.key}.`
-		});
-		if (typeof item.key === "string") seen.add(item.key);
-		return issues;
-	});
-}
-function validateElements$1(value, path) {
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be an object.`
-	}];
-	return [...rejectUnknownProperties(value, elementKeys$1, path, "INVALID_COLOR_ROLES"), ...elementKeys$1.flatMap((key) => Object.prototype.hasOwnProperty.call(value, key) ? visualReference$1(value[key], `${path}.${key}`) : [{
-		path: `${path}.${key}`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.${key} is required.`
-	}])];
-}
-function paletteReference$1(value, path) {
-	if (!isRecord(value) || value.source !== "palette" || typeof value.color_id !== "string" || !value.color_id.trim()) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a palette color reference with color_id.`
-	}];
-	return opacity$1(value.opacity, path);
-}
-function visualReference$1(value, path) {
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a color reference.`
-	}];
-	if (value.source === "palette") return paletteReference$1(value, path);
-	if (value.source === "theme" && typeof value.token === "string" && themeTokens$1.includes(value.token)) return opacity$1(value.opacity, path);
-	return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must use a palette color or approved theme token.`
-	}];
-}
-function opacity$1(value, path) {
-	return value === void 0 || typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? [] : [{
-		path: `${path}.opacity`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.opacity must be between 0 and 1.`
-	}];
-}
-function text$1(value, key, path) {
-	return typeof value[key] === "string" && String(value[key]).trim() ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.${key} must be a non-empty string.`
-	}];
-}
-function integerRange$1(value, path, min, max) {
-	return Number.isInteger(value) && Number(value) >= min && Number(value) <= max ? [] : [{
-		path,
-		code: "INVALID_PREVIEW_CONFIG",
-		message: `${path} must be between ${min} and ${max}.`
-	}];
-}
-function optionalNumber(value, key, path, min, max) {
-	const candidate = value[key];
-	return candidate === void 0 || typeof candidate === "number" && Number.isFinite(candidate) && candidate >= min && candidate <= max ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_PREVIEW_CONFIG",
-		message: `${path}.${key} must be between ${min} and ${max}.`
-	}];
-}
-//#endregion
-//#region src/lib/chart-types/violin-distribution/definition.ts
-var rolesPath = "color_roles";
-var configPath = "preview_config";
-var elementKeys = [
-	"outline",
-	"median",
-	"axis",
-	"grid",
-	"background"
-];
+//#region src/lib/chart-types/bar-error/definition.ts
 var themeTokens = [
 	"foreground",
 	"muted_foreground",
 	"grid",
 	"background"
 ];
-var violinDistributionTemplate = {
+var text = () => ({
+	kind: "string",
+	nonWhitespace: true
+});
+var visual$5 = () => ({
+	kind: "visual_reference",
+	themeTokens,
+	unknownMembers: "allow"
+});
+var fields = (entries, required = true) => Object.fromEntries(Object.entries(entries).map(([key, schema]) => [key, {
+	required,
+	schema
+}]));
+var barErrorTemplate = defineTemplate({
+	id: "bar_error_v1",
+	chartType: "bar_error",
+	templateVersion: 1,
+	schemaVersion: 1,
+	rolesSchema: {
+		kind: "object",
+		exact: true,
+		fields: {
+			groups: {
+				required: true,
+				schema: {
+					kind: "array",
+					minItems: 1,
+					maxItems: 5,
+					rules: [{
+						kind: "unique_by",
+						field: "key",
+						issueCode: "DUPLICATE_ROLE_KEY"
+					}],
+					items: {
+						kind: "object",
+						exact: false,
+						fields: fields({
+							key: text(),
+							label: text(),
+							fill: {
+								kind: "palette_reference",
+								unknownMembers: "allow"
+							}
+						})
+					}
+				}
+			},
+			elements: {
+				required: true,
+				schema: {
+					kind: "object",
+					exact: true,
+					fields: fields({
+						axis: visual$5(),
+						grid: visual$5(),
+						text: visual$5(),
+						error_bar: visual$5(),
+						background: visual$5()
+					})
+				}
+			}
+		}
+	},
+	configSchema: {
+		kind: "object",
+		exact: false,
+		fields: fields({
+			orientation: {
+				kind: "string",
+				enum: ["vertical", "horizontal"]
+			},
+			sample_size: {
+				kind: "number",
+				integer: true,
+				min: 1
+			},
+			error_type: {
+				kind: "string",
+				enum: [
+					"sd",
+					"sem",
+					"ci"
+				]
+			},
+			data_pattern: {
+				kind: "string",
+				enum: [
+					"treatment_higher",
+					"treatment_lower",
+					"dose_response",
+					"mixed"
+				]
+			}
+		})
+	}
+});
+//#endregion
+//#region src/lib/chart-types/boxplot-jitter/definition.ts
+var tokens$1 = [
+	"foreground",
+	"muted_foreground",
+	"grid",
+	"background"
+];
+var visual$4 = () => ({
+	kind: "visual_reference",
+	themeTokens: tokens$1,
+	unknownMembers: "allow"
+});
+var req$4 = (schema) => ({
+	required: true,
+	schema
+});
+var opt$3 = (schema) => ({
+	required: false,
+	schema
+});
+var boxplotJitterTemplate = defineTemplate({
+	id: "boxplot_jitter_v1",
+	chartType: "boxplot_jitter",
+	templateVersion: 1,
+	schemaVersion: 1,
+	rolesSchema: {
+		kind: "object",
+		exact: true,
+		fields: {
+			groups: req$4({
+				kind: "array",
+				minItems: 1,
+				maxItems: 5,
+				rules: [{
+					kind: "unique_by",
+					field: "key"
+				}],
+				items: {
+					kind: "object",
+					exact: false,
+					fields: {
+						key: req$4({
+							kind: "string",
+							nonWhitespace: true
+						}),
+						label: req$4({
+							kind: "string",
+							nonWhitespace: true
+						}),
+						color: req$4({
+							kind: "palette_reference",
+							unknownMembers: "allow"
+						})
+					}
+				}
+			}),
+			elements: opt$3({
+				kind: "object",
+				exact: true,
+				fields: Object.fromEntries([
+					"jitter_point",
+					"median_line",
+					"whisker",
+					"outline",
+					"axis",
+					"grid",
+					"text",
+					"box_stroke",
+					"median",
+					"jitter",
+					"outlier",
+					"background"
+				].map((key) => [key, opt$3(visual$4())]))
+			})
+		}
+	},
+	configSchema: {
+		kind: "object",
+		exact: false,
+		fields: {
+			jitter_density: req$4({
+				kind: "string",
+				enum: [
+					"low",
+					"medium",
+					"high"
+				]
+			}),
+			show_outliers: req$4({ kind: "boolean" }),
+			y_axis_label: opt$3({ kind: "string" })
+		}
+	}
+});
+//#endregion
+//#region src/lib/chart-types/heatmap-annotated/definition.ts
+var req$3 = (schema) => ({
+	required: true,
+	schema
+});
+var opt$2 = (schema) => ({
+	required: false,
+	schema
+});
+var visual$3 = () => ({
+	kind: "visual_reference",
+	themeTokens: [
+		"foreground",
+		"muted_foreground",
+		"grid",
+		"background"
+	],
+	unknownMembers: "allow"
+});
+var namedColor = {
+	kind: "object",
+	exact: false,
+	fields: {
+		key: req$3({
+			kind: "string",
+			nonWhitespace: true
+		}),
+		label: req$3({
+			kind: "string",
+			nonWhitespace: true
+		}),
+		color: req$3({
+			kind: "palette_reference",
+			unknownMembers: "allow"
+		})
+	}
+};
+var heatmapAnnotatedTemplate = defineTemplate({
+	id: "heatmap_annotated_v1",
+	chartType: "heatmap_annotated",
+	templateVersion: 1,
+	schemaVersion: 1,
+	rolesSchema: {
+		kind: "object",
+		exact: true,
+		fields: {
+			scale: req$3({
+				kind: "object",
+				exact: false,
+				rules: [{
+					kind: "conditional_min_items",
+					arrayField: "stops",
+					discriminatorField: "type",
+					cases: {
+						sequential: 2,
+						diverging: 3
+					}
+				}],
+				fields: {
+					type: req$3({
+						kind: "string",
+						enum: ["sequential", "diverging"]
+					}),
+					stops: req$3({
+						kind: "array",
+						minItems: 1,
+						rules: [{
+							kind: "strictly_increasing",
+							field: "position"
+						}],
+						items: {
+							kind: "object",
+							exact: false,
+							fields: {
+								position: req$3({
+									kind: "number",
+									min: 0,
+									max: 1
+								}),
+								color: req$3({
+									kind: "palette_reference",
+									unknownMembers: "allow"
+								}),
+								label: opt$2({ kind: "string" })
+							}
+						}
+					})
+				}
+			}),
+			elements: opt$2({
+				kind: "object",
+				exact: true,
+				fields: Object.fromEntries([
+					"missing_value",
+					"text",
+					"border",
+					"grid",
+					"background",
+					"annotation_text"
+				].map((k) => [k, opt$2(visual$3())]))
+			}),
+			annotations: opt$2({
+				kind: "array",
+				rules: [{
+					kind: "unique_by",
+					field: "key"
+				}],
+				items: namedColor
+			})
+		}
+	},
+	configSchema: {
+		kind: "object",
+		exact: false,
+		fields: {
+			rows: req$3({
+				kind: "number",
+				integer: true,
+				min: 4,
+				max: 8
+			}),
+			columns: req$3({
+				kind: "number",
+				integer: true,
+				min: 4,
+				max: 8
+			}),
+			cluster_rows: req$3({ kind: "boolean" }),
+			cluster_columns: req$3({ kind: "boolean" }),
+			show_row_labels: req$3({ kind: "boolean" }),
+			show_column_labels: req$3({ kind: "boolean" }),
+			show_values: req$3({ kind: "boolean" }),
+			data_pattern: req$3({
+				kind: "string",
+				enum: [
+					"two_clusters",
+					"three_clusters",
+					"gradient",
+					"mixed"
+				]
+			})
+		}
+	}
+});
+//#endregion
+//#region src/lib/chart-types/line-multiseries/definition.ts
+var tokens = [
+	"foreground",
+	"muted_foreground",
+	"grid",
+	"background"
+];
+var req$2 = (schema) => ({
+	required: true,
+	schema
+});
+var opt$1 = (schema) => ({
+	required: false,
+	schema
+});
+var visual$2 = () => ({
+	kind: "visual_reference",
+	themeTokens: tokens,
+	unknownMembers: "allow"
+});
+var lineMultiseriesTemplate = defineTemplate({
+	id: "line_multiseries_v1",
+	chartType: "line_multiseries",
+	templateVersion: 1,
+	schemaVersion: 1,
+	rolesSchema: {
+		kind: "object",
+		exact: true,
+		fields: {
+			series: req$2({
+				kind: "array",
+				minItems: 1,
+				maxItems: 5,
+				rules: [{
+					kind: "unique_by",
+					field: "key"
+				}],
+				items: {
+					kind: "object",
+					exact: false,
+					fields: {
+						key: req$2({
+							kind: "string",
+							nonWhitespace: true
+						}),
+						label: req$2({
+							kind: "string",
+							nonWhitespace: true
+						}),
+						line: req$2({
+							kind: "palette_reference",
+							unknownMembers: "allow"
+						}),
+						confidence_band: opt$1(visual$2()),
+						marker: opt$1(visual$2())
+					}
+				}
+			}),
+			elements: opt$1({
+				kind: "object",
+				exact: true,
+				fields: Object.fromEntries([
+					"axis",
+					"grid",
+					"reference_line",
+					"text",
+					"marker_stroke",
+					"background"
+				].map((key) => [key, opt$1(visual$2())]))
+			})
+		}
+	},
+	configSchema: {
+		kind: "object",
+		exact: false,
+		fields: {
+			point_count: req$2({
+				kind: "number",
+				integer: true,
+				min: 6,
+				max: 12
+			}),
+			curve_shape: req$2({
+				kind: "string",
+				enum: [
+					"increasing",
+					"decreasing",
+					"sigmoid",
+					"peak",
+					"mixed"
+				]
+			}),
+			x_axis_label: opt$1({ kind: "string" }),
+			y_axis_label: opt$1({ kind: "string" })
+		}
+	}
+});
+//#endregion
+//#region src/lib/chart-types/scatter-grouped/definition.ts
+var req$1 = (schema) => ({
+	required: true,
+	schema
+});
+var opt = (schema) => ({
+	required: false,
+	schema
+});
+var visual$1 = () => ({
+	kind: "visual_reference",
+	themeTokens: [
+		"foreground",
+		"muted_foreground",
+		"grid",
+		"background"
+	],
+	unknownMembers: "allow"
+});
+var scatterGroupedTemplate = defineTemplate({
+	id: "scatter_grouped_v1",
+	chartType: "scatter_grouped",
+	templateVersion: 1,
+	schemaVersion: 1,
+	rolesSchema: {
+		kind: "object",
+		exact: true,
+		fields: {
+			groups: req$1({
+				kind: "array",
+				minItems: 1,
+				maxItems: 5,
+				rules: [{
+					kind: "unique_by",
+					field: "key",
+					issueCode: "DUPLICATE_ROLE_KEY"
+				}],
+				items: {
+					kind: "object",
+					exact: false,
+					fields: {
+						key: req$1({
+							kind: "string",
+							nonWhitespace: true
+						}),
+						label: req$1({
+							kind: "string",
+							nonWhitespace: true
+						}),
+						color: req$1({
+							kind: "palette_reference",
+							unknownMembers: "allow"
+						})
+					}
+				}
+			}),
+			elements: req$1({
+				kind: "object",
+				exact: true,
+				fields: Object.fromEntries([
+					"axis",
+					"muted_foreground",
+					"grid",
+					"background"
+				].map((k) => [k, req$1(visual$1())]))
+			})
+		}
+	},
+	configSchema: {
+		kind: "object",
+		exact: false,
+		fields: {
+			point_count: req$1({
+				kind: "number",
+				integer: true,
+				min: 8,
+				max: 30
+			}),
+			data_pattern: req$1({
+				kind: "string",
+				enum: [
+					"clusters",
+					"positive",
+					"negative",
+					"mixed"
+				]
+			}),
+			point_size: req$1({
+				kind: "string",
+				enum: [
+					"small",
+					"medium",
+					"large"
+				]
+			}),
+			point_opacity: opt({
+				kind: "number",
+				min: .25,
+				max: 1
+			})
+		}
+	}
+});
+//#endregion
+//#region src/lib/chart-types/violin-distribution/definition.ts
+var req = (schema) => ({
+	required: true,
+	schema
+});
+var visual = () => ({
+	kind: "visual_reference",
+	themeTokens: [
+		"foreground",
+		"muted_foreground",
+		"grid",
+		"background"
+	],
+	unknownMembers: "allow"
+});
+var violinDistributionTemplate = defineTemplate({
 	id: "violin_distribution_v1",
 	chartType: "violin_distribution",
 	templateVersion: 1,
 	schemaVersion: 1,
-	validateRoles(value) {
-		const objectResult = validateObject(value, rolesPath, "INVALID_COLOR_ROLES");
-		if (!objectResult.valid) return objectResult;
-		const roles = value;
-		return combineIssues([
-			...rejectUnknownProperties(roles, ["groups", "elements"], rolesPath, "INVALID_COLOR_ROLES"),
-			...requireArrayProperty(roles, "groups", rolesPath, "INVALID_COLOR_ROLES"),
-			...validateGroups(roles.groups, `${rolesPath}.groups`),
-			...validateElements(roles.elements, `${rolesPath}.elements`)
-		]);
+	rolesSchema: {
+		kind: "object",
+		exact: true,
+		fields: {
+			groups: req({
+				kind: "array",
+				minItems: 1,
+				maxItems: 5,
+				rules: [{
+					kind: "unique_by",
+					field: "key"
+				}],
+				items: {
+					kind: "object",
+					exact: false,
+					fields: {
+						key: req({
+							kind: "string",
+							nonWhitespace: true
+						}),
+						label: req({
+							kind: "string",
+							nonWhitespace: true
+						}),
+						fill: req({
+							kind: "palette_reference",
+							unknownMembers: "allow"
+						})
+					}
+				}
+			}),
+			elements: req({
+				kind: "object",
+				exact: true,
+				fields: Object.fromEntries([
+					"outline",
+					"median",
+					"axis",
+					"grid",
+					"background"
+				].map((k) => [k, req(visual())]))
+			})
+		}
 	},
-	validateConfig(value) {
-		const objectResult = validateObject(value, configPath, "INVALID_PREVIEW_CONFIG");
-		if (!objectResult.valid) return objectResult;
-		const config = value;
-		return combineIssues([
-			...requirePositiveIntegerProperty(config, "sample_count", configPath, "INVALID_PREVIEW_CONFIG"),
-			...integerRange(config.sample_count, `${configPath}.sample_count`, 16, 48),
-			...requireEnumProperty(config, "distribution_shape", [
-				"normal",
-				"skewed",
-				"bimodal",
-				"mixed"
-			], configPath, "INVALID_PREVIEW_CONFIG"),
-			...requireEnumProperty(config, "bandwidth", [
-				"narrow",
-				"medium",
-				"wide"
-			], configPath, "INVALID_PREVIEW_CONFIG"),
-			...requirePrimitiveProperty(config, "show_summary", "boolean", configPath, "INVALID_PREVIEW_CONFIG")
-		]);
+	configSchema: {
+		kind: "object",
+		exact: false,
+		fields: {
+			sample_count: req({
+				kind: "number",
+				integer: true,
+				min: 16,
+				max: 48
+			}),
+			distribution_shape: req({
+				kind: "string",
+				enum: [
+					"normal",
+					"skewed",
+					"bimodal",
+					"mixed"
+				]
+			}),
+			bandwidth: req({
+				kind: "string",
+				enum: [
+					"narrow",
+					"medium",
+					"wide"
+				]
+			}),
+			show_summary: req({ kind: "boolean" })
+		}
 	}
-};
-function validateGroups(value, path) {
-	if (!Array.isArray(value)) return [];
-	if (value.length < 1 || value.length > 5) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must contain 1 to 5 distributions.`
-	}];
-	const seen = /* @__PURE__ */ new Set();
-	return value.flatMap((item, index) => {
-		const itemPath = `${path}[${index}]`;
-		if (!isRecord(item)) return [{
-			path: itemPath,
-			code: "INVALID_COLOR_ROLES",
-			message: `${itemPath} must be an object.`
-		}];
-		const issues = [
-			...text(item, "key", itemPath),
-			...text(item, "label", itemPath),
-			...paletteReference(item.fill, `${itemPath}.fill`)
-		];
-		if (typeof item.key === "string" && seen.has(item.key)) issues.push({
-			path: `${itemPath}.key`,
-			code: "DUPLICATE_ROLE_KEY",
-			message: `Duplicate distribution key: ${item.key}.`
-		});
-		if (typeof item.key === "string") seen.add(item.key);
-		return issues;
-	});
-}
-function validateElements(value, path) {
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be an object.`
-	}];
-	return [...rejectUnknownProperties(value, elementKeys, path, "INVALID_COLOR_ROLES"), ...elementKeys.flatMap((key) => Object.prototype.hasOwnProperty.call(value, key) ? visualReference(value[key], `${path}.${key}`) : [{
-		path: `${path}.${key}`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.${key} is required.`
-	}])];
-}
-function paletteReference(value, path) {
-	if (!isRecord(value) || value.source !== "palette" || typeof value.color_id !== "string" || !value.color_id.trim()) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a palette color reference with color_id.`
-	}];
-	return opacity(value.opacity, path);
-}
-function visualReference(value, path) {
-	if (!isRecord(value)) return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must be a color reference.`
-	}];
-	if (value.source === "palette") return paletteReference(value, path);
-	if (value.source === "theme" && typeof value.token === "string" && themeTokens.includes(value.token)) return opacity(value.opacity, path);
-	return [{
-		path,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path} must use a palette color or approved theme token.`
-	}];
-}
-function opacity(value, path) {
-	return value === void 0 || typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1 ? [] : [{
-		path: `${path}.opacity`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.opacity must be between 0 and 1.`
-	}];
-}
-function text(value, key, path) {
-	return typeof value[key] === "string" && String(value[key]).trim() ? [] : [{
-		path: `${path}.${key}`,
-		code: "INVALID_COLOR_ROLES",
-		message: `${path}.${key} must be a non-empty string.`
-	}];
-}
-function integerRange(value, path, min, max) {
-	return Number.isInteger(value) && Number(value) >= min && Number(value) <= max ? [] : [{
-		path,
-		code: "INVALID_PREVIEW_CONFIG",
-		message: `${path} must be between ${min} and ${max}.`
-	}];
-}
+});
 //#endregion
 //#region src/lib/chart-types/registry.ts
 var CHART_TYPE_DEFINITIONS = registerChartTypes([
@@ -987,6 +910,32 @@ var CHART_TYPE_DEFINITIONS = registerChartTypes([
 		templates: [violinDistributionTemplate]
 	}
 ]);
+var PREVIEW_REGISTRY_PROJECTION_FORMAT_VERSION = 1;
+function createPreviewRegistryProjection() {
+	for (const chart of CHART_TYPE_DEFINITIONS) for (const template of chart.templates) {
+		const errors = [...validateSchemaDeclaration(template.rolesSchema, `${template.id}.roles`), ...validateSchemaDeclaration(template.configSchema, `${template.id}.config`)];
+		if (errors.length > 0) throw new Error(`Invalid structured Preview schema: ${errors.join(" ")}`);
+	}
+	return {
+		projection_format_version: 1,
+		charts: CHART_TYPE_DEFINITIONS.map((chart) => ({
+			chart_type: chart.chartType,
+			templates: chart.templates.map((template) => ({
+				template_id: template.id,
+				template_version: template.templateVersion,
+				schema_version: template.schemaVersion,
+				roles_schema: template.rolesSchema,
+				config_schema: template.configSchema
+			}))
+		})),
+		vocabularies: {
+			disciplines: [...controlled_vocabularies_default.disciplines],
+			use_cases: [...controlled_vocabularies_default.use_cases],
+			avoid_cases: [...controlled_vocabularies_default.avoid_cases],
+			tags: [...controlled_vocabularies_default.tags]
+		}
+	};
+}
 function getChartTypeDefinition(chartType) {
 	return CHART_TYPE_DEFINITIONS.find((definition) => definition.chartType === chartType);
 }
@@ -1047,4 +996,4 @@ function mergeValidationResults(results) {
 	return issues.length > 0 ? invalidResult(issues) : validResult();
 }
 //#endregion
-export { CHART_TYPE_DEFINITIONS, getChartTemplateDefinition, getChartTypeDefinition, lookupChartTemplateDefinition, registerChartTypes, validatePreviewCaseAgainstRegistry, validatePreviewTemplateReference };
+export { CHART_TYPE_DEFINITIONS, PREVIEW_REGISTRY_PROJECTION_FORMAT_VERSION, createPreviewRegistryProjection, getChartTemplateDefinition, getChartTypeDefinition, lookupChartTemplateDefinition, registerChartTypes, validatePreviewCaseAgainstRegistry, validatePreviewTemplateReference };
