@@ -8,11 +8,13 @@ import { mapContainedImagePoint, sampleMedianHex } from '../palette-assistant/im
 function expect(condition: boolean, message: string): void { if (!condition) throw new Error(message) }
 function file(name: string, type: string, size = 1): File { return new File([new Uint8Array(size)], name, { type }) }
 
-expect(formSource.includes('<PaletteImageColorPicker v-if="!isEditing" @add-color="addSampledColor" />'), 'picker must live below the existing preview and only on New Palette')
+expect(formSource.includes('<PaletteImageColorPicker v-if="!isEditing" @add-color="addSampledColor" />'), 'picker must render only on New Palette')
 expect(formSource.includes('<AdminPreviewCaseEditor\n          v-if="isEditing"'), 'Scientific Preview Cases must only render after the Palette has been saved and opened for editing')
 expect(!formSource.includes(':local-only="!isEditing"'), 'New Palette must not render a misleading local-only Preview Cases editor')
 expect(!formSource.includes('ControlledVocabularySelect'), 'New/Edit Palette must retain its original single metadata inputs without Assistant controls')
-expect(formSource.indexOf('<h3>Palette Preview</h3>') < formSource.indexOf('<PaletteImageColorPicker'), 'existing Palette Preview must remain above the picker')
+expect(formSource.indexOf('id="colors"') < formSource.indexOf('<PaletteImageColorPicker'), 'picker must live immediately after the existing Colors source of truth')
+expect(formSource.indexOf('<PaletteImageColorPicker') < formSource.indexOf('<div class="form-row">'), 'picker must stay in the main form column beside the Colors workflow')
+expect(formSource.indexOf('<PaletteImageColorPicker') < formSource.indexOf('<!-- Preview Section -->'), 'picker must not render in the right Preview sidebar')
 expect(formSource.includes('const result = appendCanonicalHex(colorsInput.value, hex)') && formSource.includes('colorsInput.value = result.value'), 'sampled HEX must update the existing Colors source of truth')
 expect(formSource.includes('await createPalette(data)') && formSource.includes('const data = buildPalettePayload()'), 'existing New Palette create handler and payload path must remain')
 expect(!pickerSource.includes('/analyze') && !pickerSource.includes('fetch(') && !pickerSource.includes('localStorage'), 'local picker must not upload or persist images')

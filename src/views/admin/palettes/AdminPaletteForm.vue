@@ -58,6 +58,9 @@
           <span v-if="colorsError" class="error-text">{{ colorsError }}</span>
         </div>
 
+        <PaletteImageColorPicker v-if="!isEditing" @add-color="addSampledColor" />
+        <p v-if="imageColorMessage" :class="imageColorMessageType" role="status">{{ imageColorMessage }}</p>
+
         <div class="form-row">
           <div class="form-group">
             <label for="type">Type *</label>
@@ -320,8 +323,6 @@
             </div>
           </div>
         </div>
-        <PaletteImageColorPicker v-if="!isEditing" @add-color="addSampledColor" />
-        <p v-if="imageColorMessage" :class="imageColorMessageType" role="status">{{ imageColorMessage }}</p>
       </div>
     </div>
 
@@ -997,7 +998,7 @@ onMounted(() => {
 
 .form-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 2rem;
 }
 
@@ -1005,7 +1006,7 @@ onMounted(() => {
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 1rem;
 }
 
 .preview-section {
@@ -1026,7 +1027,7 @@ onMounted(() => {
 }
 
 .chart-preview-wrapper {
-  height: 160px;
+  height: 140px;
   margin-bottom: 0.75rem;
   border-radius: var(--radius-md);
   overflow: hidden;
