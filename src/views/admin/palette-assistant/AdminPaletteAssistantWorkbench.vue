@@ -8,7 +8,7 @@
 
     <section class="panel" aria-labelledby="source-heading">
       <h2 id="source-heading">1. Source image</h2>
-      <input ref="fileInput" type="file" accept="image/png,image/jpeg" @change="onFileChange" />
+      <input ref="fileInput" type="file" accept="image/png,image/jpeg" :disabled="creating" @change="onFileChange" />
       <p class="hint">One PNG or JPEG, up to 6 MiB. The image stays browser-local except for the Admin Analyze request.</p>
       <p v-if="fileError" class="error" role="alert">{{ fileError }}</p>
       <div v-if="state.image" class="source-preview">
@@ -16,11 +16,11 @@
         <div>
           <strong>{{ state.image.file.name }}</strong>
           <p>{{ formatBytes(state.image.file.size) }}</p>
-          <button type="button" class="secondary" @click="removeImage">Remove image</button>
+          <button type="button" class="secondary" :disabled="creating" @click="removeImage">Remove image</button>
         </div>
       </div>
       <div class="actions">
-        <button type="button" :disabled="!state.image || state.status === 'analyzing'" @click="runAnalyze">
+        <button type="button" :disabled="creating || !state.image || state.status === 'analyzing'" @click="runAnalyze">
           {{ state.status === 'analyzing' ? 'Analyzing…' : state.audit ? 'Analyze again' : 'Analyze image' }}
         </button>
         <button v-if="state.status === 'analyzing'" type="button" class="secondary" @click="workbench.cancel()">Cancel</button>
@@ -64,56 +64,56 @@
       <section class="panel" aria-labelledby="draft-heading">
         <div class="section-title"><h2 id="draft-heading">3. Editable Draft</h2><span>Revision {{ state.draft.revision }}</span></div>
         <div class="grid">
-          <label>Palette name<input :value="state.draft.name" @input="setName" /></label>
-          <label>Palette type<select :value="state.draft.type" @change="setType"><option value="">Choose…</option><option v-for="type in PALETTE_TYPES" :key="type" :value="type">{{ type }}</option></select></label>
+          <label>Palette name<input :value="state.draft.name" :disabled="creating" @input="setName" /></label>
+          <label>Palette type<select :value="state.draft.type" :disabled="creating" @change="setType"><option value="">Choose…</option><option v-for="type in PALETTE_TYPES" :key="type" :value="type">{{ type }}</option></select></label>
         </div>
         <h3>Retained colors ({{ state.draft.colors.length }})</h3>
         <div v-for="(color, index) in state.draft.colors" :key="color.id" class="color-row">
           <i :style="{ backgroundColor: validHex(color.hex) ? color.hex : 'transparent' }"></i>
-          <input :value="color.hex" aria-label="Color HEX" @input="setHex(index, $event)" />
-          <select :value="color.classification" aria-label="Color classification" @change="setClassification(index, $event)"><option value="data">Data color</option><option value="structural">Structural (not retainable)</option></select>
+          <input :value="color.hex" aria-label="Color HEX" :disabled="creating" @input="setHex(index, $event)" />
+          <select :value="color.classification" aria-label="Color classification" :disabled="creating" @change="setClassification(index, $event)"><option value="data">Data color</option><option value="structural">Structural (not retainable)</option></select>
           <span class="state-badge">{{ color.source }} · {{ color.state }}</span>
           <span class="identity">{{ color.id }}</span>
-          <button v-if="color.source === 'assistant' && color.state === 'unconfirmed'" type="button" class="secondary" @click="acceptColor(index)">Accept suggestion</button>
-          <button type="button" class="secondary" :disabled="index === 0" @click="moveColor(index, -1)">↑</button>
-          <button type="button" class="secondary" :disabled="index === state.draft.colors.length - 1" @click="moveColor(index, 1)">↓</button>
-          <button type="button" class="danger" @click="removeColor(index)">Remove</button>
+          <button v-if="color.source === 'assistant' && color.state === 'unconfirmed'" type="button" class="secondary" :disabled="creating" @click="acceptColor(index)">Accept suggestion</button>
+          <button type="button" class="secondary" :disabled="creating || index === 0" @click="moveColor(index, -1)">↑</button>
+          <button type="button" class="secondary" :disabled="creating || index === state.draft.colors.length - 1" @click="moveColor(index, 1)">↓</button>
+          <button type="button" class="danger" :disabled="creating" @click="removeColor(index)">Remove</button>
         </div>
-        <button type="button" class="secondary" @click="addColor">Add data color</button>
+        <button type="button" class="secondary" :disabled="creating" @click="addColor">Add data color</button>
 
         <h3>Chart applicability</h3>
         <div v-for="(item, index) in state.draft.chart_applicability" :key="`${index}:${item.chart_type}`" class="application-row">
-          <select :value="item.chart_type" @change="setChart(index, 'chart_type', $event)"><option value="">Chart type…</option><option v-for="chart in PHASE_1_CHART_TYPES" :key="chart" :value="chart">{{ chart }}</option></select>
-          <select :value="item.suitability" @change="setChart(index, 'suitability', $event)"><option v-for="suitability in CHART_SUITABILITIES" :key="suitability" :value="suitability">{{ suitability }}</option></select>
-          <input :value="item.notes || ''" placeholder="Optional notes" @input="setChart(index, 'notes', $event)" />
-          <button type="button" class="danger" @click="removeChart(index)">Remove</button>
+          <select :value="item.chart_type" :disabled="creating" @change="setChart(index, 'chart_type', $event)"><option value="">Chart type…</option><option v-for="chart in PHASE_1_CHART_TYPES" :key="chart" :value="chart">{{ chart }}</option></select>
+          <select :value="item.suitability" :disabled="creating" @change="setChart(index, 'suitability', $event)"><option v-for="suitability in CHART_SUITABILITIES" :key="suitability" :value="suitability">{{ suitability }}</option></select>
+          <input :value="item.notes || ''" placeholder="Optional notes" :disabled="creating" @input="setChart(index, 'notes', $event)" />
+          <button type="button" class="danger" :disabled="creating" @click="removeChart(index)">Remove</button>
         </div>
-        <button type="button" class="secondary" @click="addChart">Add applicability</button>
+        <button type="button" class="secondary" :disabled="creating" @click="addChart">Add applicability</button>
         <h3>Metadata</h3>
         <div class="grid">
-          <label>Disciplines (comma separated)<input :value="state.draft.disciplines.join(', ')" @change="setList('disciplines', $event)" /></label>
-          <label>Use cases (comma separated)<input :value="state.draft.use_cases.join(', ')" @change="setList('use_cases', $event)" /></label>
-          <label>Avoid cases (comma separated)<input :value="state.draft.avoid_cases.join(', ')" @change="setList('avoid_cases', $event)" /></label>
-          <label>Tags (comma separated)<input :value="state.draft.tags.join(', ')" @change="setList('tags', $event)" /></label>
-          <label>Source note<textarea :value="state.draft.source_note" rows="3" @input="setSourceNote"></textarea></label>
-          <fieldset><legend>Accessibility</legend><label><input type="checkbox" :checked="state.draft.accessibility.colorblind_safe" @change="setAccessibility('colorblind_safe', $event)" /> Colorblind safe</label><label><input type="checkbox" :checked="state.draft.accessibility.print_friendly" @change="setAccessibility('print_friendly', $event)" /> Print friendly</label><label><input type="checkbox" :checked="state.draft.accessibility.dark_background" @change="setAccessibility('dark_background', $event)" /> Dark background</label></fieldset>
+          <label>Disciplines (comma separated)<input :value="state.draft.disciplines.join(', ')" :disabled="creating" @change="setList('disciplines', $event)" /></label>
+          <label>Use cases (comma separated)<input :value="state.draft.use_cases.join(', ')" :disabled="creating" @change="setList('use_cases', $event)" /></label>
+          <label>Avoid cases (comma separated)<input :value="state.draft.avoid_cases.join(', ')" :disabled="creating" @change="setList('avoid_cases', $event)" /></label>
+          <label>Tags (comma separated)<input :value="state.draft.tags.join(', ')" :disabled="creating" @change="setList('tags', $event)" /></label>
+          <label>Source note<textarea :value="state.draft.source_note" rows="3" :disabled="creating" @input="setSourceNote"></textarea></label>
+          <fieldset :disabled="creating"><legend>Accessibility</legend><label><input type="checkbox" :checked="state.draft.accessibility.colorblind_safe" :disabled="creating" @change="setAccessibility('colorblind_safe', $event)" /> Colorblind safe</label><label><input type="checkbox" :checked="state.draft.accessibility.print_friendly" :disabled="creating" @change="setAccessibility('print_friendly', $event)" /> Print friendly</label><label><input type="checkbox" :checked="state.draft.accessibility.dark_background" :disabled="creating" @change="setAccessibility('dark_background', $event)" /> Dark background</label></fieldset>
         </div>
-        <div class="actions"><button type="button" class="secondary" @click="resetDraft">Reset to Analyze suggestions</button></div>
+        <div class="actions"><button type="button" class="secondary" :disabled="creating" @click="resetDraft">Reset to Analyze suggestions</button></div>
       </section>
 
       <section class="panel" aria-labelledby="preview-heading">
         <h2 id="preview-heading">4. Scientific Preview</h2>
         <template v-if="!currentPreview">
           <p class="empty">No preview added.</p>
-          <label>Chart type<select :value="pendingPreviewChart" @change="setPendingPreviewChart"><option v-for="chart in PHASE_1_CHART_TYPES" :key="chart" :value="chart">{{ chart }}</option></select></label>
-          <button type="button" @click="createPreview">Add Preview</button>
+          <label>Chart type<select :value="pendingPreviewChart" :disabled="creating" @change="setPendingPreviewChart"><option v-for="chart in PHASE_1_CHART_TYPES" :key="chart" :value="chart">{{ chart }}</option></select></label>
+          <button type="button" :disabled="creating" @click="createPreview">Add Preview</button>
         </template>
         <template v-else>
-          <div class="section-title"><h3>{{ currentPreview.chart_type }} · {{ currentPreview.template_id }}</h3><button type="button" class="danger" @click="removePreview">Remove Preview</button></div>
-          <label>Chart type<select :value="currentPreview.chart_type" @change="changePreviewChart"><option v-for="chart in PHASE_1_CHART_TYPES" :key="chart" :value="chart">{{ chart }}</option></select></label>
+          <div class="section-title"><h3>{{ currentPreview.chart_type }} · {{ currentPreview.template_id }}</h3><button type="button" class="danger" :disabled="creating" @click="removePreview">Remove Preview</button></div>
+          <label>Chart type<select :value="currentPreview.chart_type" :disabled="creating" @change="changePreviewChart"><option v-for="chart in PHASE_1_CHART_TYPES" :key="chart" :value="chart">{{ chart }}</option></select></label>
           <div class="grid preview-json-controls">
-            <label>Color roles JSON<textarea :value="JSON.stringify(currentPreview.color_roles, null, 2)" rows="10" @change="setPreviewJson('color_roles', $event)"></textarea></label>
-            <label>Preview config JSON<textarea :value="JSON.stringify(currentPreview.preview_config, null, 2)" rows="10" @change="setPreviewJson('preview_config', $event)"></textarea></label>
+            <label>Color roles JSON<textarea :value="JSON.stringify(currentPreview.color_roles, null, 2)" rows="10" :disabled="creating" @change="setPreviewJson('color_roles', $event)"></textarea></label>
+            <label>Preview config JSON<textarea :value="JSON.stringify(currentPreview.preview_config, null, 2)" rows="10" :disabled="creating" @change="setPreviewJson('preview_config', $event)"></textarea></label>
           </div>
           <p class="hint">Fixed seed: {{ currentPreview.seed_value }}</p>
           <div v-if="previewRender?.state === 'svg'" class="draft-live-preview" v-html="previewRender.markup"></div>
@@ -128,14 +128,14 @@
         <ul v-if="issues.length" class="errors"><li v-for="item in issues" :key="`${item.path}:${item.code}`"><code>{{ item.path }}</code>: {{ item.message }}</li></ul>
         <div v-if="state.submission.error" class="error-card" role="alert"><strong>{{ state.submission.error.code }}</strong><p>{{ state.submission.error.message }}</p><ul v-if="state.submission.error.issues?.length"><li v-for="item in state.submission.error.issues" :key="`${item.path}:${item.code}`" :data-field="issueControlPath(item.path)"><code>{{ item.path }}</code>: {{ item.message }}</li></ul></div>
         <p v-else class="valid">Local Draft checks pass.</p>
-        <button type="button" :disabled="issues.length > 0 || confirmed" @click="confirmDraft">{{ confirmed ? `Revision ${state.draft.revision} confirmed` : 'Confirm current revision' }}</button>
+        <button type="button" :disabled="creating || issues.length > 0 || confirmed" @click="confirmDraft">{{ confirmed ? `Revision ${state.draft.revision} confirmed` : 'Confirm current revision' }}</button>
         <p v-if="confirmed" class="valid" role="status">Confirmation is bound to revision {{ state.confirmedRevision }}. Any Candidate-relevant edit invalidates it.</p>
         <p v-else class="notice" role="status">The current revision is not confirmed.</p>
         <div class="actions"><button type="button" :disabled="!confirmed || issues.length > 0 || state.submission.status === 'validating' || state.submission.status === 'creating'" @click="runValidate">{{ state.submission.status === 'validating' ? 'Validating…' : 'Validate confirmed Draft' }}</button></div>
         <template v-if="state.submission.validation">
           <p class="valid">Validated revision {{ state.submission.validation.validated_revision }}. Receipt expires {{ state.submission.validation.receipt_expires_at }}.</p>
           <h3>Validation warnings</h3><p v-if="!state.submission.validation.warnings.length" class="empty">No warnings.</p>
-          <ul v-else class="warnings"><li v-for="finding in state.submission.validation.warnings" :key="finding.id"><strong>{{ finding.code }}</strong>: {{ finding.message }}<label v-if="finding.requires_acknowledgment"><input type="checkbox" :checked="state.submission.acknowledgments.includes(finding.id)" @change="acknowledge(finding.id, $event)" /> I acknowledge this warning</label></li></ul>
+          <ul v-else class="warnings"><li v-for="finding in state.submission.validation.warnings" :key="finding.id"><strong>{{ finding.code }}</strong>: {{ finding.message }}<label v-if="finding.requires_acknowledgment"><input type="checkbox" :checked="state.submission.acknowledgments.includes(finding.id)" :disabled="creating" @change="acknowledge(finding.id, $event)" /> I acknowledge this warning</label></li></ul>
           <h3>Exact duplicates</h3><p v-if="!state.submission.validation.duplicates.length" class="empty">No exact duplicate Candidates or published palettes.</p><ul v-else class="errors"><li v-for="finding in state.submission.validation.duplicates" :key="finding.id">Exact duplicate: {{ finding.palette_id || 'existing palette' }} (blocking)</li></ul>
           <h3>Similar palettes</h3><p v-if="!state.submission.validation.similarities.length" class="empty">No similar palettes.</p><ul v-else class="warnings"><li v-for="finding in state.submission.validation.similarities" :key="finding.id">{{ finding.palette_id || 'Existing palette' }} · {{ finding.policy }} · distance {{ finding.score }}</li></ul>
           <div class="actions"><button type="button" :disabled="!canCreate || state.submission.status === 'creating'" @click="runCreate">{{ state.submission.status === 'creating' ? 'Creating Candidate…' : state.submission.status === 'create_error' ? 'Retry Candidate creation' : 'Create Candidate' }}</button></div>
@@ -155,7 +155,7 @@ import {
   PaletteAssistantWorkbench, confirmCurrentDraft, isCurrentRevisionConfirmed,
   confirmDraftAbandonment, hasUnconfirmedDraft, mutateDraft, newAdminColor,
   replaceDraftPreviewChart, resetDraftToAnalyze, validateDraft, mutateDraftPreviewCase,
-  canCreateCandidate, issueControlPath, setWarningAcknowledgment
+  canCreateCandidate, createCandidateAndNavigate, issueControlPath, setWarningAcknowledgment
 } from './workbench'
 import { renderDraftPreview } from './draftPreviewRenderer'
 import type { ChartType } from '@/types/palette'
@@ -172,6 +172,7 @@ const previewActionError = ref('')
 const currentPreview = computed(() => state.draft?.preview_cases[0] ?? null)
 const previewRender = computed(() => state.draft && currentPreview.value ? renderDraftPreview(state.draft, currentPreview.value) : null)
 const canCreate = computed(() => canCreateCandidate(state))
+const creating = computed(() => state.submission.status === 'creating')
 
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
@@ -200,7 +201,7 @@ function setAccessibility(field: 'colorblind_safe'|'print_friendly'|'dark_backgr
 function confirmDraft() { confirmCurrentDraft(state) }
 async function runValidate() { await workbench.validate() }
 function acknowledge(id: string, event: Event) { setWarningAcknowledgment(state, id, (event.target as HTMLInputElement).checked) }
-async function runCreate() { const receipt = await workbench.createCandidate(); if (receipt) await router.push(receipt.admin_review_path) }
+async function runCreate() { await createCandidateAndNavigate(workbench, (path) => router.push(path)) }
 function resetDraft() { resetDraftToAnalyze(state) }
 function createPreview() { const result = addDraftPreviewCase(state, pendingPreviewChart.value); previewActionError.value = result.ok ? '' : result.message }
 function setPendingPreviewChart(event: Event) { pendingPreviewChart.value = (event.target as HTMLSelectElement).value as ChartType; previewActionError.value = '' }

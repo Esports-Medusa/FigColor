@@ -6,12 +6,12 @@ import ts from 'typescript'
 import workbenchSfcSource from './AdminPaletteAssistantWorkbench.vue?raw'
 import routerSourceText from '../../../router/index.ts?raw'
 import {
-  AnalyzeWarningList, MAX_ASSISTANT_IMAGE_BYTES, PaletteAssistantWorkbench, addChartApplicability, addDraftPreviewCase, allocateDraftPreviewSeed,
+  AnalyzeWarningList, CHART_SUITABILITIES, MAX_ASSISTANT_IMAGE_BYTES, PALETTE_TYPES, PHASE_1_CHART_TYPES, PaletteAssistantWorkbench, addChartApplicability, addDraftPreviewCase, allocateDraftPreviewSeed,
   auditFromAnalyze, confirmCurrentDraft, confirmDraftAbandonment, createInitialState,
   clearDraftPreviewCases, createPaletteAssistantRoute,
   draftFromAnalyze, editChartApplicability, hasUnconfirmedDraft, isCurrentRevisionConfirmed, mutateDraft, replaceDraftPreviewChart,
   mutateDraftPreviewCase, newAdminColor, removeChartApplicability, replaceDraftPreviewCases, resetDraftToAnalyze, validateAssistantImage,
-  validateDraft, warningOccurrences, canCreateCandidate, issueControlPath, setWarningAcknowledgment, submissionDraft
+  validateDraft, warningOccurrences, canCreateCandidate, createCandidateAndNavigate, issueControlPath, setWarningAcknowledgment, submissionDraft
 } from './workbench'
 
 function expect(condition: boolean, message: string): void { if (!condition) throw new Error(message) }
@@ -288,7 +288,7 @@ function testProductionEvidenceRendering(): void {
     addColor: () => undefined, removeColor: () => undefined, moveColor: () => undefined, addChart: () => undefined,
     removeChart: () => undefined, setChart: () => undefined, resetDraft: () => undefined, confirmDraft: () => undefined,
     setList: () => undefined, setSourceNote: () => undefined, setAccessibility: () => undefined,
-    runValidate: () => undefined, acknowledge: () => undefined, runCreate: () => undefined, canCreate: false, issueControlPath,
+    runValidate: () => undefined, acknowledge: () => undefined, runCreate: () => undefined, canCreate: false, creating: false, issueControlPath,
     currentPreview: null, pendingPreviewChart: 'bar_error', previewActionError: '', previewRender: null,
     createPreview: () => undefined, setPendingPreviewChart: () => undefined, removePreview: () => undefined, changePreviewChart: () => undefined, setPreviewJson: () => undefined,
     JSON
@@ -494,6 +494,9 @@ async function testValidateCreateStateMachine(): Promise<void> {
   const first=workbench.createCandidate(); const duplicate=workbench.createCandidate(); expect(await duplicate===null, 'in-flight duplicate click must be ignored'); const receipt=await first
   expect(createCalls===2 && keys[1]===retryKey && /^[0-9a-f-]{36}$/.test(retryKey), 'safe retry must reuse its canonical UUID key')
   expect(receipt?.admin_review_path==='/admin/palettes/c1/edit' && receipt.status==='candidate', 'success must retain CandidateReceipt review destination without publish')
+  setWarningAcknowledgment(workbench.state,warningId,false); setWarningAcknowledgment(workbench.state,warningId,true)
+  await workbench.createCandidate()
+  expect(createCalls===3 && keys[2]!==retryKey,'acknowledgment change must create a new intent with a new Idempotency-Key')
   mutateDraft(workbench.state, (value)=>{ value.name='Changed' })
   expect(workbench.state.submission.validation===null && workbench.state.submission.acknowledgments.length===0 && workbench.state.submission.idempotencyKey===null, 'Draft edit must invalidate receipt, findings, acknowledgments, and create intent')
   expect(issueControlPath('/draft/colors/0/hex')==='colors.0.hex' && !('classification' in submissionDraft(draft).colors[0]), 'JSON Pointer mapping and strict Draft projection must be stable')
@@ -502,6 +505,36 @@ async function testValidateCreateStateMachine(): Promise<void> {
   workbench.state.submission.validation={ contract_version:'palette-assistant.v1',normalized_draft:submissionDraft(draft),validated_revision:1,draft_digest:'a'.repeat(64),validation_policy:'v',registry_version:'r',vocabulary_version:'v',warnings:[],duplicates:[{id:'c'.repeat(64),kind:'exact_duplicate'}],similarities:[],validation_receipt:'p.s',receipt_expires_at:'2026-08-13T12:00:00Z' }
   workbench.state.submission.validatedRevision=1; workbench.state.submission.status='validated'
   expect(!canCreateCandidate(workbench.state), 'exact duplicate must block Create and cannot be acknowledged')
+}
+
+async function testCreateStaleResponsesAndUiLock(): Promise<void> {
+  Object.defineProperty(globalThis, 'localStorage', { configurable:true, value:{ getItem:()=> 'admin-token' } })
+  const workbench = new PaletteAssistantWorkbench()
+  const draft = draftFromAnalyze(analyzeResponse()); draft.revision=1; draft.name='Candidate'; draft.type='categorical'; draft.colors.push({ ...newAdminColor(1),hex:'#445566' }); draft.chart_applicability=[{chart_type:'bar_error',suitability:'best_fit'}]
+  workbench.state.draft=draft; workbench.state.audit=auditFromAnalyze(analyzeResponse()); workbench.state.latestDraftRevision=1; workbench.state.confirmedRevision=1
+  const validation = { contract_version:'palette-assistant.v1' as const,normalized_draft:submissionDraft(draft),validated_revision:1,draft_digest:'a'.repeat(64),validation_policy:'v',registry_version:'r',vocabulary_version:'v',warnings:[],duplicates:[],similarities:[],validation_receipt:'p.s',receipt_expires_at:'2026-08-13T12:00:00Z' }
+  Object.assign(workbench.state.submission,{status:'validated',validatedRevision:1,validation,acknowledgments:[],idempotencyKey:null,error:null,receipt:null})
+  let resolveSuccess!:(response:Response)=>void
+  Object.defineProperty(globalThis,'fetch',{configurable:true,value:()=>new Promise<Response>((resolve)=>{resolveSuccess=resolve})})
+  const navigations:string[]=[]; const staleSuccess=createCandidateAndNavigate(workbench,(path)=>{navigations.push(path)})
+  expect(workbench.state.submission.status==='creating','Create must enter creating before its response')
+
+  const lockState=structuredClone(workbench.state); const lockContext={ state:lockState,fileError:'',issues:[],confirmed:true,PALETTE_TYPES,PHASE_1_CHART_TYPES,CHART_SUITABILITIES,AnalyzeWarningList,formatBytes:(v:number)=>String(v),percent:(v:number)=>String(v),validHex:()=>true,workbench:{cancel:()=>undefined},onFileChange:()=>undefined,removeImage:()=>undefined,runAnalyze:()=>undefined,setName:()=>undefined,setType:()=>undefined,setHex:()=>undefined,setClassification:()=>undefined,acceptColor:()=>undefined,addColor:()=>undefined,removeColor:()=>undefined,moveColor:()=>undefined,addChart:()=>undefined,removeChart:()=>undefined,setChart:()=>undefined,setList:()=>undefined,setSourceNote:()=>undefined,setAccessibility:()=>undefined,resetDraft:()=>undefined,confirmDraft:()=>undefined,currentPreview:null,pendingPreviewChart:'bar_error',previewActionError:'',previewRender:null,createPreview:()=>undefined,setPendingPreviewChart:()=>undefined,removePreview:()=>undefined,changePreviewChart:()=>undefined,setPreviewJson:()=>undefined,runValidate:()=>undefined,acknowledge:()=>undefined,runCreate:()=>undefined,canCreate:false,creating:true,issueControlPath,JSON }
+  const controls=descendants(renderWorkbenchTemplate(lockContext)).filter((node)=>['input','select','textarea','button','fieldset'].includes(String(node.type)))
+  expect(controls.length>=20 && controls.every((node)=>node.props?.disabled===true),'every rendered Candidate-relevant control must be disabled while creating')
+
+  mutateDraft(workbench.state,(value)=>{value.name='Revision 2'})
+  resolveSuccess(jsonResponse({contract_version:'palette-assistant.v1',receipt_id:'stale',candidate_id:'stale',status:'candidate',preview_case_ids:[],admin_review_path:'/admin/palettes/stale/edit',created_at:'2026-08-13T11:00:00Z',replay:false},201))
+  expect(await staleSuccess===false && navigations.length===0,'stale success must return no navigation result')
+  expect(workbench.state.draft.revision===2 && workbench.state.confirmedRevision===null && workbench.state.submission.status==='idle' && workbench.state.submission.receipt===null && workbench.state.submission.validation===null && workbench.state.submission.idempotencyKey===null,'stale success must not restore invalidated submission state')
+
+  workbench.state.confirmedRevision=2; const validation2={...validation,normalized_draft:submissionDraft(workbench.state.draft),validated_revision:2,validation_receipt:'p2.s2'}
+  Object.assign(workbench.state.submission,{status:'validated',validatedRevision:2,validation:validation2,acknowledgments:[],idempotencyKey:null,error:null,receipt:null})
+  let rejectOld!:(error:unknown)=>void
+  Object.defineProperty(globalThis,'fetch',{configurable:true,value:()=>new Promise<Response>((_resolve,reject)=>{rejectOld=reject})})
+  const staleRejection=workbench.createCandidate(); mutateDraft(workbench.state,(value)=>{value.source_note='newer'})
+  rejectOld(new TypeError('old failure')); expect(await staleRejection===null,'stale rejection must return null')
+  expect(workbench.state.submission.status==='idle' && workbench.state.submission.error===null && workbench.state.draft.revision===3,'stale rejection must not overwrite the newer invalidated state')
 }
 
 await testAdminBoundaryAndNoWrites()
@@ -520,3 +553,4 @@ await withGlobalIsolation(testObjectUrlLifecycleAndStateReset)
 await withGlobalIsolation(testAnalyzeSuccessRetryAbortAndStaleProtection)
 await testGlobalIsolationRestoresAfterThrow()
 await withGlobalIsolation(testValidateCreateStateMachine)
+await withGlobalIsolation(testCreateStaleResponsesAndUiLock)

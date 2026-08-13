@@ -77,6 +77,7 @@ export interface WorkbenchState {
 
 export type SubmissionStatus = 'idle' | 'validating' | 'validated' | 'creating' | 'create_error' | 'created'
 export interface SubmissionState {
+  generation: number
   status: SubmissionStatus
   validatedRevision: number | null
   validation: ValidateResponse | null
@@ -98,8 +99,8 @@ export function validateAssistantImage(file: File): string | null {
 export function createInitialState(): WorkbenchState {
   return { image: null, status: 'idle', draft: null, audit: null, confirmedRevision: null, latestDraftRevision: 0, error: null, submission: createSubmissionState() }
 }
-export function createSubmissionState(): SubmissionState { return { status:'idle', validatedRevision:null, validation:null, acknowledgments:[], idempotencyKey:null, error:null, receipt:null } }
-export function invalidateSubmission(state: WorkbenchState): void { Object.assign(state.submission, createSubmissionState()) }
+export function createSubmissionState(generation = 0): SubmissionState { return { generation, status:'idle', validatedRevision:null, validation:null, acknowledgments:[], idempotencyKey:null, error:null, receipt:null } }
+export function invalidateSubmission(state: WorkbenchState): void { Object.assign(state.submission, createSubmissionState(state.submission.generation + 1)) }
 
 export function draftFromAnalyze(response: AnalyzeResponse): EditableAssistantDraft {
   const draft = structuredClone(response.draft) as EditableAssistantDraft
@@ -283,10 +284,17 @@ export function setWarningAcknowledgment(state: WorkbenchState, id: string, chec
   const next = new Set(state.submission.acknowledgments)
   checked ? next.add(id) : next.delete(id)
   state.submission.acknowledgments = [...next].filter((item) => allowed.includes(item)).sort()
+  state.submission.generation += 1
   state.submission.idempotencyKey = null
   state.submission.receipt = null
   if (state.submission.status === 'create_error' || state.submission.status === 'created') state.submission.status = 'validated'
   state.submission.error = null
+}
+export async function createCandidateAndNavigate(workbench: Pick<PaletteAssistantWorkbench, 'createCandidate'>, navigate: (path: string) => unknown | Promise<unknown>): Promise<boolean> {
+  const receipt = await workbench.createCandidate()
+  if (!receipt) return false
+  await navigate(receipt.admin_review_path)
+  return true
 }
 
 export function validateDraft(draft: EditableAssistantDraft): ValidationIssue[] {
@@ -346,6 +354,7 @@ export class PaletteAssistantWorkbench {
   dispose(): void {
     this.invalidateRequest()
     this.revokeImage()
+    invalidateSubmission(this.state)
   }
 
   async analyze(): Promise<void> {
@@ -359,6 +368,7 @@ export class PaletteAssistantWorkbench {
     this.state.draft = null
     this.state.audit = null
     this.state.confirmedRevision = null
+    invalidateSubmission(this.state)
     try {
       const response = await analyzePaletteImage(image.file, this.controller.signal)
       if (generation !== this.requestGeneration || this.state.image !== image) return
@@ -406,18 +416,29 @@ export class PaletteAssistantWorkbench {
     const submission = this.state.submission
     const validation = submission.validation!
     const revision = this.state.draft.revision
+    const confirmedRevision = this.state.confirmedRevision
+    const validationReceipt = validation.validation_receipt
     const key = submission.idempotencyKey ?? globalThis.crypto.randomUUID()
     submission.idempotencyKey = key
+    const generation = submission.generation
     submission.status = 'creating'; submission.error = null
     try {
-      const receipt = await createPaletteCandidate(submissionDraft(this.state.draft), revision, validation.validation_receipt, [...submission.acknowledgments], key)
+      const receipt = await createPaletteCandidate(submissionDraft(this.state.draft), revision, validationReceipt, [...submission.acknowledgments], key)
+      if (!this.isCurrentCreateIntent(revision, confirmedRevision, validation, validationReceipt, key, generation)) return null
       submission.receipt = receipt; submission.status = 'created'
       return receipt
     } catch (error) {
+      if (!this.isCurrentCreateIntent(revision, confirmedRevision, validation, validationReceipt, key, generation)) return null
       submission.status = 'create_error'
       submission.error = problemFrom(error, 'CREATE_FAILED', 'Candidate creation failed.')
       return null
     }
+  }
+
+  private isCurrentCreateIntent(revision: number, confirmedRevision: number | null, validation: ValidateResponse, validationReceipt: string, key: string, generation: number): boolean {
+    return Boolean(this.state.draft && this.state.draft.revision === revision && this.state.confirmedRevision === confirmedRevision && confirmedRevision === revision &&
+      this.state.submission.validation === validation && validation.validation_receipt === validationReceipt && this.state.submission.idempotencyKey === key &&
+      this.state.submission.generation === generation && this.state.submission.status === 'creating')
   }
 
   cancel(): void {
