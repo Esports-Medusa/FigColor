@@ -252,7 +252,11 @@ func writeResult(c *gin.Context, r Result) {
 		c.JSON(r.Status, r.Response)
 		return
 	}
-	c.JSON(r.Status, r.Receipt)
+	status := http.StatusCreated
+	if r.Receipt.Replay {
+		status = http.StatusOK
+	}
+	c.JSON(status, r.Receipt)
 }
 func writeProblem(c *gin.Context, p *pa.Problem) {
 	status := statusFor(p.Code)

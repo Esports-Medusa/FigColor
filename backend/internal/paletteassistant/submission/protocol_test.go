@@ -167,6 +167,38 @@ func decodeValidateBody(body string) *pa.Problem {
 }
 func draftMap(root map[string]any) map[string]any { return root["draft"].(map[string]any) }
 
+func TestWriteResultSelectsCandidateReceiptHTTPStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		replay     bool
+		wantStatus int
+	}{
+		{name: "first create", replay: false, wantStatus: http.StatusCreated},
+		{name: "replay", replay: true, wantStatus: http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			writeResult(c, Result{
+				Status: http.StatusCreated,
+				Receipt: &pa.CandidateReceipt{
+					ContractVersion: pa.ContractVersion,
+					ReceiptID:       "receipt-id",
+					CandidateID:     "candidate-id",
+					Status:          "candidate",
+					PreviewCaseIDs:  []string{},
+					AdminReviewPath: "/admin/palettes/candidate-id/edit",
+					CreatedAt:       time.Unix(1, 0).UTC(),
+					Replay:          tc.replay,
+				},
+			})
+			if recorder.Code != tc.wantStatus {
+				t.Fatalf("status=%d want=%d replay=%t", recorder.Code, tc.wantStatus, tc.replay)
+			}
+		})
+	}
+}
+
 func TestDraftColorMappingOnlyRewritesPaletteReferences(t *testing.T) {
 	ids := map[string]string{"draft": "persisted"}
 	raw, err := mapReferences(json.RawMessage(`{"fill":{"source":"palette","color_id":"draft","hex":"#000000","index":9},"theme":{"source":"theme","token":"foreground"}}`), ids)
