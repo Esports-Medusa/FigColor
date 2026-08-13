@@ -12,13 +12,15 @@ import ProfileView from '@/views/ProfileView.vue'
 import AdminDashboard from '@/views/admin/AdminDashboard.vue'
 import AdminPalettesList from '@/views/admin/palettes/AdminPalettesList.vue'
 import AdminPaletteForm from '@/views/admin/palettes/AdminPaletteForm.vue'
-import AdminPaletteAssistantWorkbench from '@/views/admin/palette-assistant/AdminPaletteAssistantWorkbench.vue'
 import AccessDeniedView from '@/views/AccessDeniedView.vue'
 import { isAuthenticated } from '@/api/auth'
 import { useAuth } from '@/composables/useAuth'
-import { createPaletteAssistantRoute } from '@/views/admin/palette-assistant/workbench'
-
-export const adminPaletteAssistantRoute: RouteRecordRaw = createPaletteAssistantRoute(AdminPaletteAssistantWorkbench)
+export const adminPaletteAssistantRoute: RouteRecordRaw = {
+  path: '/admin/palette-assistant',
+  name: 'admin-palette-assistant',
+  redirect: '/admin/palettes/new',
+  meta: { requiresAuth: true, requiresAdmin: true }
+}
 
 const routes: RouteRecordRaw[] = [
     {

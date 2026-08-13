@@ -28,6 +28,7 @@ const testModules = [
   '/src/components/project/FigureCreationFlow.test.ts',
   '/src/components/project/ProjectPalettePreview.test.ts',
   '/src/views/admin/palettes/AdminPalettesList.test.ts',
+  '/src/views/admin/palettes/PaletteImageColorPicker.test.ts',
   '/src/views/admin/palettes/AdminCandidateReview.test.ts',
   '/src/views/admin/palettes/CandidatePublication.logic.test.ts',
   '/src/views/admin/palettes/CandidateRejection.logic.test.ts',

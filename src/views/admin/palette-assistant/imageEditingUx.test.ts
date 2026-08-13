@@ -39,7 +39,7 @@ function testRobustMedianSampling(): void {
   pixels.set([255, 0, 0, 255], 12 * 4)
   expect(sampleMedianHex(pixels, 5, 5, 2, 2, 5) === '#1464C8', 'one antialias/outlier pixel must not dominate a 5x5 median sample')
   const transparent = new Uint8ClampedArray([0, 0, 0, 0])
-  expect(sampleMedianHex(transparent, 1, 1, 0, 0, 5) === '#FFFFFF', 'transparent local pixels must use the frozen white backdrop')
+  expect(sampleMedianHex(transparent, 1, 1, 0, 0, 5) === null, 'fully transparent local pixels must be ignored')
 }
 
 function editableDraft(): EditableAssistantDraft {

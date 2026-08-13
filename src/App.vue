@@ -30,7 +30,6 @@
           <template v-if="isAuthenticated">
             <template v-if="isAdmin">
               <router-link to="/admin/palettes" class="nav-link nav-link-admin">Review</router-link>
-              <router-link to="/admin/palette-assistant" class="nav-link nav-link-admin">Assistant</router-link>
             </template>
             <router-link to="/projects" class="nav-link">My Projects</router-link>
             <router-link to="/favorites" class="nav-link">Favorites</router-link>

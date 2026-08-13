@@ -134,17 +134,13 @@ async function testAdminBoundaryAndNoWrites(): Promise<void> {
   expect(productionRoute.component === productionWorkbench, 'production route factory must preserve the real Workbench component identity')
 
   const routerSource = ts.createSourceFile('src/router/index.ts', routerSourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-  let importsWorkbench = false; let exportsFactoryRoute = false; let registersExportedRoute = false; let usesEnvironmentHistory = false
+  let exportsRedirectRoute = false; let registersExportedRoute = false; let usesEnvironmentHistory = false
   function inspect(node: ts.Node): void {
-    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text === '@/views/admin/palette-assistant/AdminPaletteAssistantWorkbench.vue') {
-      importsWorkbench = node.importClause?.name?.text === 'AdminPaletteAssistantWorkbench'
-    }
     if (ts.isVariableStatement(node)) {
       const exported = node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
       for (const declaration of node.declarationList.declarations) {
-        if (exported && ts.isIdentifier(declaration.name) && declaration.name.text === 'adminPaletteAssistantRoute' && declaration.initializer && ts.isCallExpression(declaration.initializer)) {
-          exportsFactoryRoute = ts.isIdentifier(declaration.initializer.expression) && declaration.initializer.expression.text === 'createPaletteAssistantRoute' &&
-            declaration.initializer.arguments.length === 1 && ts.isIdentifier(declaration.initializer.arguments[0]) && declaration.initializer.arguments[0].text === 'AdminPaletteAssistantWorkbench'
+        if (exported && ts.isIdentifier(declaration.name) && declaration.name.text === 'adminPaletteAssistantRoute' && declaration.initializer && ts.isObjectLiteralExpression(declaration.initializer)) {
+          exportsRedirectRoute = declaration.initializer.properties.some((property) => ts.isPropertyAssignment(property) && ts.isIdentifier(property.name) && property.name.text === 'redirect' && ts.isStringLiteral(property.initializer) && property.initializer.text === '/admin/palettes/new')
         }
         if (ts.isIdentifier(declaration.name) && declaration.name.text === 'routes' && declaration.initializer && ts.isArrayLiteralExpression(declaration.initializer)) {
           registersExportedRoute = declaration.initializer.elements.some((element) => ts.isIdentifier(element) && element.text === 'adminPaletteAssistantRoute')
@@ -158,7 +154,7 @@ async function testAdminBoundaryAndNoWrites(): Promise<void> {
     ts.forEachChild(node, inspect)
   }
   inspect(routerSource)
-  expect(importsWorkbench && exportsFactoryRoute, 'production router must export the factory-created route with the real Workbench SFC import')
+  expect(exportsRedirectRoute, 'production router must redirect the legacy Assistant route to canonical New Palette')
   expect(registersExportedRoute, 'production router must register and consume adminPaletteAssistantRoute')
   expect(usesEnvironmentHistory, 'production router must retain memory history for Node and web history for browsers')
 }
@@ -171,16 +167,13 @@ function testCustomLeaveConfirmation(): void {
 }
 
 async function testProductionAdminRouteRuntime(): Promise<void> {
-  const [{ default: router, adminPaletteAssistantRoute }, { default: AdminPaletteAssistantWorkbench }] = await Promise.all([
-    import('@/router'),
-    import('./AdminPaletteAssistantWorkbench.vue')
-  ])
+  const { default: router, adminPaletteAssistantRoute } = await import('@/router')
 
   expect(adminPaletteAssistantRoute.path === '/admin/palette-assistant', 'real exported Admin route path must remain frozen')
   expect(adminPaletteAssistantRoute.name === 'admin-palette-assistant', 'real exported Admin route name must remain frozen')
   expect(adminPaletteAssistantRoute.meta?.requiresAuth === true, 'real exported Admin route must require authentication')
   expect(adminPaletteAssistantRoute.meta?.requiresAdmin === true, 'real exported Admin route must require Admin role')
-  expect(adminPaletteAssistantRoute.component === AdminPaletteAssistantWorkbench, 'real exported Admin route must reference the real Workbench component')
+  expect(adminPaletteAssistantRoute.redirect === '/admin/palettes/new', 'legacy Admin route must redirect to canonical New Palette')
 
   const registeredMatches = router.getRoutes().filter((record) => record.name === 'admin-palette-assistant')
   expect(registeredMatches.length === 1, 'default production router must register exactly one Admin Palette Assistant route')
@@ -189,7 +182,7 @@ async function testProductionAdminRouteRuntime(): Promise<void> {
   expect(registered.name === adminPaletteAssistantRoute.name, 'registered route name must match the real exported route')
   expect(registered.meta.requiresAuth === true, 'registered route must preserve authentication metadata')
   expect(registered.meta.requiresAdmin === true, 'registered route must preserve Admin metadata')
-  expect(registered.components?.default === AdminPaletteAssistantWorkbench, 'registered route must preserve the real Workbench component')
+  expect(registered.redirect === '/admin/palettes/new', 'registered legacy route must preserve the safe redirect')
 
   const resolved = router.resolve('/admin/palette-assistant')
   const matched = resolved.matched[resolved.matched.length - 1]
@@ -198,12 +191,12 @@ async function testProductionAdminRouteRuntime(): Promise<void> {
   expect(resolved.meta.requiresAuth === true, 'path resolution must merge authentication metadata')
   expect(resolved.meta.requiresAdmin === true, 'path resolution must merge Admin metadata')
   expect(matched?.name === registered.name && matched.path === registered.path, 'path resolution must match the registered production record')
-  expect(matched?.components?.default === AdminPaletteAssistantWorkbench, 'resolved record must preserve the real Workbench component')
+  expect(matched?.redirect === '/admin/palettes/new', 'resolved legacy record must preserve the redirect')
 
   const resolvedByName = router.resolve({ name: 'admin-palette-assistant' })
   const namedMatch = resolvedByName.matched[resolvedByName.matched.length - 1]
   expect(resolvedByName.path === '/admin/palette-assistant', 'named resolution must return the frozen Admin Palette Assistant path')
-  expect(namedMatch?.components?.default === AdminPaletteAssistantWorkbench, 'named resolution must preserve the real Workbench component')
+  expect(namedMatch?.redirect === '/admin/palettes/new', 'named resolution must preserve the redirect')
 }
 
 function testFileValidation(): void {

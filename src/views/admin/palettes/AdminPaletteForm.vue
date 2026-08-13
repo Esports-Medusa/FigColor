@@ -166,21 +166,25 @@
         <div class="form-group">
           <label for="discipline">Discipline</label>
           <input id="discipline" v-model="disciplineInput" type="text" placeholder="biology, medicine, etc. (comma separated)" />
+          <ControlledVocabularySelect :model-value="parseCommaSeparated(disciplineInput)" field="disciplines" label="Discipline allowed values" @update:model-value="disciplineInput = $event.join(', ')" />
         </div>
 
         <div class="form-group">
           <label for="use_case">Use Case</label>
           <input id="use_case" v-model="useCaseInput" type="text" placeholder="scatter plots, bar charts, etc. (comma separated)" />
+          <ControlledVocabularySelect :model-value="parseCommaSeparated(useCaseInput)" field="use_cases" label="Use case allowed values" @update:model-value="useCaseInput = $event.join(', ')" />
         </div>
 
         <div class="form-group">
           <label for="avoid_case">Avoid For</label>
           <input id="avoid_case" v-model="avoidCaseInput" type="text" placeholder="too_many_groups, small_print, etc. (comma separated)" />
+          <ControlledVocabularySelect :model-value="parseCommaSeparated(avoidCaseInput)" field="avoid_cases" label="Avoid case allowed values" @update:model-value="avoidCaseInput = $event.join(', ')" />
         </div>
 
         <div class="form-group">
           <label for="tags">Tags</label>
           <input id="tags" v-model="tagsInput" type="text" placeholder="high-contrast, colorblind-safe, etc. (comma separated)" />
+          <ControlledVocabularySelect :model-value="parseCommaSeparated(tagsInput)" field="tags" label="Tag allowed values" @update:model-value="tagsInput = $event.join(', ')" />
         </div>
 
         <div class="form-row">
@@ -320,6 +324,8 @@
             </div>
           </div>
         </div>
+        <PaletteImageColorPicker v-if="!isEditing" @add-color="addSampledColor" />
+        <p v-if="imageColorMessage" :class="imageColorMessageType" role="status">{{ imageColorMessage }}</p>
       </div>
     </div>
 
@@ -358,6 +364,9 @@ import { CHART_TYPE_DEFINITIONS } from '@/lib/chart-types/registry'
 import AdminPreviewCaseEditor from './AdminPreviewCaseEditor.vue'
 import PalettePreview from '@/components/PalettePreview.vue'
 import PaletteChartPreview from '@/components/palettes/PaletteChartPreview.vue'
+import PaletteImageColorPicker from './PaletteImageColorPicker.vue'
+import { appendCanonicalHex } from './imageColorInput'
+import ControlledVocabularySelect from '../palette-assistant/ControlledVocabularySelect.vue'
 import {
   createCandidatePublicationController,
   createCandidatePublicationState
@@ -401,6 +410,8 @@ const loading = ref(false)
 const formError = ref('')
 const formValidationIssues = ref<ValidationIssue[]>([])
 const colorsError = ref('')
+const imageColorMessage = ref('')
+const imageColorMessageType = ref<'helper-text' | 'error-text'>('helper-text')
 const previewCases = ref<PalettePreviewCase[]>([])
 const previewRequestInProgress = ref(false)
 const previewBackendIssues = ref<ValidationIssue[]>([])
@@ -580,6 +591,13 @@ function generateSlugFromName() {
 
 function updateColorsFromInput() {
   // Watch handles this
+}
+
+function addSampledColor(hex: string) {
+  const result = appendCanonicalHex(colorsInput.value, hex)
+  imageColorMessage.value = result.error || `${hex.toUpperCase()} added to Colors.`
+  imageColorMessageType.value = result.error ? 'error-text' : 'helper-text'
+  if (result.added) colorsInput.value = result.value
 }
 
 async function loadPalette() {
@@ -959,7 +977,7 @@ onMounted(() => {
 <style scoped>
 .admin-palette-form {
   padding: 2rem;
-  max-width: 1400px;
+  max-width: 1500px;
   margin: 0 auto;
 }
 
@@ -984,7 +1002,7 @@ onMounted(() => {
 
 .form-layout {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
   gap: 2rem;
 }
 
@@ -996,8 +1014,7 @@ onMounted(() => {
 }
 
 .preview-section {
-  position: sticky;
-  top: 2rem;
+  min-width: 0;
 }
 
 .preview-card {

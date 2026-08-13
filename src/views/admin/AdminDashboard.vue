@@ -44,9 +44,6 @@
         <button class="btn btn-secondary" @click="router.push('/admin/palettes')">
           Manage Palettes
         </button>
-        <button class="btn btn-secondary" @click="router.push('/admin/palette-assistant')">
-          Palette Assistant
-        </button>
       </div>
     </div>
   </div>

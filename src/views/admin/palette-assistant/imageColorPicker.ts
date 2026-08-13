@@ -30,6 +30,7 @@ export function sampleMedianHex(data: Uint8ClampedArray, width: number, height: 
     for (let x = Math.max(0, centerX - radius); x <= Math.min(width - 1, centerX + radius); x++) {
       const offset = (y * width + x) * 4
       const alpha = data[offset + 3] / 255
+      if (alpha === 0) continue
       channels[0].push(Math.round(data[offset] * alpha + 255 * (1 - alpha)))
       channels[1].push(Math.round(data[offset + 1] * alpha + 255 * (1 - alpha)))
       channels[2].push(Math.round(data[offset + 2] * alpha + 255 * (1 - alpha)))

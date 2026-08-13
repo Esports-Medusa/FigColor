@@ -6,7 +6,7 @@
         <button type="button" :aria-label="`Remove ${vocabularyLabel(value)}`" :disabled="disabled" @click="remove(value)">×</button>
       </span>
     </div>
-    <div class="combobox-wrap">
+    <div class="combobox-wrap" @focusout="onFocusOut">
       <input
         v-model="query"
         role="combobox"
@@ -19,7 +19,7 @@
         @keydown.down.prevent="move(1)"
         @keydown.up.prevent="move(-1)"
         @keydown.enter.prevent="chooseActive"
-        @keydown.esc="open = false"
+        @keydown.esc="close"
       />
       <ul v-if="open" :id="listId" role="listbox">
         <li v-for="(value, index) in options" :key="value" role="option" :aria-selected="index === activeIndex">
@@ -43,10 +43,12 @@ const activeIndex = ref(0)
 const listId = `vocabulary-${props.field}`
 const options = computed(() => selectableVocabularyValues(props.field, props.modelValue, query.value))
 watch(options, () => { activeIndex.value = Math.min(activeIndex.value, Math.max(0, options.value.length - 1)) })
-function choose(value: string) { if (!isAuthoritativeVocabularyValue(props.field, value) || props.modelValue.includes(value)) return; emit('update:modelValue', [...props.modelValue, value]); query.value = ''; open.value = true }
+function choose(value: string) { if (!isAuthoritativeVocabularyValue(props.field, value) || props.modelValue.includes(value)) return; emit('update:modelValue', [...props.modelValue, value]); query.value = ''; open.value = false }
 function remove(value: string) { emit('update:modelValue', props.modelValue.filter((item) => item !== value)) }
 function move(direction: number) { open.value = true; if (options.value.length) activeIndex.value = (activeIndex.value + direction + options.value.length) % options.value.length }
 function chooseActive() { const value = options.value[activeIndex.value]; if (value) choose(value) }
+function close() { open.value = false; query.value = '' }
+function onFocusOut(event: FocusEvent) { if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) close() }
 </script>
 
 <style scoped>
