@@ -11,6 +11,7 @@ function file(name: string, type: string, size = 1): File { return new File([new
 expect(formSource.includes('<PaletteImageColorPicker v-if="!isEditing" @add-color="addSampledColor" />'), 'picker must live below the existing preview and only on New Palette')
 expect(formSource.includes('<AdminPreviewCaseEditor\n          v-if="isEditing"'), 'Scientific Preview Cases must only render after the Palette has been saved and opened for editing')
 expect(!formSource.includes(':local-only="!isEditing"'), 'New Palette must not render a misleading local-only Preview Cases editor')
+expect(!formSource.includes('ControlledVocabularySelect'), 'New/Edit Palette must retain its original single metadata inputs without Assistant controls')
 expect(formSource.indexOf('<h3>Palette Preview</h3>') < formSource.indexOf('<PaletteImageColorPicker'), 'existing Palette Preview must remain above the picker')
 expect(formSource.includes('const result = appendCanonicalHex(colorsInput.value, hex)') && formSource.includes('colorsInput.value = result.value'), 'sampled HEX must update the existing Colors source of truth')
 expect(formSource.includes('await createPalette(data)') && formSource.includes('const data = buildPalettePayload()'), 'existing New Palette create handler and payload path must remain')

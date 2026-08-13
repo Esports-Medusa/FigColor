@@ -166,25 +166,21 @@
         <div class="form-group">
           <label for="discipline">Discipline</label>
           <input id="discipline" v-model="disciplineInput" type="text" placeholder="biology, medicine, etc. (comma separated)" />
-          <ControlledVocabularySelect :model-value="parseCommaSeparated(disciplineInput)" field="disciplines" label="Discipline allowed values" @update:model-value="disciplineInput = $event.join(', ')" />
         </div>
 
         <div class="form-group">
           <label for="use_case">Use Case</label>
           <input id="use_case" v-model="useCaseInput" type="text" placeholder="scatter plots, bar charts, etc. (comma separated)" />
-          <ControlledVocabularySelect :model-value="parseCommaSeparated(useCaseInput)" field="use_cases" label="Use case allowed values" @update:model-value="useCaseInput = $event.join(', ')" />
         </div>
 
         <div class="form-group">
           <label for="avoid_case">Avoid For</label>
           <input id="avoid_case" v-model="avoidCaseInput" type="text" placeholder="too_many_groups, small_print, etc. (comma separated)" />
-          <ControlledVocabularySelect :model-value="parseCommaSeparated(avoidCaseInput)" field="avoid_cases" label="Avoid case allowed values" @update:model-value="avoidCaseInput = $event.join(', ')" />
         </div>
 
         <div class="form-group">
           <label for="tags">Tags</label>
           <input id="tags" v-model="tagsInput" type="text" placeholder="high-contrast, colorblind-safe, etc. (comma separated)" />
-          <ControlledVocabularySelect :model-value="parseCommaSeparated(tagsInput)" field="tags" label="Tag allowed values" @update:model-value="tagsInput = $event.join(', ')" />
         </div>
 
         <div class="form-row">
@@ -366,7 +362,6 @@ import PalettePreview from '@/components/PalettePreview.vue'
 import PaletteChartPreview from '@/components/palettes/PaletteChartPreview.vue'
 import PaletteImageColorPicker from './PaletteImageColorPicker.vue'
 import { appendCanonicalHex } from './imageColorInput'
-import ControlledVocabularySelect from '../palette-assistant/ControlledVocabularySelect.vue'
 import {
   createCandidatePublicationController,
   createCandidatePublicationState
