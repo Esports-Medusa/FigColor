@@ -1,6 +1,7 @@
 import { validatePreviewCaseAgainstRegistry } from '@/lib/chart-types/registry'
 import { resolveExplicitPreviewCaseExportModel, toCssCustomProperties, toJsonExport, toPythonDictionary, toRNamedVector } from '@/lib/exports'
 import type { CanonicalPalette, PalettePreviewCase } from '@/types/palette'
+import editorSource from './AdminPreviewCaseEditor.vue?raw'
 import {
   addArrayItem,
   moveArrayItemBy,
@@ -206,6 +207,12 @@ function testArchivedReadOnlyAndLifecycleAvailability(): void {
   expect(!publishedActions.deleteDraft && !publishedActions.publish, 'published preview should not allow delete or publish')
 }
 
+function testNarrowAdminLayoutKeepsPreviewOutOfLifecycleControls(): void {
+  expect(editorSource.includes('grid-template-columns: minmax(0, 1fr);'), 'Preview Case editor should use one bounded column inside the Admin form')
+  expect(editorSource.includes('.live-preview {\n  grid-row: 1;'), 'live preview should render above the lifecycle and structured fields')
+  expect(editorSource.includes('max-width: 100%;') && editorSource.includes('overflow: hidden;'), 'live preview must not overflow across lifecycle controls')
+}
+
 function testCurrentDraftRolesChangeRuntimeExport(): void {
   const draft = previewCase({
     status: 'draft',
@@ -233,4 +240,5 @@ testHeatmapStopsAndAnnotations()
 testInvalidAdvancedJsonPreservesPreviousValidState()
 testDuplicateKeyBlocksSaveAndPublish()
 testArchivedReadOnlyAndLifecycleAvailability()
+testNarrowAdminLayoutKeepsPreviewOutOfLifecycleControls()
 testCurrentDraftRolesChangeRuntimeExport()

@@ -669,8 +669,16 @@ function isRepeatableSection(section: RoleSection): section is Extract<RoleSecti
 
 .editor-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
+}
+
+.live-preview {
+  grid-row: 1;
+}
+
+.editor-fields {
+  grid-row: 2;
 }
 
 .editor-fields,
@@ -773,6 +781,8 @@ pre {
 
 .live-preview {
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .btn {
