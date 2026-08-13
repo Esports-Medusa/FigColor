@@ -1,6 +1,8 @@
 import { getAuthHeaders } from './auth'
 
 export const PALETTE_ASSISTANT_ANALYZE_PATH = '/api/admin/palette-assistant/analyze'
+export const PALETTE_ASSISTANT_VALIDATE_PATH = '/api/admin/palette-assistant/validate'
+export const PALETTE_ASSISTANT_CREATE_PATH = '/api/admin/palette-assistant/candidates'
 export const PALETTE_ASSISTANT_IMAGE_FIELD = 'image'
 export const PALETTE_ASSISTANT_CONTRACT_VERSION = 'palette-assistant.v1'
 export const PALETTE_ASSISTANT_ALGORITHM_VERSION = 'deterministic-image-analysis.v1'
@@ -137,6 +139,33 @@ export interface PaletteAssistantProblem {
   issues?: FieldIssue[]
 }
 
+export interface DuplicateFinding { id: string; palette_id?: string; kind: string }
+export interface SimilarityFinding { id: string; palette_id?: string; score: number; policy: string; params: Record<string, unknown> }
+export interface ValidateResponse {
+  contract_version: string
+  normalized_draft: AssistantDraft
+  validated_revision: number
+  draft_digest: string
+  validation_policy: string
+  registry_version: string
+  vocabulary_version: string
+  warnings: WarningFinding[]
+  duplicates: DuplicateFinding[]
+  similarities: SimilarityFinding[]
+  validation_receipt: string
+  receipt_expires_at: string
+}
+export interface CandidateReceipt {
+  contract_version: string
+  receipt_id: string
+  candidate_id: string
+  status: 'candidate'
+  preview_case_ids: string[]
+  admin_review_path: string
+  created_at: string
+  replay: boolean
+}
+
 export class PaletteAssistantApiError extends Error {
   constructor(public readonly status: number, public readonly problem: PaletteAssistantProblem) {
     super(problem.message)
@@ -171,6 +200,46 @@ export async function analyzePaletteImage(image: File, signal?: AbortSignal): Pr
   if (!isAnalyzeResponse(payload)) throw new PaletteAssistantContractError()
   await assertDeterministicColorProjection(payload)
   return payload
+}
+
+export async function validatePaletteDraft(draft: AssistantDraft, confirmedRevision: number, signal?: AbortSignal): Promise<ValidateResponse> {
+  const response = await fetch(PALETTE_ASSISTANT_VALIDATE_PATH, {
+    method: 'POST', headers: jsonHeaders(), signal,
+    body: JSON.stringify({ draft, confirmed_revision: confirmedRevision })
+  })
+  const payload = await readJSON(response)
+  if (!response.ok) return throwProblem(response, payload, SUBMISSION_PROBLEM_SPECS)
+  if (!isValidateResponse(payload, draft, confirmedRevision)) throw new PaletteAssistantContractError('$.validate')
+  return payload
+}
+
+export async function createPaletteCandidate(draft: AssistantDraft, confirmedRevision: number, validationReceipt: string, warningAcknowledgments: string[], idempotencyKey: string, signal?: AbortSignal): Promise<CandidateReceipt> {
+  const headers = jsonHeaders()
+  headers.set('Idempotency-Key', idempotencyKey)
+  const response = await fetch(PALETTE_ASSISTANT_CREATE_PATH, {
+    method: 'POST', headers, signal,
+    body: JSON.stringify({ draft, confirmed_revision: confirmedRevision, validation_receipt: validationReceipt, warning_acknowledgments: warningAcknowledgments })
+  })
+  const payload = await readJSON(response)
+  if (!response.ok) return throwProblem(response, payload, SUBMISSION_PROBLEM_SPECS)
+  if (!isCandidateReceipt(payload)) throw new PaletteAssistantContractError('$.candidate_receipt')
+  return payload
+}
+
+const SUBMISSION_PROBLEM_SPECS = {
+  AUTHENTICATION_REQUIRED:[401,false], ADMIN_REQUIRED:[403,false], MALFORMED_REQUEST:[400,false], UNSUPPORTED_MEDIA_TYPE:[415,false],
+  REQUEST_CANCELLED:[499,true], INVALID_DRAFT:[422,false], STALE_REVISION:[409,false], CONFIRMATION_REQUIRED:[409,false],
+  VALIDATION_RECEIPT_MISSING:[400,false], VALIDATION_RECEIPT_INVALID:[400,false], VALIDATION_RECEIPT_EXPIRED:[409,true],
+  VALIDATION_ACTOR_MISMATCH:[403,false], VALIDATION_POLICY_CHANGED:[409,true], EXACT_DUPLICATE_CANDIDATE:[409,false],
+  WARNING_ACKNOWLEDGMENT_REQUIRED:[422,false], WARNING_ACKNOWLEDGMENT_INVALID:[422,false], IDEMPOTENCY_KEY_MISSING:[400,false],
+  IDEMPOTENCY_KEY_INVALID:[400,false], IDEMPOTENCY_CONFLICT:[409,false], IDEMPOTENCY_IN_PROGRESS:[409,true],
+  CANDIDATE_TRANSACTION_FAILED:[503,true], INTERNAL_ERROR:[500,true]
+} as const
+
+function jsonHeaders(): Headers { const headers = new Headers(getAuthHeaders()); headers.set('Content-Type', 'application/json'); return headers }
+function throwProblem(response: Response, payload: unknown, specs: Record<string, readonly [number, boolean]>): never {
+  if (!isProblemFor(payload, response.status, specs)) throw new PaletteAssistantContractError('$.problem')
+  throw new PaletteAssistantApiError(response.status, payload)
 }
 
 async function readJSON(response: Response): Promise<unknown> {
@@ -343,4 +412,36 @@ function isProblem(value: unknown, status: number): value is PaletteAssistantPro
   if (!object(value) || !exact(value, ['code', 'message', 'retryable'], ['issues']) || !string(value.code) || !string(value.message) || value.message === '' || !boolean(value.retryable) || (has(value, 'issues') && !arrayOf(value.issues, isFieldIssue))) return false
   const spec = ANALYZE_PROBLEM_SPECS[value.code as keyof typeof ANALYZE_PROBLEM_SPECS]
   return Boolean(spec && spec.status === status && spec.retryable === value.retryable)
+}
+
+function isProblemFor(value: unknown, status: number, specs: Record<string, readonly [number, boolean]>): value is PaletteAssistantProblem {
+  if (!object(value) || !exact(value, ['code', 'message', 'retryable'], ['issues']) || !string(value.code) || !string(value.message) || value.message === '' || !boolean(value.retryable) || (has(value, 'issues') && !arrayOf(value.issues, isFieldIssue))) return false
+  const spec = specs[value.code]
+  return Boolean(spec && spec[0] === status && spec[1] === value.retryable)
+}
+
+function isSubmissionWarning(value: unknown): value is WarningFinding {
+  return object(value) && exact(value, ['id','code','message','policy','params','requires_acknowledgment'], ['path','palette_id']) &&
+    sha256(value.id) && string(value.code) && value.code !== '' && string(value.message) && value.message !== '' && string(value.policy) && value.policy !== '' &&
+    object(value.params) && boolean(value.requires_acknowledgment)
+}
+function isDuplicate(value: unknown): value is DuplicateFinding {
+  return object(value) && exact(value, ['id','kind'], ['palette_id']) && sha256(value.id) && value.kind === 'exact_duplicate' && (!has(value,'palette_id') || (string(value.palette_id) && value.palette_id !== ''))
+}
+function isSimilarity(value: unknown): value is SimilarityFinding {
+  return object(value) && exact(value, ['id','score','policy','params'], ['palette_id']) && sha256(value.id) && number(value.score) && value.score >= 0 && string(value.policy) && value.policy !== '' && object(value.params) && (!has(value,'palette_id') || (string(value.palette_id) && value.palette_id !== ''))
+}
+function isValidateResponse(value: unknown, draft: AssistantDraft, revision: number): value is ValidateResponse {
+  const keys = ['contract_version','normalized_draft','validated_revision','draft_digest','validation_policy','registry_version','vocabulary_version','warnings','duplicates','similarities','validation_receipt','receipt_expires_at']
+  return object(value) && exact(value, keys) && value.contract_version === PALETTE_ASSISTANT_CONTRACT_VERSION && value.validated_revision === revision && revision === draft.revision &&
+    JSON.stringify(value.normalized_draft) === JSON.stringify(draft) && sha256(value.draft_digest) && string(value.validation_policy) && value.validation_policy !== '' &&
+    string(value.registry_version) && value.registry_version !== '' && string(value.vocabulary_version) && value.vocabulary_version !== '' &&
+    arrayOf(value.warnings, isSubmissionWarning) && arrayOf(value.duplicates, isDuplicate) && arrayOf(value.similarities, isSimilarity) &&
+    string(value.validation_receipt) && value.validation_receipt.split('.').length === 2 && string(value.receipt_expires_at) && !Number.isNaN(Date.parse(value.receipt_expires_at))
+}
+function isCandidateReceipt(value: unknown): value is CandidateReceipt {
+  const keys = ['contract_version','receipt_id','candidate_id','status','preview_case_ids','admin_review_path','created_at','replay']
+  return object(value) && exact(value, keys) && value.contract_version === PALETTE_ASSISTANT_CONTRACT_VERSION && string(value.receipt_id) && value.receipt_id !== '' &&
+    string(value.candidate_id) && value.candidate_id !== '' && value.status === 'candidate' && arrayOf(value.preview_case_ids, string) &&
+    string(value.admin_review_path) && /^\/admin\/palettes\/[^/]+\/edit$/.test(value.admin_review_path) && string(value.created_at) && !Number.isNaN(Date.parse(value.created_at)) && boolean(value.replay)
 }

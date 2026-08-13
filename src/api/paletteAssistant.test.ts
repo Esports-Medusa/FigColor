@@ -5,8 +5,10 @@ import analyzeServiceSource from '../../backend/internal/paletteassistant/analyz
 import {
   ANALYZE_PROBLEM_SPECS,
   analyzePaletteImage,
+  createPaletteCandidate,
   PaletteAssistantApiError,
-  PaletteAssistantContractError
+  PaletteAssistantContractError,
+  validatePaletteDraft
 } from './paletteAssistant'
 
 function expect(condition: boolean, message: string): void {
@@ -715,6 +717,36 @@ async function isolated(run: () => void | Promise<void>): Promise<void> {
   }
 }
 
+async function testSubmissionTransportContracts(): Promise<void> {
+  installLocalStorage()
+  const draft = responseBody().draft as any
+  draft.name = 'Candidate'; draft.type = 'categorical'; draft.revision = 7
+  draft.colors.push({ ...draft.colors[0], id: '3559aff2-2f7b-5f17-9d9f-e505654c4ae5', hex: '#445566', order: 1 })
+  draft.chart_applicability = [{ chart_type:'bar_error', suitability:'best_fit' }]
+  const finding = { id:'b'.repeat(64), code:'SIMILAR_PALETTE', message:'A similar palette exists.', policy:'oklab_d65_v1', params:{ mean_distance:.02 }, requires_acknowledgment:true, palette_id:'palette-1' }
+  let phase = 0
+  Object.defineProperty(globalThis, 'fetch', { configurable:true, value: async (input:RequestInfo|URL, init?:RequestInit) => {
+    phase++
+    const headers = new Headers(init?.headers)
+    expect(headers.get('Authorization') === 'Bearer admin-token' && headers.get('Content-Type') === 'application/json', 'submission must retain Admin auth and JSON content type')
+    const body = JSON.parse(String(init?.body))
+    if (phase === 1) {
+      expect(String(input) === '/api/admin/palette-assistant/validate' && body.confirmed_revision === 7 && Object.keys(body).length === 2, 'Validate envelope drifted')
+      return jsonResponse({ contract_version:'palette-assistant.v1', normalized_draft:draft, validated_revision:7, draft_digest:'a'.repeat(64), validation_policy:'draft-v1', registry_version:'registry', vocabulary_version:'vocabulary', warnings:[finding], duplicates:[], similarities:[{ id:'b'.repeat(64), palette_id:'palette-1', score:.02, policy:'oklab_d65_v1', params:{ mean_distance:.02 } }], validation_receipt:'payload.signature', receipt_expires_at:'2026-08-13T12:00:00Z' })
+    }
+    expect(String(input) === '/api/admin/palette-assistant/candidates' && headers.get('Idempotency-Key') === '123e4567-e89b-42d3-a456-426614174000', 'Create path/key drifted')
+    expect(body.validation_receipt === 'payload.signature' && body.warning_acknowledgments[0] === finding.id && Object.keys(body).length === 4, 'Create must send the frozen receipt/ack envelope')
+    return jsonResponse({ contract_version:'palette-assistant.v1', receipt_id:'receipt-1', candidate_id:'candidate-1', status:'candidate', preview_case_ids:[], admin_review_path:'/admin/palettes/candidate-1/edit', created_at:'2026-08-13T11:00:00Z', replay:false }, 201)
+  } })
+  const validation = await validatePaletteDraft(draft, 7)
+  const receipt = await createPaletteCandidate(draft, 7, validation.validation_receipt, [finding.id], '123e4567-e89b-42d3-a456-426614174000')
+  expect(receipt.status === 'candidate' && receipt.admin_review_path.endsWith('/edit'), 'CandidateReceipt must preserve server navigation and candidate-only status')
+
+  Object.defineProperty(globalThis, 'fetch', { configurable:true, value: async () => jsonResponse({ code:'INVALID_DRAFT', message:'Invalid.', retryable:false, issues:[{path:'/draft/colors/0/hex',code:'INVALID_HEX',message:'Invalid.'}] }, 422) })
+  let failure:unknown; try { await validatePaletteDraft(draft, 7) } catch (error) { failure=error }
+  expect(failure instanceof PaletteAssistantApiError && failure.problem.issues?.[0].path === '/draft/colors/0/hex', 'submission Problem code and JSON Pointer must survive transport')
+}
+
 await isolated(testMultipartAuthAbortAndProjection)
 await isolated(testProblemStatuses)
 await isolated(testWarningProjection)
@@ -724,3 +756,4 @@ await isolated(testMalformedSuccessAndErrorFailClosed)
 await isolated(testTransportFailuresPreserveIdentity)
 await isolated(testTruncatedDraftProjection)
 await isolated(testGoContractDriftBoundary)
+await isolated(testSubmissionTransportContracts)

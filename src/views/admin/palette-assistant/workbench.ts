@@ -4,11 +4,13 @@ import type {
   ColorSuggestion,
   DraftColor,
   DraftPreviewCase,
+  CandidateReceipt,
   PaletteAssistantProblem,
   SuggestionProvenance,
+  ValidateResponse,
   WarningFinding
 } from '@/api/paletteAssistant'
-import { analyzePaletteImage, PaletteAssistantApiError } from '@/api/paletteAssistant'
+import { analyzePaletteImage, createPaletteCandidate, PaletteAssistantApiError, validatePaletteDraft } from '@/api/paletteAssistant'
 import { validateDraftPreviewCases } from './draftPreview'
 import type { ChartSuitability, ChartType, ValidationIssue } from '@/types/palette'
 import { defineComponent, h, type Component, type PropType } from 'vue'
@@ -70,6 +72,18 @@ export interface WorkbenchState {
   confirmedRevision: number | null
   latestDraftRevision: number
   error: PaletteAssistantProblem | { code: string; message: string; retryable: boolean; issues?: never } | null
+  submission: SubmissionState
+}
+
+export type SubmissionStatus = 'idle' | 'validating' | 'validated' | 'creating' | 'create_error' | 'created'
+export interface SubmissionState {
+  status: SubmissionStatus
+  validatedRevision: number | null
+  validation: ValidateResponse | null
+  acknowledgments: string[]
+  idempotencyKey: string | null
+  error: PaletteAssistantProblem | { code: string; message: string; retryable: boolean; issues?: never } | null
+  receipt: CandidateReceipt | null
 }
 
 export function validateAssistantImage(file: File): string | null {
@@ -82,8 +96,10 @@ export function validateAssistantImage(file: File): string | null {
 }
 
 export function createInitialState(): WorkbenchState {
-  return { image: null, status: 'idle', draft: null, audit: null, confirmedRevision: null, latestDraftRevision: 0, error: null }
+  return { image: null, status: 'idle', draft: null, audit: null, confirmedRevision: null, latestDraftRevision: 0, error: null, submission: createSubmissionState() }
 }
+export function createSubmissionState(): SubmissionState { return { status:'idle', validatedRevision:null, validation:null, acknowledgments:[], idempotencyKey:null, error:null, receipt:null } }
+export function invalidateSubmission(state: WorkbenchState): void { Object.assign(state.submission, createSubmissionState()) }
 
 export function draftFromAnalyze(response: AnalyzeResponse): EditableAssistantDraft {
   const draft = structuredClone(response.draft) as EditableAssistantDraft
@@ -121,6 +137,7 @@ export function mutateDraft(state: WorkbenchState, mutation: (draft: EditableAss
   normalizeDraftOrders(state.draft)
   state.draft.revision = nextDraftRevision(state)
   state.confirmedRevision = null
+  invalidateSubmission(state)
 }
 
 export function replaceDraftPreviewCases(state: WorkbenchState, previewCases: DraftPreviewCase[]): void {
@@ -188,6 +205,7 @@ export function resetDraftToAnalyze(state: WorkbenchState): boolean {
   state.draft = structuredClone(state.audit.seededDraft)
   state.draft.revision = nextDraftRevision(state)
   state.confirmedRevision = null
+  invalidateSubmission(state)
   return true
 }
 
@@ -240,6 +258,35 @@ export function removeChartApplicability(state: WorkbenchState, index: number): 
 
 export function isCurrentRevisionConfirmed(state: WorkbenchState): boolean {
   return state.draft !== null && state.confirmedRevision === state.draft.revision
+}
+
+export function submissionDraft(draft: EditableAssistantDraft): AssistantDraft {
+  return { ...structuredClone(draft), colors: draft.colors.map(({ classification: _classification, ...color }) => ({ ...color })) }
+}
+
+export function issueControlPath(pointer: string): string {
+  const raw = pointer.startsWith('/draft/') ? pointer.slice(7) : pointer.startsWith('/') ? pointer.slice(1) : pointer
+  return raw.split('/').map((part) => part.replace(/~1/g, '/').replace(/~0/g, '~')).join('.')
+}
+
+export function requiredWarningIDs(state: WorkbenchState): string[] {
+  return state.submission.validation?.warnings.filter((item) => item.requires_acknowledgment).map((item) => item.id).sort() ?? []
+}
+export function canCreateCandidate(state: WorkbenchState): boolean {
+  const validation = state.submission.validation
+  return Boolean(state.draft && validation && state.submission.validatedRevision === state.draft.revision && isCurrentRevisionConfirmed(state) &&
+    validation.duplicates.length === 0 && requiredWarningIDs(state).every((id) => state.submission.acknowledgments.includes(id)) && state.submission.status !== 'creating')
+}
+export function setWarningAcknowledgment(state: WorkbenchState, id: string, checked: boolean): void {
+  const allowed = requiredWarningIDs(state)
+  if (!allowed.includes(id)) return
+  const next = new Set(state.submission.acknowledgments)
+  checked ? next.add(id) : next.delete(id)
+  state.submission.acknowledgments = [...next].filter((item) => allowed.includes(item)).sort()
+  state.submission.idempotencyKey = null
+  state.submission.receipt = null
+  if (state.submission.status === 'create_error' || state.submission.status === 'created') state.submission.status = 'validated'
+  state.submission.error = null
 }
 
 export function validateDraft(draft: EditableAssistantDraft): ValidationIssue[] {
@@ -334,6 +381,45 @@ export class PaletteAssistantWorkbench {
     }
   }
 
+  async validate(): Promise<void> {
+    const draft = this.state.draft
+    if (!draft || !isCurrentRevisionConfirmed(this.state) || this.state.submission.status === 'validating' || this.state.submission.status === 'creating') return
+    const revision = draft.revision
+    this.state.submission.status = 'validating'; this.state.submission.error = null
+    try {
+      const response = await validatePaletteDraft(submissionDraft(draft), revision)
+      if (!this.state.draft || this.state.draft.revision !== revision || this.state.confirmedRevision !== revision) return
+      this.state.submission.validation = response
+      this.state.submission.validatedRevision = revision
+      this.state.submission.acknowledgments = []
+      this.state.submission.idempotencyKey = null
+      this.state.submission.receipt = null
+      this.state.submission.status = 'validated'
+    } catch (error) {
+      this.state.submission.status = 'idle'
+      this.state.submission.error = problemFrom(error, 'VALIDATE_FAILED', 'Validation failed.')
+    }
+  }
+
+  async createCandidate(): Promise<CandidateReceipt | null> {
+    if (!canCreateCandidate(this.state) || !this.state.draft || !this.state.submission.validation) return null
+    const submission = this.state.submission
+    const validation = submission.validation!
+    const revision = this.state.draft.revision
+    const key = submission.idempotencyKey ?? globalThis.crypto.randomUUID()
+    submission.idempotencyKey = key
+    submission.status = 'creating'; submission.error = null
+    try {
+      const receipt = await createPaletteCandidate(submissionDraft(this.state.draft), revision, validation.validation_receipt, [...submission.acknowledgments], key)
+      submission.receipt = receipt; submission.status = 'created'
+      return receipt
+    } catch (error) {
+      submission.status = 'create_error'
+      submission.error = problemFrom(error, 'CREATE_FAILED', 'Candidate creation failed.')
+      return null
+    }
+  }
+
   cancel(): void {
     if (!this.controller) return
     this.controller.abort()
@@ -358,5 +444,10 @@ export class PaletteAssistantWorkbench {
     this.state.audit = null
     this.state.confirmedRevision = null
     this.state.error = null
+    invalidateSubmission(this.state)
   }
+}
+
+function problemFrom(error: unknown, code: string, message: string): WorkbenchState['error'] {
+  return error instanceof PaletteAssistantApiError ? error.problem : { code, message: error instanceof Error ? error.message : message, retryable: true }
 }

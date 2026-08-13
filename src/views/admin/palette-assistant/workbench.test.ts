@@ -11,7 +11,7 @@ import {
   clearDraftPreviewCases, createPaletteAssistantRoute,
   draftFromAnalyze, editChartApplicability, hasUnconfirmedDraft, isCurrentRevisionConfirmed, mutateDraft, replaceDraftPreviewChart,
   mutateDraftPreviewCase, newAdminColor, removeChartApplicability, replaceDraftPreviewCases, resetDraftToAnalyze, validateAssistantImage,
-  validateDraft, warningOccurrences
+  validateDraft, warningOccurrences, canCreateCandidate, issueControlPath, setWarningAcknowledgment, submissionDraft
 } from './workbench'
 
 function expect(condition: boolean, message: string): void { if (!condition) throw new Error(message) }
@@ -83,7 +83,7 @@ function analyzeResponse(variant: 'old' | 'new' = 'old'): AnalyzeResponse {
   }
 }
 
-function jsonResponse(body: unknown): Response { return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }) }
+function jsonResponse(body: unknown, status = 200): Response { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }) }
 
 async function testAdminBoundaryAndNoWrites(): Promise<void> {
   const component = { name: 'AdminPaletteAssistantWorkbench' }
@@ -284,8 +284,11 @@ function testProductionEvidenceRendering(): void {
     formatBytes: (value: number) => `${value}`, percent: (value: number) => `${value}`, validHex: () => true,
     workbench: { cancel: () => undefined }, onFileChange: () => undefined, removeImage: () => undefined, runAnalyze: () => undefined,
     setName: () => undefined, setType: () => undefined, setHex: () => undefined, setClassification: () => undefined,
+    acceptColor: () => undefined,
     addColor: () => undefined, removeColor: () => undefined, moveColor: () => undefined, addChart: () => undefined,
     removeChart: () => undefined, setChart: () => undefined, resetDraft: () => undefined, confirmDraft: () => undefined,
+    setList: () => undefined, setSourceNote: () => undefined, setAccessibility: () => undefined,
+    runValidate: () => undefined, acknowledge: () => undefined, runCreate: () => undefined, canCreate: false, issueControlPath,
     currentPreview: null, pendingPreviewChart: 'bar_error', previewActionError: '', previewRender: null,
     createPreview: () => undefined, setPendingPreviewChart: () => undefined, removePreview: () => undefined, changePreviewChart: () => undefined, setPreviewJson: () => undefined,
     JSON
@@ -297,6 +300,7 @@ function testProductionEvidenceRendering(): void {
   expect(Boolean(omitted), 'production render must show omitted structural diagnostics')
   expect(text.includes('Suggestion provenance') && text.includes('/type') && text.includes('categorical'), 'production render must show provenance path and suggested value')
   expect(text.includes('deterministic_rule_engine / deterministic-palette-suggestion.v1') && text.includes('MULTIPLE_UNORDERED_RETAINED_DATA_COLORS'), 'production render must show provenance metadata')
+  expect(text.includes('assistant · unconfirmed') && workbenchSfcSource.includes('Accept suggestion'), 'production UI must distinguish assistant suggestion, acceptance, and modification state')
   const strip = rendered.find((node) => node.props?.['aria-label'] === 'Current Draft color order')
   const stripColors = descendants(strip?.children).map((node) => (node.props?.style as { backgroundColor?: string } | undefined)?.backgroundColor).filter(Boolean)
   expect(stripColors.length === 1 && stripColors[0] === '#AABBCC' && !stripColors.includes('#FFFFFF'), 'retained strip must use edited Draft colors and exclude omitted colors')
@@ -465,6 +469,41 @@ async function testGlobalIsolationRestoresAfterThrow(): Promise<void> {
   expect(caught && before.every((descriptor, index) => sameDescriptor(descriptor, after[index])), 'global descriptors must be restored when an isolated test throws')
 }
 
+async function testValidateCreateStateMachine(): Promise<void> {
+  Object.defineProperty(globalThis, 'localStorage', { configurable:true, value:{ getItem:()=> 'admin-token' } })
+  const workbench = new PaletteAssistantWorkbench()
+  const draft = draftFromAnalyze(analyzeResponse())
+  draft.revision=1; draft.name='Candidate'; draft.type='categorical'; draft.colors.push({ ...newAdminColor(1), hex:'#445566' }); draft.chart_applicability=[{chart_type:'bar_error',suitability:'best_fit'}]
+  workbench.state.draft=draft; workbench.state.latestDraftRevision=1
+  expect(confirmCurrentDraft(workbench.state), 'valid Draft must confirm before Validate')
+  const warningId='b'.repeat(64)
+  let createCalls=0; const keys:string[]=[]; let failCreate=true
+  Object.defineProperty(globalThis, 'fetch', { configurable:true, value: async (input:RequestInfo|URL, init?:RequestInit) => {
+    const body=JSON.parse(String(init?.body))
+    if (String(input).endsWith('/validate')) return jsonResponse({ contract_version:'palette-assistant.v1', normalized_draft:body.draft, validated_revision:1, draft_digest:'a'.repeat(64), validation_policy:'draft-v1', registry_version:'registry', vocabulary_version:'vocabulary', warnings:[{id:warningId,code:'SIMILAR_PALETTE',message:'Similar.',policy:'oklab_d65_v1',params:{mean_distance:.02},requires_acknowledgment:true,palette_id:'p1'}], duplicates:[], similarities:[{id:warningId,palette_id:'p1',score:.02,policy:'oklab_d65_v1',params:{mean_distance:.02}}], validation_receipt:'payload.signature', receipt_expires_at:'2026-08-13T12:00:00Z' })
+    createCalls++; keys.push(new Headers(init?.headers).get('Idempotency-Key') || '')
+    expect(!('classification' in body.draft.colors[0]), 'frontend-only classification must never cross strict submission boundary')
+    if (failCreate) return jsonResponse({code:'CANDIDATE_TRANSACTION_FAILED',message:'Retry.',retryable:true},503)
+    return jsonResponse({contract_version:'palette-assistant.v1',receipt_id:'r1',candidate_id:'c1',status:'candidate',preview_case_ids:[],admin_review_path:'/admin/palettes/c1/edit',created_at:'2026-08-13T11:00:00Z',replay:false},201)
+  } })
+  await workbench.validate()
+  expect(workbench.state.submission.validation?.similarities.length===1 && !canCreateCandidate(workbench.state), 'similarity warning must display separately and require acknowledgment')
+  setWarningAcknowledgment(workbench.state, warningId, true); expect(canCreateCandidate(workbench.state), 'all warning IDs must be acknowledged')
+  await workbench.createCandidate(); expect(workbench.state.submission.status==='create_error' && createCalls===1, 'failed Create must expose retry state')
+  const retryKey=keys[0]; failCreate=false
+  const first=workbench.createCandidate(); const duplicate=workbench.createCandidate(); expect(await duplicate===null, 'in-flight duplicate click must be ignored'); const receipt=await first
+  expect(createCalls===2 && keys[1]===retryKey && /^[0-9a-f-]{36}$/.test(retryKey), 'safe retry must reuse its canonical UUID key')
+  expect(receipt?.admin_review_path==='/admin/palettes/c1/edit' && receipt.status==='candidate', 'success must retain CandidateReceipt review destination without publish')
+  mutateDraft(workbench.state, (value)=>{ value.name='Changed' })
+  expect(workbench.state.submission.validation===null && workbench.state.submission.acknowledgments.length===0 && workbench.state.submission.idempotencyKey===null, 'Draft edit must invalidate receipt, findings, acknowledgments, and create intent')
+  expect(issueControlPath('/draft/colors/0/hex')==='colors.0.hex' && !('classification' in submissionDraft(draft).colors[0]), 'JSON Pointer mapping and strict Draft projection must be stable')
+
+  workbench.state.draft=draft; workbench.state.confirmedRevision=1
+  workbench.state.submission.validation={ contract_version:'palette-assistant.v1',normalized_draft:submissionDraft(draft),validated_revision:1,draft_digest:'a'.repeat(64),validation_policy:'v',registry_version:'r',vocabulary_version:'v',warnings:[],duplicates:[{id:'c'.repeat(64),kind:'exact_duplicate'}],similarities:[],validation_receipt:'p.s',receipt_expires_at:'2026-08-13T12:00:00Z' }
+  workbench.state.submission.validatedRevision=1; workbench.state.submission.status='validated'
+  expect(!canCreateCandidate(workbench.state), 'exact duplicate must block Create and cannot be acknowledged')
+}
+
 await testAdminBoundaryAndNoWrites()
 await testProductionAdminRouteRuntime()
 testFileValidation()
@@ -480,3 +519,4 @@ testChartApplicabilityRevisionPath()
 await withGlobalIsolation(testObjectUrlLifecycleAndStateReset)
 await withGlobalIsolation(testAnalyzeSuccessRetryAbortAndStaleProtection)
 await testGlobalIsolationRestoresAfterThrow()
+await withGlobalIsolation(testValidateCreateStateMachine)
