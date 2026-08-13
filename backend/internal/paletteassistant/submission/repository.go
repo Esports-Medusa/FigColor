@@ -127,7 +127,7 @@ func (r *SQLRepository) Create(ctx context.Context, actor, key, intent, draftDig
 		return nil, "", e
 	}
 	created := time.Now().UTC()
-	receipt := &pa.CandidateReceipt{ContractVersion: pa.ContractVersion, ReceiptID: recordID, CandidateID: result.PaletteID, Status: "candidate", PreviewCaseIDs: result.PreviewCaseIDs, AdminReviewPath: "/admin/palettes/" + result.PaletteID, CreatedAt: created, Replay: false}
+	receipt := &pa.CandidateReceipt{ContractVersion: pa.ContractVersion, ReceiptID: recordID, CandidateID: result.PaletteID, Status: "candidate", PreviewCaseIDs: result.PreviewCaseIDs, AdminReviewPath: "/admin/palettes/" + result.PaletteID + "/edit", CreatedAt: created, Replay: false}
 	raw, e := json.Marshal(receipt)
 	if e != nil {
 		return nil, "", e

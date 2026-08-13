@@ -47,9 +47,20 @@ func TestSubmissionPostgresRuntimeAcceptance(t *testing.T) {
 	if created.Receipt == nil || created.Receipt.Replay {
 		t.Fatalf("created=%+v", created)
 	}
+	wantReviewPath := "/admin/palettes/" + created.Receipt.CandidateID + "/edit"
+	if created.Receipt.Status != "candidate" || created.Receipt.AdminReviewPath != wantReviewPath {
+		t.Fatalf("created receipt status=%q candidate=%q review_path=%q want=%q", created.Receipt.Status, created.Receipt.CandidateID, created.Receipt.AdminReviewPath, wantReviewPath)
+	}
+	var persistedReviewPath string
+	if err = db.QueryRow(`SELECT candidate_receipt->>'admin_review_path' FROM palette_assistant_submissions WHERE candidate_id=$1`, created.Receipt.CandidateID).Scan(&persistedReviewPath); err != nil {
+		t.Fatal(err)
+	}
+	if persistedReviewPath != wantReviewPath {
+		t.Fatalf("persisted review_path=%q want=%q", persistedReviewPath, wantReviewPath)
+	}
 	assertAggregate(t, db, created.Receipt.CandidateID, len(draft.Colors), 1)
 	replayed := service.Create(ctx, actor, key, request)
-	if replayed.Receipt == nil || !replayed.Receipt.Replay || replayed.Receipt.CandidateID != created.Receipt.CandidateID || replayed.Receipt.ReceiptID != created.Receipt.ReceiptID || !replayed.Receipt.CreatedAt.Equal(created.Receipt.CreatedAt) {
+	if replayed.Receipt == nil || !replayed.Receipt.Replay || replayed.Receipt.CandidateID != created.Receipt.CandidateID || replayed.Receipt.ReceiptID != created.Receipt.ReceiptID || replayed.Receipt.AdminReviewPath != wantReviewPath || !replayed.Receipt.CreatedAt.Equal(created.Receipt.CreatedAt) {
 		t.Fatalf("replay=%+v created=%+v", replayed, created)
 	}
 	changed := request
