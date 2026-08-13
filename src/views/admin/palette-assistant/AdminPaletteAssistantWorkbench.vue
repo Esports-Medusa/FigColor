@@ -153,9 +153,9 @@ import {
   addChartApplicability, addDraftPreviewCase, AnalyzeWarningList, CHART_SUITABILITIES, clearDraftPreviewCases, editChartApplicability,
   PALETTE_TYPES, PHASE_1_CHART_TYPES, removeChartApplicability,
   PaletteAssistantWorkbench, confirmCurrentDraft, isCurrentRevisionConfirmed,
-  confirmDraftAbandonment, hasUnconfirmedDraft, mutateDraft, newAdminColor,
+  confirmWorkbenchAbandonment, mutateDraft, newAdminColor,
   replaceDraftPreviewChart, resetDraftToAnalyze, validateDraft, mutateDraftPreviewCase,
-  canCreateCandidate, createCandidateAndNavigate, issueControlPath, setWarningAcknowledgment
+  canCreateCandidate, createCandidateAndNavigate, issueControlPath, protectWorkbenchBeforeUnload, setWarningAcknowledgment
 } from './workbench'
 import { renderDraftPreview } from './draftPreviewRenderer'
 import type { ChartType } from '@/types/palette'
@@ -218,13 +218,12 @@ function setPreviewJson(field: 'color_roles' | 'preview_config', event: Event) {
 const validHex = (value: string) => /^#[0-9A-F]{6}$/.test(value)
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`
 const formatBytes = (value: number) => `${(value / 1024).toFixed(1)} KiB`
-function protectUnconfirmedDraft(event: BeforeUnloadEvent) {
-  if (!hasUnconfirmedDraft(state)) return
-  event.preventDefault()
+function protectWorkbenchLeave(event: BeforeUnloadEvent) {
+  protectWorkbenchBeforeUnload(state, event)
 }
-onBeforeRouteLeave(() => confirmDraftAbandonment(state, (message) => window.confirm(message)))
-onMounted(() => window.addEventListener('beforeunload', protectUnconfirmedDraft))
-onBeforeUnmount(() => { window.removeEventListener('beforeunload', protectUnconfirmedDraft); workbench.dispose() })
+onBeforeRouteLeave(() => confirmWorkbenchAbandonment(state, (message) => window.confirm(message)))
+onMounted(() => window.addEventListener('beforeunload', protectWorkbenchLeave))
+onBeforeUnmount(() => { window.removeEventListener('beforeunload', protectWorkbenchLeave); workbench.dispose() })
 </script>
 
 <style scoped>

@@ -7,9 +7,9 @@ import workbenchSfcSource from './AdminPaletteAssistantWorkbench.vue?raw'
 import routerSourceText from '../../../router/index.ts?raw'
 import {
   AnalyzeWarningList, CHART_SUITABILITIES, MAX_ASSISTANT_IMAGE_BYTES, PALETTE_TYPES, PHASE_1_CHART_TYPES, PaletteAssistantWorkbench, addChartApplicability, addDraftPreviewCase, allocateDraftPreviewSeed,
-  auditFromAnalyze, confirmCurrentDraft, confirmDraftAbandonment, createInitialState,
+  auditFromAnalyze, confirmCurrentDraft, confirmDraftAbandonment, confirmWorkbenchAbandonment, createInitialState,
   clearDraftPreviewCases, createPaletteAssistantRoute,
-  draftFromAnalyze, editChartApplicability, hasUnconfirmedDraft, isCurrentRevisionConfirmed, mutateDraft, replaceDraftPreviewChart,
+  draftFromAnalyze, editChartApplicability, hasPendingCreate, hasUnconfirmedDraft, isCurrentRevisionConfirmed, mutateDraft, protectWorkbenchBeforeUnload, replaceDraftPreviewChart, shouldProtectWorkbenchLeave,
   mutateDraftPreviewCase, newAdminColor, removeChartApplicability, replaceDraftPreviewCases, resetDraftToAnalyze, validateAssistantImage,
   validateDraft, warningOccurrences, canCreateCandidate, createCandidateAndNavigate, issueControlPath, setWarningAcknowledgment, submissionDraft
 } from './workbench'
@@ -258,6 +258,12 @@ function testAbandonmentGuard(): void {
   state.confirmedRevision = state.draft.revision
   expect(confirmDraftAbandonment(state, () => { prompts++; return false }), 'confirmed Draft must allow navigation without prompting')
   expect(prompts === 2, 'only unconfirmed Draft navigation should prompt')
+  state.submission.status = 'creating'
+  expect(hasPendingCreate(state) && shouldProtectWorkbenchLeave(state), 'confirmed Draft with pending Create must remain protected')
+  let pendingMessage = ''
+  expect(!confirmWorkbenchAbandonment(state, (message) => { pendingMessage=message; return false }) && pendingMessage.includes('still in progress'), 'route leave must clearly confirm and block pending Create when declined')
+  let prevented = false
+  expect(protectWorkbenchBeforeUnload(state, { preventDefault:()=>{prevented=true} }) && prevented, 'beforeunload must activate for a confirmed Draft with pending Create')
 }
 
 async function testDuplicateWarningRendering(): Promise<void> {
@@ -537,6 +543,37 @@ async function testCreateStaleResponsesAndUiLock(): Promise<void> {
   expect(workbench.state.submission.status==='idle' && workbench.state.submission.error===null && workbench.state.draft.revision===3,'stale rejection must not overwrite the newer invalidated state')
 }
 
+async function testDisposeInvalidatesPendingCreate(): Promise<void> {
+  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=> 'admin-token'}})
+  const prepared = () => {
+    const workbench=new PaletteAssistantWorkbench(); const draft=draftFromAnalyze(analyzeResponse())
+    draft.revision=1; draft.name='Candidate'; draft.type='categorical'; draft.colors.push({...newAdminColor(1),hex:'#445566'}); draft.chart_applicability=[{chart_type:'bar_error',suitability:'best_fit'}]
+    workbench.state.draft=draft; workbench.state.latestDraftRevision=1; workbench.state.confirmedRevision=1
+    const validation={contract_version:'palette-assistant.v1' as const,normalized_draft:submissionDraft(draft),validated_revision:1,draft_digest:'a'.repeat(64),validation_policy:'v',registry_version:'r',vocabulary_version:'v',warnings:[],duplicates:[],similarities:[],validation_receipt:'p.s',receipt_expires_at:'2026-08-13T12:00:00Z'}
+    Object.assign(workbench.state.submission,{status:'validated',validatedRevision:1,validation,acknowledgments:[],idempotencyKey:null,error:null,receipt:null})
+    return workbench
+  }
+  const successWorkbench=prepared(); let resolveDisposed!:(response:Response)=>void; const disposedNavigations:string[]=[]
+  Object.defineProperty(globalThis,'fetch',{configurable:true,value:()=>new Promise<Response>((resolve)=>{resolveDisposed=resolve})})
+  const disposedSuccess=createCandidateAndNavigate(successWorkbench,(path)=>{disposedNavigations.push(path)})
+  const generationBeforeDispose=successWorkbench.state.submission.generation
+  successWorkbench.dispose()
+  expect(successWorkbench.state.submission.generation===generationBeforeDispose+1,'dispose must increment and invalidate submission generation')
+  resolveDisposed(jsonResponse({contract_version:'palette-assistant.v1',receipt_id:'stale',candidate_id:'stale',status:'candidate',preview_case_ids:[],admin_review_path:'/admin/palettes/stale/edit',created_at:'2026-08-13T11:00:00Z',replay:false},201))
+  expect(await disposedSuccess===false && disposedNavigations.length===0,'disposed stale success must not navigate')
+  expect(successWorkbench.state.submission.receipt===null && successWorkbench.state.submission.status!=='created','disposed stale success must not write receipt or created state')
+
+  const rejectionWorkbench=prepared(); let rejectDisposed!:(error:unknown)=>void
+  Object.defineProperty(globalThis,'fetch',{configurable:true,value:()=>new Promise<Response>((_resolve,reject)=>{rejectDisposed=reject})})
+  const disposedRejection=rejectionWorkbench.createCandidate(); rejectionWorkbench.dispose(); rejectDisposed(new TypeError('disposed failure'))
+  expect(await disposedRejection===null && rejectionWorkbench.state.submission.status!=='create_error' && rejectionWorkbench.state.submission.error===null,'disposed stale rejection must not write create_error or Problem')
+
+  const currentWorkbench=prepared(); const currentNavigations:string[]=[]
+  Object.defineProperty(globalThis,'fetch',{configurable:true,value:()=>Promise.resolve(jsonResponse({contract_version:'palette-assistant.v1',receipt_id:'current',candidate_id:'current',status:'candidate',preview_case_ids:[],admin_review_path:'/admin/palettes/current/edit',created_at:'2026-08-13T11:00:00Z',replay:false},201))})
+  expect(await createCandidateAndNavigate(currentWorkbench,(path)=>{currentNavigations.push(path)}),'current Create must complete and navigate')
+  expect(currentWorkbench.state.submission.status==='created' && currentWorkbench.state.submission.receipt?.candidate_id==='current' && currentNavigations.length===1 && currentNavigations[0]==='/admin/palettes/current/edit','normal success must store receipt and navigate exactly once')
+}
+
 await testAdminBoundaryAndNoWrites()
 await testProductionAdminRouteRuntime()
 testFileValidation()
@@ -554,3 +591,4 @@ await withGlobalIsolation(testAnalyzeSuccessRetryAbortAndStaleProtection)
 await testGlobalIsolationRestoresAfterThrow()
 await withGlobalIsolation(testValidateCreateStateMachine)
 await withGlobalIsolation(testCreateStaleResponsesAndUiLock)
+await withGlobalIsolation(testDisposeInvalidatesPendingCreate)

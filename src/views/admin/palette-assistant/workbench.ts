@@ -219,6 +219,25 @@ export function hasUnconfirmedDraft(state: WorkbenchState): boolean {
   return state.draft !== null && !isCurrentRevisionConfirmed(state)
 }
 
+export function hasPendingCreate(state: WorkbenchState): boolean {
+  return state.submission.status === 'creating'
+}
+
+export function shouldProtectWorkbenchLeave(state: WorkbenchState): boolean {
+  return hasPendingCreate(state) || hasUnconfirmedDraft(state)
+}
+
+export function confirmWorkbenchAbandonment(state: WorkbenchState, confirm: (message: string) => boolean): boolean {
+  if (hasPendingCreate(state)) return confirm('Candidate creation is still in progress. Leave this page and ignore its pending result?')
+  return confirmDraftAbandonment(state, confirm)
+}
+
+export function protectWorkbenchBeforeUnload(state: WorkbenchState, event: Pick<Event, 'preventDefault'>): boolean {
+  if (!shouldProtectWorkbenchLeave(state)) return false
+  event.preventDefault()
+  return true
+}
+
 export function confirmDraftAbandonment(
   state: WorkbenchState,
   confirm: (message: string) => boolean
