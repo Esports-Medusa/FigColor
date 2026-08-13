@@ -87,7 +87,7 @@
                   ✎
                 </button>
                 <button
-                  v-if="palette.status === 'draft'"
+                  v-if="palette.status === 'draft' || palette.status === 'candidate'"
                   class="btn-icon success"
                   @click="publishPalette(palette)"
                   title="Publish">

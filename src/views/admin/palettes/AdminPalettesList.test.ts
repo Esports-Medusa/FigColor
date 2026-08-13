@@ -55,7 +55,19 @@ function testAdminReviewConfirmActionsUseSpecificLabels(): void {
   expect(adminPalettesListSource.includes("confirmText: 'Yes, delete'"), 'Delete confirmation should use delete-specific button text')
 }
 
+function testAdminReviewLifecycleActions(): void {
+  expect(
+    adminPalettesListSource.includes(`v-if="palette.status === 'draft' || palette.status === 'candidate'"`),
+    'Draft and Candidate palettes should expose the compatible publish action'
+  )
+  expect(
+    adminPalettesListSource.includes(`v-if="palette.status === 'published'"`),
+    'Published palettes should expose the unpublish action'
+  )
+}
+
 testAdminReviewHasOneCanonicalChartTypeFilter()
 testAdminReviewChartTypeFilterUsesRegistryOptions()
 testAdminReviewFilterStateAndPagination()
 testAdminReviewConfirmActionsUseSpecificLabels()
+testAdminReviewLifecycleActions()
