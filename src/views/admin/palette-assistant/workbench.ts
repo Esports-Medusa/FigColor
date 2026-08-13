@@ -96,6 +96,13 @@ export function validateAssistantImage(file: File): string | null {
   return null
 }
 
+export function validateAssistantImageSelection(files: ArrayLike<File>): { file: File | null; error: string | null } {
+  if (files.length === 0) return { file: null, error: 'Choose one PNG or JPEG image.' }
+  if (files.length !== 1) return { file: null, error: 'Choose exactly one PNG or JPEG image.' }
+  const file = files[0]
+  return { file, error: validateAssistantImage(file) }
+}
+
 export function createInitialState(): WorkbenchState {
   return { image: null, status: 'idle', draft: null, audit: null, confirmedRevision: null, latestDraftRevision: 0, error: null, submission: createSubmissionState() }
 }
@@ -126,6 +133,25 @@ export function newAdminColor(order: number): EditableDraftColor {
     id: globalThis.crypto.randomUUID(),
     hex: '#000000', order, source: 'admin', state: 'modified', classification: 'data'
   }
+}
+
+export function addPickedDraftColor(state: WorkbenchState, hex: string): { added: boolean; existingIndex?: number } {
+  if (!state.draft) return { added: false }
+  const existingIndex = state.draft.colors.findIndex((color) => color.hex === hex)
+  if (existingIndex >= 0) return { added: false, existingIndex }
+  mutateDraft(state, (draft) => { draft.colors.push({ ...newAdminColor(draft.colors.length), hex }) })
+  return { added: true }
+}
+
+export function replacePickedDraftColor(state: WorkbenchState, colorID: string, hex: string): { replaced: boolean; existingIndex?: number; referenced?: boolean } {
+  if (!state.draft) return { replaced: false }
+  const existingIndex = state.draft.colors.findIndex((color) => color.hex === hex)
+  if (existingIndex >= 0) return { replaced: false, existingIndex }
+  const index = state.draft.colors.findIndex((color) => color.id === colorID)
+  if (index < 0) return { replaced: false }
+  if (JSON.stringify(state.draft.preview_cases).includes(colorID)) return { replaced: false, referenced: true }
+  mutateDraft(state, (draft) => { draft.colors.splice(index, 1, { ...newAdminColor(index), hex }) })
+  return { replaced: true }
 }
 
 export function normalizeDraftOrders(draft: EditableAssistantDraft): void {
