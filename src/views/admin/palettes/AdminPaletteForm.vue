@@ -243,11 +243,11 @@
         </div>
 
         <AdminPreviewCaseEditor
+          v-if="isEditing"
           :palette="canonicalPaletteForPreview"
           :preview-cases="previewCases"
           :request-in-progress="previewRequestInProgress"
           :backend-issues="previewBackendIssues"
-          :local-only="!isEditing"
           @save-draft="handlePreviewDraftSave"
           @publish="handlePreviewPublish"
           @set-primary="handlePreviewSetPrimary"

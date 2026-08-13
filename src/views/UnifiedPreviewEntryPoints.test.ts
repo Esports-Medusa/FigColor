@@ -43,21 +43,21 @@ function testAdminDraftReviewUsesEveryRegisteredChartType(): void {
   )
 }
 
-function testPaletteAddUsesUnsavedCanonicalInputAndRegistryOptions(): void {
+function testPaletteAddKeepsReadOnlyPreviewAndDefersPreviewCaseEditing(): void {
   expect(
     adminForm.includes('CHART_TYPE_DEFINITIONS.map'),
     'palette add chart type options should come from the shared registry'
   )
   expect(
-    adminForm.includes(':local-only="!isEditing"'),
-    'palette add should render an unsaved local preview without premature persistence'
+    adminForm.includes('<AdminPreviewCaseEditor\n          v-if="isEditing"'),
+    'palette add should defer Preview Cases editing until the Palette has a persistent identity'
   )
   expect(
-    adminForm.includes(':palette="canonicalPaletteForPreview"'),
-    'palette add should convert form data to the canonical shared preview input'
+    adminForm.includes('<PaletteChartPreview') && adminForm.includes(':palette="canonicalPaletteForPreview"'),
+    'palette add should retain the shared read-only preview derived from unsaved canonical form data'
   )
 }
 
 testProjectsUseAuthenticatedBasePalettePreview()
 testAdminDraftReviewUsesEveryRegisteredChartType()
-testPaletteAddUsesUnsavedCanonicalInputAndRegistryOptions()
+testPaletteAddKeepsReadOnlyPreviewAndDefersPreviewCaseEditing()
