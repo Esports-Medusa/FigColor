@@ -23,7 +23,13 @@ function renderWorkbenchTemplate(context: Record<string, unknown>): RenderNode {
   expect(Boolean(descriptor.template), 'production Workbench SFC must have a template')
   const { code } = compile(descriptor.template!.content, { mode: 'function', filename: 'AdminPaletteAssistantWorkbench.vue' })
   const render = new Function('Vue', code)(Vue) as (context: Record<string, unknown>) => RenderNode
-  return render(context)
+  return render({
+    showLeaveConfirmation: false,
+    leaveConfirmationMessage: '',
+    confirmLeave: () => undefined,
+    cancelLeave: () => undefined,
+    ...context
+  })
 }
 
 function descendants(node: unknown): RenderNode[] {
@@ -125,6 +131,13 @@ async function testAdminBoundaryAndNoWrites(): Promise<void> {
   expect(importsWorkbench && exportsFactoryRoute, 'production router must export the factory-created route with the real Workbench SFC import')
   expect(registersExportedRoute, 'production router must register and consume adminPaletteAssistantRoute')
   expect(usesEnvironmentHistory, 'production router must retain memory history for Node and web history for browsers')
+}
+
+function testCustomLeaveConfirmation(): void {
+  expect(workbenchSfcSource.includes('<ConfirmDialog'), 'Workbench leave protection must use the shared confirmation dialog')
+  expect(workbenchSfcSource.includes('confirm-text="Yes, discard"'), 'discard dialog must expose an explicit destructive action')
+  expect(workbenchSfcSource.includes('@confirm="confirmLeave"') && workbenchSfcSource.includes('@cancel="cancelLeave"'), 'discard dialog must support confirm and cancel')
+  expect(!workbenchSfcSource.includes('window.confirm('), 'route leave must not use the browser-native confirmation dialog')
 }
 
 async function testProductionAdminRouteRuntime(): Promise<void> {
@@ -575,6 +588,7 @@ async function testDisposeInvalidatesPendingCreate(): Promise<void> {
 }
 
 await testAdminBoundaryAndNoWrites()
+testCustomLeaveConfirmation()
 await testProductionAdminRouteRuntime()
 testFileValidation()
 testDraftInitializationAuditAndRevision()

@@ -143,6 +143,15 @@
         </template>
       </section>
     </template>
+
+    <ConfirmDialog
+      v-if="showLeaveConfirmation"
+      title="Discard Palette Assistant Draft?"
+      :message="leaveConfirmationMessage"
+      confirm-text="Yes, discard"
+      @confirm="confirmLeave"
+      @cancel="cancelLeave"
+    />
   </div>
 </template>
 
@@ -159,6 +168,7 @@ import {
 } from './workbench'
 import { renderDraftPreview } from './draftPreviewRenderer'
 import type { ChartType } from '@/types/palette'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
 const workbench = reactive(new PaletteAssistantWorkbench())
 const router = useRouter()
@@ -173,6 +183,10 @@ const currentPreview = computed(() => state.draft?.preview_cases[0] ?? null)
 const previewRender = computed(() => state.draft && currentPreview.value ? renderDraftPreview(state.draft, currentPreview.value) : null)
 const canCreate = computed(() => canCreateCandidate(state))
 const creating = computed(() => state.submission.status === 'creating')
+const showLeaveConfirmation = ref(false)
+const leaveConfirmationMessage = ref('Discard the unconfirmed Palette Assistant Draft?')
+const pendingLeavePath = ref<string | null>(null)
+let allowConfirmedLeave = false
 
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
@@ -221,7 +235,34 @@ const formatBytes = (value: number) => `${(value / 1024).toFixed(1)} KiB`
 function protectWorkbenchLeave(event: BeforeUnloadEvent) {
   protectWorkbenchBeforeUnload(state, event)
 }
-onBeforeRouteLeave(() => confirmWorkbenchAbandonment(state, (message) => window.confirm(message)))
+function confirmLeave() {
+  const path = pendingLeavePath.value
+  showLeaveConfirmation.value = false
+  pendingLeavePath.value = null
+  if (!path) return
+  allowConfirmedLeave = true
+  void router.push(path)
+}
+function cancelLeave() {
+  showLeaveConfirmation.value = false
+  pendingLeavePath.value = null
+}
+onBeforeRouteLeave((to) => {
+  if (allowConfirmedLeave) {
+    allowConfirmedLeave = false
+    return true
+  }
+  let prompt = ''
+  const mayLeave = confirmWorkbenchAbandonment(state, (message) => {
+    prompt = message
+    return false
+  })
+  if (mayLeave) return true
+  leaveConfirmationMessage.value = prompt
+  pendingLeavePath.value = to.fullPath
+  showLeaveConfirmation.value = true
+  return false
+})
 onMounted(() => window.addEventListener('beforeunload', protectWorkbenchLeave))
 onBeforeUnmount(() => { window.removeEventListener('beforeunload', protectWorkbenchLeave); workbench.dispose() })
 </script>
