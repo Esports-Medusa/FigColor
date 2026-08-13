@@ -792,9 +792,13 @@ func (s *Service) Publish(id string) (*Palette, error) {
 		return nil, err
 	}
 
-	if existing.Status != "candidate" {
+	// Imported palettes enter review as candidates, while an existing published
+	// palette returns to draft when an admin unpublishes it. Both states are
+	// intentionally publishable from the admin UI.
+	if existing.Status != "candidate" && existing.Status != "draft" {
 		return nil, ErrPalettePublicationConflict
 	}
+	unpublishedStatus := existing.Status
 	previewCases, err := s.repo.ListPreviewCasesByPaletteTx(tx, id, true)
 	if err != nil {
 		return nil, previewCaseServiceError("load publication preview cases", err)
@@ -803,7 +807,7 @@ func (s *Service) Publish(id string) (*Palette, error) {
 		return nil, err
 	}
 	result, err := tx.Exec(`UPDATE palettes SET status='published', published_at=clock_timestamp(), updated_at=clock_timestamp()
-		WHERE id=$1 AND status='candidate' AND visibility='public' AND owner_user_id IS NULL`, id)
+		WHERE id=$1 AND status=$2 AND visibility='public' AND owner_user_id IS NULL`, id, unpublishedStatus)
 	if err != nil {
 		return nil, fmt.Errorf("publish candidate: %w", err)
 	}
@@ -953,7 +957,7 @@ func (s *Service) validatePublicationReadiness(tx *sql.Tx, palette *Palette, pre
 	return nil
 }
 
-// Unpublish unpublishes a palette (sets status to 'candidate')
+// Unpublish unpublishes a palette (sets status to 'draft')
 func (s *Service) Unpublish(id string) (*Palette, error) {
 	existing, err := s.repo.GetByID(id)
 	if err != nil {

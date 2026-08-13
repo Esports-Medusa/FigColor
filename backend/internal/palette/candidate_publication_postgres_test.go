@@ -111,6 +111,17 @@ func TestCandidatePublicationPostgres(t *testing.T) {
 		t.Fatalf("repeat publication err=%v", err)
 	}
 
+	// A palette that an admin takes down returns to draft and must remain
+	// publishable through the legacy admin-list action.
+	draftID := insertPublicationCandidate(t, db, "republish-draft", "draft", "public", nil)
+	draftPublished, err := service.Publish(draftID)
+	if err != nil {
+		t.Fatalf("republish draft err=%v", err)
+	}
+	if draftPublished.Status != "published" || draftPublished.PublishedAt == nil {
+		t.Fatalf("unexpected republished draft: %+v", draftPublished)
+	}
+
 	invalidID := insertPublicationCandidate(t, db, "invalid", "candidate", "public", nil)
 	insertPublicationIngestion(t, db, invalidID, `[{"severity":"error","code":"SOURCE_BLOCKED","message":"source validation failed"}]`)
 	if _, err := service.Publish(invalidID); !IsValidationErrorValue(err) {
