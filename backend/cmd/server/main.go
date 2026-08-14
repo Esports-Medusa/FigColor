@@ -45,8 +45,11 @@ func main() {
 	// Initialize services
 	authRepo := auth.NewRepository()
 	var mailer auth.Mailer = auth.SMTPMailer{Addr: cfg.SMTPAddr, From: cfg.MailFrom}
-	if os.Getenv("MAIL_PROVIDER") == "log" {
+	switch cfg.MailProvider {
+	case "log":
 		mailer = auth.LogMailer{}
+	case "resend":
+		mailer = auth.NewResendMailer(cfg.ResendAPIKey, cfg.MailFrom)
 	}
 	authService := auth.NewService(userRepo, authRepo, mailer, cfg.JWTSecret, cfg.JWTExpiry, cfg.BCryptCost, cfg.AppBaseURL, cfg.EmailVerificationTTL, cfg.PasswordResetTTL)
 	userService := user.NewService(userRepo, cfg.BCryptCost)

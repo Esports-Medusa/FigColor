@@ -88,12 +88,20 @@ set the frontend and CORS origins explicitly:
 
 ```bash
 APP_ENV=production
-APP_BASE_URL=https://figcolor.xxx
-CORS_ALLOWED_ORIGINS=https://figcolor.xxx,https://www.figcolor.xxx
+APP_BASE_URL=https://figcolor.com
+CORS_ALLOWED_ORIGINS=https://figcolor.com,https://www.figcolor.com
+MAIL_PROVIDER=resend
+MAIL_FROM="FigColor <no-reply@mail.figcolor.com>"
+RESEND_API_KEY=<set this to a Render secret>
 ```
 
 `DATABASE_URL` is required in every environment. Render can use `GET /health`
 as its health-check path; the response contains only `{ "status": "ok" }`.
+When `MAIL_PROVIDER=resend`, the backend sends transactional messages through
+Resend's HTTPS API. `RESEND_API_KEY` and `MAIL_FROM` are required, and
+`mail.figcolor.com` must be verified in Resend. Keep `MAIL_PROVIDER=log` for
+local development and tests; it logs only the message kind and recipient, never
+the authentication token or complete verification/reset URL.
 
 ### Database Migrations
 

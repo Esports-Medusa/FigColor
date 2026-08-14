@@ -19,7 +19,9 @@ type Config struct {
 	PasswordResetTTL     time.Duration
 	Environment          string
 	SMTPAddr             string
+	MailProvider         string
 	MailFrom             string
+	ResendAPIKey         string
 	CORSAllowedOrigins   []string
 	IngestionRecovery    IngestionRecoveryConfig
 }
@@ -65,23 +67,40 @@ func Load() *Config {
 	if err != nil {
 		panic(err)
 	}
+	appBaseURL := os.Getenv("APP_BASE_URL")
+	if appBaseURL == "" {
+		appBaseURL = "http://localhost:5173"
+	}
 	cfg := &Config{
 		DatabaseURL:          requiredEnv("DATABASE_URL"),
 		ServerPort:           firstEnv([]string{"PORT", "SERVER_PORT"}, "8080"),
 		JWTSecret:            getEnv("JWT_SECRET", "figcolor-dev-secret-change-in-production"),
 		JWTExpiry:            24 * time.Hour,
 		BCryptCost:           12,
-		AppBaseURL:           getEnv("APP_BASE_URL", "http://localhost:5173"),
+		AppBaseURL:           appBaseURL,
 		EmailVerificationTTL: 24 * time.Hour,
 		PasswordResetTTL:     30 * time.Minute,
 		Environment:          getEnv("APP_ENV", "development"),
 		SMTPAddr:             getEnv("SMTP_ADDR", "localhost:1025"),
+		MailProvider:         getEnv("MAIL_PROVIDER", "smtp"),
 		MailFrom:             getEnv("MAIL_FROM", "noreply@figcolor.local"),
+		ResendAPIKey:         os.Getenv("RESEND_API_KEY"),
 		CORSAllowedOrigins:   splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")),
 		IngestionRecovery:    ingestionRecovery,
 	}
 	if cfg.Environment == "production" && (cfg.JWTSecret == "figcolor-dev-secret-change-in-production" || len(cfg.JWTSecret) < 32) {
 		panic("JWT_SECRET must be changed to a strong value in production")
+	}
+	if cfg.Environment == "production" && os.Getenv("APP_BASE_URL") == "" {
+		panic("APP_BASE_URL is required in production")
+	}
+	if cfg.MailProvider == "resend" {
+		if cfg.ResendAPIKey == "" {
+			panic("RESEND_API_KEY is required when MAIL_PROVIDER=resend")
+		}
+		if os.Getenv("MAIL_FROM") == "" {
+			panic("MAIL_FROM is required when MAIL_PROVIDER=resend")
+		}
 	}
 	return cfg
 }
