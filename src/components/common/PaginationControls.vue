@@ -8,7 +8,7 @@
       title="First page"
       @click="emitPage(1)"
     >
-      &lt;&lt;
+      <span aria-hidden="true">«</span>
     </button>
     <button
       class="pagination-btn icon-btn"
@@ -18,7 +18,7 @@
       title="Previous page"
       @click="emitPage(currentPage - 1)"
     >
-      &lt;
+      <span aria-hidden="true">‹</span>
     </button>
 
     <div class="page-buttons" aria-label="Page numbers">
@@ -36,28 +36,31 @@
       </button>
     </div>
 
-    <label class="page-jump">
-      <span>Page</span>
-      <input
-        v-model="pageInput"
-        type="number"
-        inputmode="numeric"
-        min="1"
-        :max="totalPages"
+    <div class="jump-cluster">
+      <label class="page-jump">
+        <span>Page</span>
+        <input
+          v-model="pageInput"
+          type="number"
+          inputmode="numeric"
+          min="1"
+          :max="totalPages"
+          :disabled="disabled"
+          :aria-label="`Page number, ${totalPages} pages total`"
+          @keyup.enter="jumpToInputPage"
+          @blur="syncPageInput"
+        />
+        <span class="page-total">of {{ totalPages }}</span>
+      </label>
+      <button
+        class="pagination-btn jump-btn"
+        type="button"
         :disabled="disabled"
-        @keyup.enter="jumpToInputPage"
-        @blur="syncPageInput"
-      />
-      <span>of {{ totalPages }}</span>
-    </label>
-    <button
-      class="pagination-btn jump-btn"
-      type="button"
-      :disabled="disabled"
-      @click="jumpToInputPage"
-    >
-      Go
-    </button>
+        @click="jumpToInputPage"
+      >
+        Go
+      </button>
+    </div>
 
     <button
       class="pagination-btn icon-btn"
@@ -67,7 +70,7 @@
       title="Next page"
       @click="emitPage(currentPage + 1)"
     >
-      &gt;
+      <span aria-hidden="true">›</span>
     </button>
     <button
       class="pagination-btn icon-btn"
@@ -77,7 +80,7 @@
       title="Last page"
       @click="emitPage(totalPages)"
     >
-      &gt;&gt;
+      <span aria-hidden="true">»</span>
     </button>
   </nav>
 </template>
@@ -151,8 +154,8 @@ function clampPage(page: number): number {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding-top: 0.5rem;
+  gap: 0.625rem;
+  padding-top: 1rem;
 }
 
 .page-buttons {
@@ -162,11 +165,11 @@ function clampPage(page: number): number {
 }
 
 .pagination-btn {
-  height: 2.5rem;
-  min-width: 2.5rem;
+  height: 2.375rem;
+  min-width: 2.375rem;
   padding: 0 0.75rem;
   border: 1px solid #d8e1ec;
-  border-radius: 8px;
+  border-radius: var(--fc-radius-control);
   background: #fff;
   color: #334155;
   font-size: 0.875rem;
@@ -176,9 +179,9 @@ function clampPage(page: number): number {
 
 .pagination-btn:hover:not(:disabled),
 .pagination-btn.active {
-  border-color: #4A90A4;
-  color: #24576a;
-  background: #eef9fc;
+  border-color: var(--fc-primary);
+  color: var(--fc-primary);
+  background: var(--fc-primary-soft);
 }
 
 .pagination-btn:disabled {
@@ -188,7 +191,16 @@ function clampPage(page: number): number {
 }
 
 .icon-btn {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding: 0;
+  font-family: inherit;
+  font-size: 1.15rem;
+}
+
+.jump-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  white-space: nowrap;
 }
 
 .page-jump {
@@ -197,13 +209,16 @@ function clampPage(page: number): number {
   gap: 0.375rem;
   color: #64748b;
   font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .page-jump input {
-  width: 4rem;
-  height: 2.5rem;
+  flex: 0 0 3.5rem;
+  width: 3.5rem !important;
+  min-width: 3.5rem !important;
+  height: 2.375rem;
   border: 1px solid #d8e1ec;
-  border-radius: 8px;
+  border-radius: var(--fc-radius-control);
   color: #334155;
   text-align: center;
   font-size: 0.875rem;
@@ -215,7 +230,7 @@ function clampPage(page: number): number {
 }
 
 .jump-btn {
-  min-width: 3rem;
+  min-width: 2.75rem;
 }
 
 @media (max-width: 640px) {
@@ -223,6 +238,10 @@ function clampPage(page: number): number {
     order: 3;
     width: 100%;
     justify-content: center;
+  }
+
+  .jump-cluster {
+    order: 4;
   }
 }
 </style>

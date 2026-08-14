@@ -147,9 +147,9 @@ function formatDate(dateStr: string) {
 
 <style scoped>
 .projects-view {
-  max-width: 1200px;
+  max-width: var(--fc-content-width);
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0;
 }
 
 .page-header {
@@ -167,7 +167,7 @@ function formatDate(dateStr: string) {
 }
 
 .btn-primary {
-  background: #4A90A4;
+  background: var(--fc-primary);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -183,21 +183,22 @@ function formatDate(dateStr: string) {
 
 .projects-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.5rem;
 }
 
 .project-card {
   background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid var(--fc-line);
+  border-radius: var(--fc-radius-card);
   padding: 1.5rem;
   cursor: pointer;
   transition: box-shadow 0.2s;
 }
 
 .project-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--fc-shadow-subtle);
+  border-color: #b7c2d1;
 }
 
 .project-header {
@@ -244,9 +245,13 @@ function formatDate(dateStr: string) {
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  background: #f9f9f9;
+  background: #fff;
+  border: 1px solid var(--fc-line);
   border-radius: 8px;
 }
+
+@media (max-width: 900px) { .projects-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .projects-grid { grid-template-columns: 1fr; } }
 
 .empty-icon {
   font-size: 3rem;

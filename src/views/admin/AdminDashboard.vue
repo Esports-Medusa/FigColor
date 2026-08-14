@@ -1,10 +1,5 @@
 <template>
   <div class="admin-dashboard">
-    <!-- DEBUG VISUAL - Remove after debugging -->
-    <div style="background: #ff6b6b; color: white; padding: 1rem; text-align: center; font-weight: bold;">
-      ADMIN DASHBOARD LOADED - role: {{ currentUser?.role || 'no user' }}
-    </div>
-    
     <div class="admin-header">
       <h1>Admin Dashboard</h1>
       <p class="subtitle">Manage your palettes and content</p>
@@ -53,10 +48,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getPaletteStats, PaletteStats } from '@/api/admin'
-import { useAuth } from '@/composables/useAuth'
 
 const router = useRouter()
-const { currentUser } = useAuth()
 
 const stats = ref<PaletteStats>({
   total: 0,

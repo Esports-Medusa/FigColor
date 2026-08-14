@@ -1,6 +1,8 @@
 import { createServer } from 'vite'
 
 const testModules = [
+  '/src/components/layout/ScientificShell.test.ts',
+  '/src/components/common/PaginationControls.test.ts',
   '/src/lib/palette.preview-normalization.test.ts',
   '/src/lib/palette-cache-boundary.test.ts',
   '/src/lib/api/adminPreviewCases.test.ts',
@@ -26,6 +28,8 @@ const testModules = [
   '/src/components/palettes/PaletteChartPreview.test.ts',
   '/src/components/palettes/PalettePreviewIntegration.test.ts',
   '/src/components/project/FigureCreationFlow.test.ts',
+  '/src/components/project/PaletteEditModal.test.ts',
+  '/src/components/project/ProjectPalettePersistence.test.ts',
   '/src/components/project/ProjectPalettePreview.test.ts',
   '/src/views/admin/palettes/AdminPalettesList.test.ts',
   '/src/views/admin/palettes/PaletteImageColorPicker.test.ts',

@@ -399,19 +399,29 @@ const dateFooter = computed(() => {
 .section-title {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #374151;
-  margin-bottom: 1rem;
+  color: var(--fc-ink);
+  margin: 0;
 }
 
 /* Colors Section */
 .colors-section {
   margin-bottom: 2.5rem;
+  overflow: hidden;
+}
+
+.colors-section > .section-title,
+.metadata-section > .section-title,
+.code-section > .section-title {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--fc-line-soft);
+  background: #fff;
 }
 
 .colors-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
+  padding: 1.5rem;
 }
 
 /* Recommended / Avoid Section */
@@ -462,16 +472,19 @@ const dateFooter = computed(() => {
 /* Metadata Section */
 .metadata-section {
   margin-bottom: 2.5rem;
+  overflow: hidden;
 }
 
 .metadata-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.25rem;
+  gap: 1rem;
+  padding: 1.5rem 1.5rem 0;
 }
 
 .date-footer {
-  margin-top: 1rem;
+  margin: 0;
+  padding: 1rem 1.5rem 1.25rem;
   font-size: 0.75rem;
   color: #64748b;
   text-align: right;
@@ -483,8 +496,9 @@ const dateFooter = computed(() => {
   gap: 0.5rem;
   padding: 1.25rem;
   background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--fc-line-soft);
+  border-radius: var(--fc-radius-control);
+  box-shadow: none;
 }
 
 .metadata-label {
@@ -525,6 +539,15 @@ const dateFooter = computed(() => {
 /* Code Section */
 .code-section {
   margin-bottom: 2rem;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--fc-line);
+  border-radius: var(--fc-radius-card);
+}
+
+.code-section :deep(.code-tabs) {
+  border: 0;
+  border-radius: 0;
 }
 
 /* Not Found */
@@ -575,6 +598,18 @@ const dateFooter = computed(() => {
 
   .metadata-grid {
     grid-template-columns: 1fr;
+  }
+
+  .colors-section > .section-title,
+  .metadata-section > .section-title,
+  .code-section > .section-title {
+    padding: .875rem 1rem;
+  }
+
+  .colors-grid,
+  .metadata-grid {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 }
 </style>

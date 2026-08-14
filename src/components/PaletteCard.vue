@@ -73,7 +73,8 @@ function toggleFavorite() {
   padding: 1.25rem;
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--fc-line);
+  box-shadow: none;
   text-decoration: none;
   color: inherit;
   transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -153,13 +154,14 @@ function toggleFavorite() {
   margin-top: 0.5rem;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: #fff;
+  border: 1px solid var(--fc-line-soft);
 }
 
 .palette-strip-wrapper {
   height: 12px;
   margin-top: 0.75rem;
-  border-radius: 999px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
@@ -167,7 +169,7 @@ function toggleFavorite() {
   height: 12px;
   min-height: 12px;
   max-height: 12px;
-  border-radius: 999px;
+  border-radius: 3px;
   box-shadow: none;
 }
 </style>

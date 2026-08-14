@@ -75,8 +75,8 @@ const previewAccessibleLabel = computed(() => previewModel.value.accessibleLabel
   width: 100%;
   overflow: hidden;
   box-sizing: border-box;
-  background: #fafafb;
-  border: 1px solid #eef0f4;
+  background: #fff;
+  border: 1px solid var(--fc-line-soft);
 }
 
 .size-card {
@@ -87,7 +87,7 @@ const previewAccessibleLabel = computed(() => previewModel.value.accessibleLabel
 .size-hero {
   min-height: 240px;
   aspect-ratio: 16 / 7;
-  border-radius: 16px;
+  border-radius: var(--fc-radius-card);
 }
 
 .svg-frame,
@@ -172,7 +172,7 @@ const previewAccessibleLabel = computed(() => previewModel.value.accessibleLabel
   width: 100%;
   height: 100%;
   place-items: center;
-  background: #f8fafc;
+  background: #fff;
 }
 
 .placeholder-frame span {

@@ -103,7 +103,7 @@ const palettes = ref<Palette[]>([])
 const totalPalettes = ref(0)
 const currentPage = ref(initialBrowseState.page)
 const loadError = ref<string | null>(null)
-const pageSize = 20
+const pageSize = 16
 const loadingSkeletonCount = 6
 let requestSequence = 0
 
