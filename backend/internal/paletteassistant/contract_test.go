@@ -184,7 +184,7 @@ func TestSubmissionProtocolKnownVectorsAndIdentityBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if intentDigest != "3a73d37d6dca7996c9a9449d15bfa6387ca449a520566baef037f275b96ed36e" {
+	if intentDigest != "659380ce64c22a731ba5db4fcbc6f51f9a6ae33fa491fce682fbd73655307c39" {
 		t.Fatalf("intent vector = %s", intentDigest)
 	}
 	intent.AcknowledgedFindingIDs = []string{"a", "b"}

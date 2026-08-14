@@ -51,7 +51,7 @@ export type BarErrorDraftSuggestionResult =
     }
 
 const MIN_GROUPS = 3
-const MAX_GROUPS = 5
+const MAX_GROUPS = 10
 
 export function suggestBarErrorPreviewDraft(
   palette: CanonicalPalette

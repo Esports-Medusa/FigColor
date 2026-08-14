@@ -83,7 +83,7 @@ function testValidationPassesForSuggestedDraft(): void {
 
 function testValidationReportsLocalIssues(): void {
   const draft = editableDraftFromSuggestion(suggestOrThrow())
-  draft.groups = Array.from({ length: 6 }, (_, index) => ({
+  draft.groups = Array.from({ length: 11 }, (_, index) => ({
     ...draft.groups[index % draft.groups.length],
     key: `group-${index + 1}`,
     label: `Group ${index + 1}`

@@ -276,7 +276,7 @@ var barErrorTemplate = defineTemplate({
 				schema: {
 					kind: "array",
 					minItems: 1,
-					maxItems: 5,
+					maxItems: 10,
 					rules: [{
 						kind: "unique_by",
 						field: "key",
@@ -378,7 +378,7 @@ var boxplotJitterTemplate = defineTemplate({
 			groups: req$4({
 				kind: "array",
 				minItems: 1,
-				maxItems: 5,
+				maxItems: 10,
 				rules: [{
 					kind: "unique_by",
 					field: "key"
@@ -617,7 +617,7 @@ var lineMultiseriesTemplate = defineTemplate({
 			series: req$2({
 				kind: "array",
 				minItems: 1,
-				maxItems: 5,
+				maxItems: 10,
 				rules: [{
 					kind: "unique_by",
 					field: "key"
@@ -714,7 +714,7 @@ var scatterGroupedTemplate = defineTemplate({
 			groups: req$1({
 				kind: "array",
 				minItems: 1,
-				maxItems: 5,
+				maxItems: 10,
 				rules: [{
 					kind: "unique_by",
 					field: "key",
@@ -814,7 +814,7 @@ var violinDistributionTemplate = defineTemplate({
 			groups: req({
 				kind: "array",
 				minItems: 1,
-				maxItems: 5,
+				maxItems: 10,
 				rules: [{
 					kind: "unique_by",
 					field: "key"

@@ -12,7 +12,7 @@ import type {
 } from './suggestion'
 
 export const BAR_ERROR_MIN_GROUPS = 1
-export const BAR_ERROR_MAX_GROUPS = 5
+export const BAR_ERROR_MAX_GROUPS = 10
 
 export interface EditableBarErrorGroup {
   key: string

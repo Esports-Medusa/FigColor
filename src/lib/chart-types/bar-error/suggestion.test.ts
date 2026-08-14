@@ -21,7 +21,12 @@ function palette(colorCount = 5): CanonicalPalette {
       { id: 'stable-green', hex: '#009E73', rgb: [0, 158, 115], order: 2 },
       { id: 'stable-purple', hex: '#CC79A7', rgb: [204, 121, 167], order: 3 },
       { id: 'stable-yellow', hex: '#F0E442', rgb: [240, 228, 66], order: 4 },
-      { id: 'stable-cyan', hex: '#56B4E9', rgb: [86, 180, 233], order: 5 }
+      { id: 'stable-cyan', hex: '#56B4E9', rgb: [86, 180, 233], order: 5 },
+      { id: 'stable-red', hex: '#E41A1C', rgb: [228, 26, 28], order: 6 },
+      { id: 'stable-navy', hex: '#003F5C', rgb: [0, 63, 92], order: 7 },
+      { id: 'stable-pink', hex: '#F781BF', rgb: [247, 129, 191], order: 8 },
+      { id: 'stable-brown', hex: '#A65628', rgb: [166, 86, 40], order: 9 },
+      { id: 'stable-gray', hex: '#777777', rgb: [119, 119, 119], order: 10 }
     ] as CanonicalPalette['colors']).slice(0, colorCount),
     color_count: colorCount,
     type: 'categorical',
@@ -68,11 +73,11 @@ function testSuggestionUsesCanonicalOrderAndStableIds(): void {
   }
 }
 
-function testSuggestionCapsAtFiveGroups(): void {
-  const result = suggestBarErrorPreviewDraft(palette(6))
-  expect(result.ok, 'six-color palette should produce a suggestion')
+function testSuggestionCapsAtTenGroups(): void {
+  const result = suggestBarErrorPreviewDraft(palette(11))
+  expect(result.ok, 'eleven-color palette should produce a suggestion')
   if (result.ok) {
-    expect(result.value.color_roles.groups.length === 5, 'suggestion should cap groups at five')
+    expect(result.value.color_roles.groups.length === 10, 'suggestion should cap groups at ten')
   }
 }
 
@@ -86,7 +91,7 @@ function testSuggestionRequiresAtLeastThreeColors(): void {
 }
 
 function testSuggestionValidatesAndRenders(): void {
-  const basePalette = palette(3)
+  const basePalette = palette(10)
   const previewCase = toPreviewCase(basePalette)
   const validation = validatePreviewCaseAgainstRegistry(previewCase)
   expect(validation.valid, `suggested preview should pass registry validation: ${JSON.stringify(validation.issues)}`)
@@ -96,6 +101,6 @@ function testSuggestionValidatesAndRenders(): void {
 }
 
 testSuggestionUsesCanonicalOrderAndStableIds()
-testSuggestionCapsAtFiveGroups()
+testSuggestionCapsAtTenGroups()
 testSuggestionRequiresAtLeastThreeColors()
 testSuggestionValidatesAndRenders()

@@ -45,7 +45,7 @@ export function extractResolvedDataRoles(
   }
   const candidates = collectionValue
   const min = contract.min ?? 1
-  const max = contract.max ?? 5
+  const max = contract.max ?? 10
   if (candidates.length < min || candidates.length > max) {
     return {
       ok: false,

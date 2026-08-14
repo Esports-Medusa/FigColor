@@ -48,7 +48,9 @@ function testSixChartConstraintMatrix(): void {
     else emptyRoles[chart === 'line_multiseries' ? 'series' : 'groups'] = []
     expect(!template.validateRoles(emptyRoles).valid, `${chart}: array minimum`)
     if (chart !== 'heatmap_annotated') {
-      const excessive = structuredClone(roles); excessive[chart === 'line_multiseries' ? 'series' : 'groups'] = Array.from({ length: 6 }, (_, index) => ({ ...collection[0], key: `k${index}` }))
+      const maximum = structuredClone(roles); maximum[chart === 'line_multiseries' ? 'series' : 'groups'] = Array.from({ length: 10 }, (_, index) => ({ ...collection[0], key: `k${index}` }))
+      expect(template.validateRoles(maximum).valid, `${chart}: array maximum boundary`)
+      const excessive = structuredClone(roles); excessive[chart === 'line_multiseries' ? 'series' : 'groups'] = Array.from({ length: 11 }, (_, index) => ({ ...collection[0], key: `k${index}` }))
       expect(!template.validateRoles(excessive).valid, `${chart}: array maximum`)
       const duplicate = structuredClone(roles); duplicate[chart === 'line_multiseries' ? 'series' : 'groups'] = [{ ...collection[0] }, { ...collection[0] }]
       expect(!template.validateRoles(duplicate).valid, `${chart}: uniqueness`)
