@@ -1,10 +1,9 @@
 // Admin API Client for FigColor
 
 import { getAuthHeaders } from './auth'
+import { API_BASE } from './baseUrl'
 import type { ChartTypeApplicability } from '@/types/palette'
 import type { ValidationIssue } from '@/types/palette'
-
-const API_BASE = '/api'
 
 export class AdminPaletteApiError extends Error {
   issues: ValidationIssue[]

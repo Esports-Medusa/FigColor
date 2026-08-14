@@ -58,9 +58,18 @@ FigColor is a full-stack application with a Vue 3 frontend and a Go backend.
 # Install frontend dependencies
 npm install
 
+# Local API origin (copy .env.example to .env.local if needed)
+export VITE_API_BASE_URL="http://localhost:8080"
+
 # Start frontend development server
 npm run dev
 ```
+
+For a production frontend build, set `VITE_API_BASE_URL` to the public API
+origin, such as `https://api.figcolor.xxx`. `VITE_*` values are embedded in the
+browser bundle and must never contain passwords, signing secrets, or database
+credentials. Cloudflare Pages copies `public/_redirects` into the build output
+so Vue Router history routes fall back to `index.html`.
 
 ### Backend
 
@@ -69,23 +78,51 @@ cd backend
 go mod download
 export DATABASE_URL="postgres://localhost:5432/figcolor?sslmode=disable"
 createdb figcolor
-# Apply migrations manually if needed
-# psql "$DATABASE_URL" -f backend/migrations/001_init.sql
-# ...
+./scripts/run-migrations.sh
 go run ./cmd/server
 ```
 
-### Temporary Admin Account
+The server reads Render's `PORT` (falling back to `SERVER_PORT`, then `8080`)
+and listens on all interfaces. Production also requires `JWT_SECRET` and should
+set the frontend and CORS origins explicitly:
 
-- Account: `admin@figcolor.local`
-- Password: `admin123`
+```bash
+APP_ENV=production
+APP_BASE_URL=https://figcolor.xxx
+CORS_ALLOWED_ORIGINS=https://figcolor.xxx,https://www.figcolor.xxx
+```
+
+`DATABASE_URL` is required in every environment. Render can use `GET /health`
+as its health-check path; the response contains only `{ "status": "ok" }`.
+
+### Database Migrations
+
+Run migrations from the backend directory:
+
+```bash
+cd backend
+export DATABASE_URL="postgresql://username:password@host:5432/figcolor?sslmode=require"
+./scripts/run-migrations.sh
+```
+
+The migration runner records each applied file and its SHA-256 checksum in
+`schema_migrations`. It is safe to run the command again: already-applied files
+are skipped. If an applied migration file has subsequently changed, the runner
+stops with a checksum mismatch instead of modifying the database. Seed files in
+`backend/dev/` are separate and are never run by the migration command.
+
+### Admin Account
+
+Register and verify an account normally, then promote it from the backend with
+`go run ./cmd/figcolor-admin promote --email you@example.com`. No Admin password
+or production account is seeded by migrations.
 
 ### Temporary Test Accounts
 
 These local development accounts are not part of the production migration chain. To create or refresh them manually, run:
 
 ```bash
-psql "$DATABASE_URL" -f backend/dev/seed_test_users.sql
+psql "$DATABASE_URL" -f dev/seed_test_users.sql
 ```
 
 - Account: `test1@figcolor.local` / Password: `test1234`

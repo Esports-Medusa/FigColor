@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type Config struct {
 	Environment          string
 	SMTPAddr             string
 	MailFrom             string
+	CORSAllowedOrigins   []string
 	IngestionRecovery    IngestionRecoveryConfig
 }
 
@@ -64,8 +66,8 @@ func Load() *Config {
 		panic(err)
 	}
 	cfg := &Config{
-		DatabaseURL:          getEnv("DATABASE_URL", "postgres://localhost:5432/figcolor?sslmode=disable"),
-		ServerPort:           getEnv("SERVER_PORT", "8080"),
+		DatabaseURL:          requiredEnv("DATABASE_URL"),
+		ServerPort:           firstEnv([]string{"PORT", "SERVER_PORT"}, "8080"),
 		JWTSecret:            getEnv("JWT_SECRET", "figcolor-dev-secret-change-in-production"),
 		JWTExpiry:            24 * time.Hour,
 		BCryptCost:           12,
@@ -75,12 +77,40 @@ func Load() *Config {
 		Environment:          getEnv("APP_ENV", "development"),
 		SMTPAddr:             getEnv("SMTP_ADDR", "localhost:1025"),
 		MailFrom:             getEnv("MAIL_FROM", "noreply@figcolor.local"),
+		CORSAllowedOrigins:   splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")),
 		IngestionRecovery:    ingestionRecovery,
 	}
 	if cfg.Environment == "production" && (cfg.JWTSecret == "figcolor-dev-secret-change-in-production" || len(cfg.JWTSecret) < 32) {
 		panic("JWT_SECRET must be changed to a strong value in production")
 	}
 	return cfg
+}
+
+func requiredEnv(key string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		panic(key + " is required")
+	}
+	return value
+}
+
+func firstEnv(keys []string, defaultValue string) string {
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+	}
+	return defaultValue
+}
+
+func splitCSV(value string) []string {
+	var values []string
+	for _, item := range strings.Split(value, ",") {
+		if trimmed := strings.TrimSpace(item); trimmed != "" {
+			values = append(values, trimmed)
+		}
+	}
+	return values
 }
 
 func getEnv(key, defaultValue string) string {

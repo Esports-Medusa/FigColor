@@ -1,5 +1,7 @@
 // Authentication API client for FigColor
 
+import { API_BASE } from './baseUrl'
+
 export interface User {
   id: string
   email: string
@@ -37,8 +39,6 @@ async function throwAuthError(response: Response, fallback: string): Promise<nev
 	if (typeof detail === 'object' && detail) throw new AuthApiError(detail.code || 'REQUEST_FAILED', detail.message || fallback, response.status)
 	throw new AuthApiError('REQUEST_FAILED', typeof detail === 'string' ? detail : fallback, response.status)
 }
-
-const API_BASE = '/api'
 
 // Store token in localStorage
 export function setToken(token: string): void {

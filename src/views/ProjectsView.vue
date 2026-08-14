@@ -78,6 +78,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { PaperProject } from '@/types/project'
 import { getToken } from '@/api/auth'
+import { apiUrl } from '@/api/baseUrl'
 
 const router = useRouter()
 
@@ -91,7 +92,7 @@ onMounted(() => {
 
 async function loadProjects() {
   try {
-    const res = await fetch('/api/me/projects', {
+    const res = await fetch(apiUrl('/me/projects'), {
       headers: {
         ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {})
       }
@@ -111,7 +112,7 @@ async function createProject() {
   }
 
   try {
-    const res = await fetch('/api/me/projects', {
+    const res = await fetch(apiUrl('/me/projects'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

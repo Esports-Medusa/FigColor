@@ -15,8 +15,7 @@ import type {
 } from '@/types/palette'
 import { toLegacyPaletteCompatibility } from '@/types/palette'
 import { chartFilterMatchesPalette, validateChartApplicability } from '@/lib/palette/applicability'
-
-const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+import { API_BASE } from '@/api/baseUrl'
 
 // Only the complete, unfiltered public catalog belongs in this cache.
 // Browse page results are returned to the calling view and never stored here.

@@ -1,12 +1,11 @@
 import { getAuthHeaders } from '@/api/auth'
+import { API_BASE } from '@/api/baseUrl'
 import type {
   ChartType,
   PalettePreviewCase,
   PreviewCaseSeedStrategy,
   ValidationIssue
 } from '@/types/palette'
-
-const API_BASE = '/api'
 
 export interface AdminPreviewCaseListResponse {
   items: PalettePreviewCase[]

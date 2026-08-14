@@ -30,13 +30,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-migrations=(001_init 002_figure_selected_roles 003_create_users 004_create_auth_providers 005_create_favorite_palettes 006_add_user_id_to_paper_projects 007_handle_existing_projects 008_add_role_to_users 009_create_palettes_table 010_seed_admin_user 011_add_avoid_case 013_persist_palette_color_ids 014_add_chart_applicability 015_create_palette_preview_cases 016_figure_assignments_base_palette_fk 017_add_palette_ownership_visibility 018_expand_palette_preview_chart_types 019_create_palette_ingestion_records 020_add_palette_ingestion_recovery)
+migrations=(001_init 002_figure_selected_roles 003_create_users 004_create_auth_providers 005_create_favorite_palettes 006_add_user_id_to_paper_projects 007_handle_existing_projects 008_add_role_to_users 009_create_palettes_table 010_seed_admin_user 011_add_avoid_case 013_persist_palette_color_ids 014_add_chart_applicability 015_create_palette_preview_cases 016_figure_assignments_base_palette_fk 017_add_palette_ownership_visibility 018_expand_palette_preview_chart_types 019_create_palette_ingestion_records 020_add_palette_ingestion_recovery 021_create_palette_assistant_submissions 022_complete_email_auth)
 
 admin -q -c "DROP DATABASE IF EXISTS ${test_db} WITH (FORCE)"
 admin -q -c "CREATE DATABASE ${test_db}"
 for migration in "${migrations[@]}"; do
   db -q -f "$root_dir/backend/migrations/${migration}.sql"
 done
+
+admin_password="cli-http-${$}-Admin!"
+db -q -v admin_password="$admin_password" <<'SQL'
+INSERT INTO users(email,email_verified,email_verified_at,password_hash,name,role,status)
+VALUES ('admin@figcolor.local',true,NOW(),crypt(:'admin_password',gen_salt('bf',12)),'CLI HTTP Admin','admin','active');
+SQL
 
 (
   cd "$root_dir/backend"
@@ -51,7 +57,8 @@ done
 "$CURL_BIN" --silent --fail "http://127.0.0.1:${server_port}/health" >/dev/null
 
 echo 'CLI HTTP E2E: authenticate admin'
-"$CURL_BIN" --silent --fail-with-body -H 'Content-Type: application/json' -d '{"email":"admin@figcolor.local","password":"admin123"}' "http://127.0.0.1:${server_port}/api/auth/login" >"$test_root/admin-auth.json"
+"$NODE_BIN" -e "process.stdout.write(JSON.stringify({email:'admin@figcolor.local',password:process.argv[1]}))" "$admin_password" >"$test_root/admin-login.json"
+"$CURL_BIN" --silent --fail-with-body -H 'Content-Type: application/json' --data-binary "@$test_root/admin-login.json" "http://127.0.0.1:${server_port}/api/auth/login" >"$test_root/admin-auth.json"
 admin_token="$($NODE_BIN -e "const v=require('fs').readFileSync(process.argv[1],'utf8');const t=JSON.parse(v).token;if(!t)process.exit(1);process.stdout.write(t)" "$test_root/admin-auth.json")"
 
 prepare_batch() {
@@ -144,7 +151,13 @@ auth_batch="$test_root/submission-auth-batch"
 auth_artifacts="$test_root/auth-artifacts"
 prepare_batch "$auth_batch" "$root_dir/contracts/palette-ingestion/v1/fixtures/valid/submission-loss/manifest.json" submission-loss "$auth_artifacts"
 echo 'CLI HTTP E2E: authentication and visibility boundaries'
-"$CURL_BIN" --silent --fail-with-body -H 'Content-Type: application/json' -d '{"email":"cli-user@figcolor.local","password":"userpass123"}' "http://127.0.0.1:${server_port}/api/auth/register" >"$test_root/user-auth.json"
+user_password="cli-http-${$}-User!"
+db -q -v user_password="$user_password" <<'SQL'
+INSERT INTO users(email,email_verified,email_verified_at,password_hash,name,role,status)
+VALUES ('cli-user@figcolor.local',true,NOW(),crypt(:'user_password',gen_salt('bf',12)),'CLI HTTP User','user','active');
+SQL
+"$NODE_BIN" -e "process.stdout.write(JSON.stringify({email:'cli-user@figcolor.local',password:process.argv[1]}))" "$user_password" >"$test_root/user-login.json"
+"$CURL_BIN" --silent --fail-with-body -H 'Content-Type: application/json' --data-binary "@$test_root/user-login.json" "http://127.0.0.1:${server_port}/api/auth/login" >"$test_root/user-auth.json"
 user_token="$($NODE_BIN -e "process.stdout.write(JSON.parse(require('fs').readFileSync(process.argv[1])).token)" "$test_root/user-auth.json")"
 if FIGCOLOR_ADMIN_TOKEN="$user_token" "$NODE_BIN" "$root_dir/scripts/palette-ingest/cli.mjs" submit --batch "$auth_batch" --artifacts "$auth_artifacts" --api-base-url "http://127.0.0.1:${server_port}" --json >"$test_root/forbidden.json"; then exit 1; fi
 "$NODE_BIN" -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1]));if(r.packages[0].status!=='authorization_failed')process.exit(1)" "$test_root/forbidden.json"

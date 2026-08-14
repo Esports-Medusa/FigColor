@@ -25,7 +25,7 @@ func main() {
 	}
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		dsn = "postgres://localhost:5432/figcolor?sslmode=disable"
+		log.Fatal("DATABASE_URL is required")
 	}
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {

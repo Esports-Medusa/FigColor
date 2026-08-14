@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -32,7 +31,7 @@ func main() {
 	router := gin.Default()
 
 	// Apply middleware
-	router.Use(middleware.CORS())
+	router.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
@@ -110,7 +109,7 @@ func main() {
 	submissionHandler.RegisterRoutes(api, authMiddleware, adminMiddleware)
 
 	// Start server
-	addr := fmt.Sprintf(":%s", cfg.ServerPort)
+	addr := "0.0.0.0:" + cfg.ServerPort
 	log.Printf("Server starting on %s", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

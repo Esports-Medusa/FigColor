@@ -1,7 +1,6 @@
 import type { PaperProject, ProjectDetail, ProjectPalette, CreateProjectRequest, UpdateProjectRequest, UpdateRoleColorRequest, FigureAssignment, CreateFigureRequest, UpdateFigureRequest, CreateProjectPaletteRequest, UpdateProjectPaletteRequest } from '@/types/project'
 import { getToken } from '@/api/auth'
-
-const API_BASE = '/api'
+import { API_BASE } from '@/api/baseUrl'
 
 function getAuthHeaders(): Record<string, string> {
   const token = getToken()

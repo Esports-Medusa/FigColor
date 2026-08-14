@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { getToken } from '@/api/auth'
+import { apiUrl } from '@/api/baseUrl'
 import { getAllPalettes } from '@/lib/palette'
 
 interface FavoritePalette {
@@ -30,7 +31,7 @@ export function useFavorites() {
     error.value = null
 
     try {
-      const res = await fetch('/api/me/favorites', {
+      const res = await fetch(apiUrl('/me/favorites'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -54,7 +55,7 @@ export function useFavorites() {
     if (!token) return false
 
     try {
-      const res = await fetch(`/api/me/favorites/${paletteId}`, {
+      const res = await fetch(apiUrl(`/me/favorites/${paletteId}`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -84,7 +85,7 @@ export function useFavorites() {
     if (!token) return false
 
     try {
-      const res = await fetch(`/api/me/favorites/${paletteId}`, {
+      const res = await fetch(apiUrl(`/me/favorites/${paletteId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -1,8 +1,9 @@
 import { getAuthHeaders } from './auth'
+import { apiUrl } from './baseUrl'
 
-export const PALETTE_ASSISTANT_ANALYZE_PATH = '/api/admin/palette-assistant/analyze'
-export const PALETTE_ASSISTANT_VALIDATE_PATH = '/api/admin/palette-assistant/validate'
-export const PALETTE_ASSISTANT_CREATE_PATH = '/api/admin/palette-assistant/candidates'
+export const PALETTE_ASSISTANT_ANALYZE_PATH = apiUrl('/admin/palette-assistant/analyze')
+export const PALETTE_ASSISTANT_VALIDATE_PATH = apiUrl('/admin/palette-assistant/validate')
+export const PALETTE_ASSISTANT_CREATE_PATH = apiUrl('/admin/palette-assistant/candidates')
 export const PALETTE_ASSISTANT_IMAGE_FIELD = 'image'
 export const PALETTE_ASSISTANT_CONTRACT_VERSION = 'palette-assistant.v1'
 export const PALETTE_ASSISTANT_ALGORITHM_VERSION = 'deterministic-image-analysis.v1'
