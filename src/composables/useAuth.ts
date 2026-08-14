@@ -66,6 +66,12 @@ export function useAuth() {
     }
   }
 
+  function clearAuthentication(): void {
+    user.value = null
+    error.value = null
+    removeToken()
+  }
+
   async function fetchCurrentUser(): Promise<void> {
     error.value = null
     isLoading.value = true
@@ -89,6 +95,7 @@ export function useAuth() {
     login,
     register,
     logout,
+    clearAuthentication,
     fetchCurrentUser,
   }
 }

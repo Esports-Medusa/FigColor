@@ -28,7 +28,7 @@
 		<details class="advanced-settings">
 			<summary>Advanced settings</summary>
 			<div class="advanced-content"><h2>Password</h2><p>We’ll email you a secure link to choose a new password. Completing the update signs you out on every device.</p>
-				<button type="button" class="btn-update-password" :disabled="sendingPasswordEmail" @click="handlePasswordUpdate">{{ sendingPasswordEmail ? 'Sending…' : 'Email me a password update link' }}</button>
+				<button type="button" class="btn-update-password" :disabled="sendingPasswordEmail" @click="handlePasswordUpdate">{{ sendingPasswordEmail ? 'Sending…' : passwordLinkRequested ? 'Resend password change link' : 'Send password change link' }}</button>
 				<p v-if="passwordMessage" :class="passwordMessageKind">{{ passwordMessage }}</p>
 			</div>
 		</details>
@@ -50,7 +50,7 @@ import { AuthApiError, requestPasswordChange } from '@/api/auth'
 
 const router = useRouter()
 const { currentUser, logout } = useAuth()
-const sendingPasswordEmail=ref(false),passwordMessage=ref(''),passwordMessageKind=ref('password-success')
+const sendingPasswordEmail=ref(false),passwordLinkRequested=ref(false),passwordMessage=ref(''),passwordMessageKind=ref('password-success')
 
 const userInitial = computed(() => {
   if (currentUser.value?.name) {
@@ -75,7 +75,7 @@ async function handleLogout() {
   await logout()
   router.push('/')
 }
-async function handlePasswordUpdate(){passwordMessage.value='';sendingPasswordEmail.value=true;try{await requestPasswordChange();passwordMessageKind.value='password-success';passwordMessage.value=`A password update link was sent to ${currentUser.value?.email}.`}catch(e){passwordMessageKind.value='password-error';passwordMessage.value=e instanceof AuthApiError?e.message:'Unable to send the email.'}finally{sendingPasswordEmail.value=false}}
+async function handlePasswordUpdate(){passwordMessage.value='';sendingPasswordEmail.value=true;try{await requestPasswordChange();passwordLinkRequested.value=true;passwordMessageKind.value='password-success';passwordMessage.value=`Password change link sent to ${currentUser.value?.email}. You can stay on this page while you check your email.`}catch(e){passwordMessageKind.value='password-error';passwordMessage.value=e instanceof AuthApiError?e.message:'Unable to send the email.'}finally{sendingPasswordEmail.value=false}}
 </script>
 
 <style scoped>

@@ -1,6 +1,8 @@
 import { createServer } from 'vite'
 
 const testModules = [
+  '/src/router/authGuard.test.ts',
+  '/src/views/passwordChangeFlow.test.ts',
   '/src/components/layout/ScientificShell.test.ts',
   '/src/components/common/PaginationControls.test.ts',
   '/src/lib/palette.preview-normalization.test.ts',

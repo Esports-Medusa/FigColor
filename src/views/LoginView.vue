@@ -3,6 +3,7 @@
     <div class="auth-card">
       <h1 class="auth-title">Welcome Back</h1>
       <p class="auth-subtitle">Sign in to your FigColor account</p>
+      <div v-if="passwordChanged" class="success-message">Your password has been changed. Sign in with your new password.</div>
 
       <form @submit.prevent="handleLogin" class="auth-form">
         <div class="form-group">
@@ -53,17 +54,19 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { AuthApiError, resendVerification } from '@/api/auth'
 
 const router = useRouter()
+const route = useRoute()
 const { login, isLoading, error } = useAuth()
 
 const email = ref('')
 const password = ref('')
 const emailNotVerified = ref(false)
 const resent = ref(false)
+const passwordChanged = route.query.passwordChanged === '1'
 
 async function handleLogin() {
   try {

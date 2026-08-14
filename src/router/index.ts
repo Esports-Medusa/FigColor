@@ -15,6 +15,7 @@ import AdminPaletteForm from '@/views/admin/palettes/AdminPaletteForm.vue'
 import AccessDeniedView from '@/views/AccessDeniedView.vue'
 import { isAuthenticated } from '@/api/auth'
 import { useAuth } from '@/composables/useAuth'
+import { shouldRedirectAuthenticatedGuest } from './authGuard'
 export const adminPaletteAssistantRoute: RouteRecordRaw = {
   path: '/admin/palette-assistant',
   name: 'admin-palette-assistant',
@@ -134,7 +135,7 @@ router.beforeEach(async (to, _from, next) => {
   console.log('[Router Guard] currentUser.role:', currentUser.value?.role)
   
   // Redirect authenticated users away from guest-only routes
-  if (to.meta.guestOnly && authenticated) {
+  if (shouldRedirectAuthenticatedGuest(to, authenticated)) {
     next('/')
     return
   }
