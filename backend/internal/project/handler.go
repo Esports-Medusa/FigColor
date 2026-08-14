@@ -30,12 +30,34 @@ func (h *Handler) RegisterRoutes(router *gin.RouterGroup, jwtSecret string, auth
 		me.PATCH("/projects/:projectId", h.UpdateProject)
 		me.DELETE("/projects/:projectId", h.DeleteProject)
 		me.POST("/projects/:projectId/palettes", h.CreateProjectPalette)
+		me.PUT("/projects/:projectId/palettes/:paletteId", h.UpdateProjectPalette)
 		me.PATCH("/projects/:projectId/palettes/:paletteId/roles/:roleId", h.UpdateRoleColor)
 		me.GET("/projects/:projectId/figures", h.GetFigures)
 		me.POST("/projects/:projectId/figures", h.CreateFigure)
 		me.PATCH("/projects/:projectId/figures/:figureId", h.UpdateFigure)
 		me.DELETE("/projects/:projectId/figures/:figureId", h.DeleteFigure)
 	}
+}
+
+// UpdateProjectPalette persists a user-owned project's palette copy. It never
+// writes to the public palettes catalog or its preview cases.
+func (h *Handler) UpdateProjectPalette(c *gin.Context) {
+	userID := authctx.GetUserID(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+		return
+	}
+	var req UpdateProjectPaletteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	palette, err := h.service.UpdateProjectPalette(c.Param("projectId"), userID, c.Param("paletteId"), req)
+	if err != nil {
+		c.JSON(statusFromProjectError(err), gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, palette)
 }
 
 // GetProjects godoc
@@ -411,11 +433,7 @@ func (h *Handler) UpdateFigure(c *gin.Context) {
 
 	err = h.service.UpdateFigure(projectID, figureID, req)
 	if err != nil {
-		if err.Error() == "figure not found" {
-			c.JSON(http.StatusNotFound, gin.H{"error": "figure not found"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(statusFromProjectError(err), gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "figure updated"})

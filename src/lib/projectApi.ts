@@ -1,4 +1,4 @@
-import type { PaperProject, ProjectDetail, ProjectPalette, CreateProjectRequest, UpdateProjectRequest, UpdateRoleColorRequest, FigureAssignment, CreateFigureRequest, UpdateFigureRequest, CreateProjectPaletteRequest } from '@/types/project'
+import type { PaperProject, ProjectDetail, ProjectPalette, CreateProjectRequest, UpdateProjectRequest, UpdateRoleColorRequest, FigureAssignment, CreateFigureRequest, UpdateFigureRequest, CreateProjectPaletteRequest, UpdateProjectPaletteRequest } from '@/types/project'
 import { getToken } from '@/api/auth'
 
 const API_BASE = '/api'
@@ -75,6 +75,13 @@ export const projectApi = {
   async createProjectPalette(projectId: string, data: CreateProjectPaletteRequest): Promise<ProjectPalette> {
     return fetchJSON<ProjectPalette>(`${API_BASE}/me/projects/${projectId}/palettes`, {
       method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  async updateProjectPalette(projectId: string, paletteId: string, data: UpdateProjectPaletteRequest): Promise<ProjectPalette> {
+    return fetchJSON<ProjectPalette>(`${API_BASE}/me/projects/${projectId}/palettes/${paletteId}`, {
+      method: 'PUT',
       body: JSON.stringify(data),
     })
   },

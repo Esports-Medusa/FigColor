@@ -115,6 +115,8 @@
     <PaletteEditModal
       v-if="editingPalette"
       :palette="editingPalette"
+      :saving="paletteSaving"
+      :saveError="paletteSaveError"
       @close="editingPalette = null"
       @update="onPaletteUpdate"
     />
@@ -137,7 +139,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { ProjectDetail, ProjectPalette, FigureAssignment, CreateFigureRequest } from '@/types/project'
+import type { ProjectDetail, ProjectPalette, FigureAssignment, CreateFigureRequest, UpdateProjectPaletteRequest } from '@/types/project'
 import { projectApi } from '@/lib/projectApi'
 import FigureForm from '@/components/project/FigureForm.vue'
 import FigureAssignmentCard from '@/components/project/FigureAssignmentCard.vue'
@@ -158,6 +160,8 @@ const error = ref<string | null>(null)
 const showFigureForm = ref(false)
 const editingFigure = ref<FigureAssignment | null>(null)
 const editingPalette = ref<ProjectPalette | null>(null)
+const paletteSaving = ref(false)
+const paletteSaveError = ref('')
 const showAddPaletteModal = ref(false)
 const figureFormError = ref('')
 
@@ -257,7 +261,7 @@ async function updateFigure(data: CreateFigureRequest) {
     closeFigureForm()
   } catch (e) {
     console.error('Failed to update figure:', e)
-    alert('Failed to update figure')
+    figureFormError.value = e instanceof Error ? e.message : 'Failed to update figure'
   }
 }
 
@@ -277,26 +281,35 @@ function openPaletteEditor(palette: ProjectPalette) {
   // Use toRaw + JSON parse to safely clone Vue reactive proxy
   const rawPalette = toRaw(palette)
   editingPalette.value = JSON.parse(JSON.stringify(rawPalette))
+  paletteSaveError.value = ''
 }
 
-function onPaletteUpdate(updatedPalette: ProjectPalette) {
-  const idx = palettes.value.findIndex(p => p.id === updatedPalette.id)
-  if (idx !== -1) {
-    palettes.value[idx] = updatedPalette
+async function onPaletteUpdate(updatedPalette: ProjectPalette) {
+  const original = palettes.value.find(p => p.id === updatedPalette.id)
+  if (!original) return
+  const existingRoleIds = new Set(original.roles.map(role => role.id))
+  const payload: UpdateProjectPaletteRequest = {
+    name: updatedPalette.name,
+    roles: updatedPalette.roles.map((role, order) => ({
+      ...(existingRoleIds.has(role.id) ? { id: role.id } : {}),
+      key: role.key,
+      label: role.label,
+      color: role.color,
+      roleType: role.roleType,
+      order
+    }))
   }
-
-  // Clean up selectedRoleKeys for figures using this palette
-  // If a color role was deleted, remove it from selectedRoleKeys
-  const updatedRoleKeys = new Set(updatedPalette.roles.map(r => r.key))
-  figures.value = figures.value.map(f => {
-    if (f.paletteId === updatedPalette.id || f.paletteId === updatedPalette.basePaletteId) {
-      const validRoleKeys = f.selectedRoleKeys.filter((key: string) => updatedRoleKeys.has(key))
-      if (validRoleKeys.length !== f.selectedRoleKeys.length) {
-        return { ...f, selectedRoleKeys: validRoleKeys }
-      }
-    }
-    return f
-  })
+  paletteSaving.value = true
+  paletteSaveError.value = ''
+  try {
+    await projectApi.updateProjectPalette(route.params.projectId as string, updatedPalette.id, payload)
+    await loadProject()
+    editingPalette.value = null
+  } catch (error) {
+    paletteSaveError.value = error instanceof Error ? error.message : 'Failed to update palette'
+  } finally {
+    paletteSaving.value = false
+  }
 }
 
 function onPaletteAdd(newPalette: ProjectPalette) {

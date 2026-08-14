@@ -104,3 +104,15 @@ export type CreateProjectPaletteRequest = {
     color: string
   }>
 }
+
+export type UpdateProjectPaletteRequest = {
+  name: string
+  roles: Array<{
+    id?: string
+    key: string
+    label: string
+    color: string
+    roleType: PaletteRole['roleType']
+    order: number
+  }>
+}

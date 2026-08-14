@@ -7,6 +7,7 @@
       </div>
 
       <div class="modal-body">
+        <div v-if="saveError" class="save-error" role="alert">{{ saveError }}</div>
         <!-- Palette Name -->
         <div class="form-group">
           <label>Palette Name</label>
@@ -64,10 +65,6 @@
                   />
                 </div>
 
-                <div class="input-group">
-                  <label>Key (auto)</label>
-                  <span class="role-key">{{ role.key }}</span>
-                </div>
               </div>
 
               <button 
@@ -110,10 +107,10 @@
         <button class="btn-cancel" @click="onCancel">Cancel</button>
         <button 
           class="btn-save" 
-          :disabled="!isValid"
+          :disabled="!isValid || saving"
           @click="onSave"
         >
-          Save Changes
+          {{ saving ? 'Saving…' : 'Save Changes' }}
         </button>
       </div>
     </div>
@@ -123,9 +120,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { ProjectPalette, PaletteRole } from '@/types/project'
+import { createUniqueRoleKey } from './paletteRoleKeys'
 
 const props = defineProps<{
   palette: ProjectPalette
+  saving?: boolean
+  saveError?: string
 }>()
 
 const emit = defineEmits<{
@@ -142,6 +142,7 @@ interface LocalRole {
   color: string
   roleType: 'semantic' | 'group' | 'ui' | 'custom'
   order: number
+  isNew: boolean
 }
 
 const localPaletteName = ref(props.palette.name)
@@ -155,7 +156,8 @@ const localRoles = ref<LocalRole[]>(
     label: r.label,
     color: r.color,
     roleType: r.roleType,
-    order: r.order
+    order: r.order,
+    isNew: false
   }))
 )
 
@@ -167,32 +169,6 @@ function validateHex(tempId: string) {
   if (role) {
     const hexPattern = /^#[0-9A-Fa-f]{6}$/
     roleHexErrors.value[tempId] = !hexPattern.test(role.color)
-  }
-}
-
-// Normalize role key (only at save time, not during editing to avoid infinite loops)
-function normalizeRoleKey(role: LocalRole, existingKeys: string[]) {
-  if (!role.key.trim()) {
-    // Auto-generate from label if empty
-    if (role.label.trim()) {
-      role.key = role.label
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_|_$/g, '')
-    } else {
-      role.key = 'color'
-    }
-  }
-  
-  // Ensure uniqueness by appending counter if needed
-  if (existingKeys.includes(role.key)) {
-    let counter = 2
-    let newKey = `${role.key}_${counter}`
-    while (existingKeys.includes(newKey)) {
-      counter++
-      newKey = `${role.key}_${counter}`
-    }
-    role.key = newKey
   }
 }
 
@@ -210,7 +186,8 @@ function addColor() {
     label: '',
     color: '#808080',
     roleType: 'custom',
-    order: maxOrder + 1
+    order: maxOrder + 1,
+    isNew: true
   }
   localRoles.value.push(newRole)
 }
@@ -238,27 +215,26 @@ function onCancel() {
 function onSave() {
   if (!isValid.value) return
 
-  // Collect all keys for uniqueness checking (before normalization)
-  const existingKeys = localRoles.value.map(r => r.key)
-
-  // Validate all hex values and normalize keys at save time only
-  for (let i = 0; i < localRoles.value.length; i++) {
-    const role = localRoles.value[i]
+  // Existing keys are stable compatibility identifiers. Generate keys only
+  // for newly-added roles and never rewrite a key because its label changed.
+  const usedKeys = localRoles.value.filter(role => !role.isNew).map(role => role.key)
+  for (const role of localRoles.value) {
     validateHex(role.tempId)
-    
-    // Normalize keys only at save time to avoid infinite loops during editing
-    normalizeRoleKey(role, existingKeys.slice(0, i))
+    if (role.isNew) {
+      role.key = createUniqueRoleKey(role.label, usedKeys)
+      usedKeys.push(role.key)
+    }
   }
 
   // Build updated roles
-  const updatedRoles: PaletteRole[] = localRoles.value.map((role, idx) => ({
+  const updatedRoles: PaletteRole[] = localRoles.value.map((role, index) => ({
     id: role.id,
     paletteId: props.palette.id,
-    key: role.key || `color_${idx}`,
+    key: role.key,
     label: role.label,
     color: role.color,
     roleType: role.roleType,
-    order: idx,
+    order: index,
     createdAt: props.palette.roles.find(r => r.id === role.id)?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }))
@@ -272,7 +248,6 @@ function onSave() {
 
   console.log('[PaletteEditModal] Saving palette:', updatedPalette)
   emit('update', updatedPalette)
-  emit('close')
 }
 </script>
 
@@ -363,6 +338,8 @@ function onSave() {
   display: block;
 }
 
+.save-error { margin-bottom: 1rem; padding: .75rem; border: 1px solid #f0b9b5; border-radius: var(--fc-radius-control); background: #fff5f4; color: var(--fc-danger); font-size: .875rem; }
+
 .colors-section {
   margin-bottom: 1.5rem;
 }
@@ -443,16 +420,6 @@ function onSave() {
 .label-input.error {
   border-color: #E57373;
   background: #FFEBEE;
-}
-
-.role-key {
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: #666;
-  padding: 0.5rem;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
 }
 
 .btn-delete-color {

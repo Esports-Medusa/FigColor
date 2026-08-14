@@ -172,6 +172,67 @@ func TestFR20CrossOwnerProjectErrorsAreNotFound(t *testing.T) {
 	}
 }
 
+func TestUpdateProjectPaletteValidationRejectsUnsafePayloads(t *testing.T) {
+	service := NewService(nil)
+	validRoles := []UpdateProjectPaletteRoleRequest{
+		{Key: "control", Label: "Control", Color: "#112233", RoleType: "semantic"},
+		{Key: "treatment", Label: "Treatment", Color: "#445566", RoleType: "semantic"},
+	}
+	tests := []struct {
+		name string
+		req  UpdateProjectPaletteRequest
+		want string
+	}{
+		{"empty name", UpdateProjectPaletteRequest{Roles: validRoles}, "palette name is required"},
+		{"too few roles", UpdateProjectPaletteRequest{Name: "Mine", Roles: validRoles[:1]}, "at least two roles"},
+		{"duplicate key", UpdateProjectPaletteRequest{Name: "Mine", Roles: []UpdateProjectPaletteRoleRequest{validRoles[0], validRoles[0]}}, "duplicate role key"},
+		{"invalid color", UpdateProjectPaletteRequest{Name: "Mine", Roles: []UpdateProjectPaletteRoleRequest{validRoles[0], {Key: "bad", Label: "Bad", Color: "red", RoleType: "custom"}}}, "invalid color"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := service.UpdateProjectPalette("project", "user", "palette", tt.req)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %v, want %q", err, tt.want)
+			}
+			if status := requestErrorStatus(t, err); status != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want 422", status)
+			}
+		})
+	}
+}
+
+func TestUpdateProjectPaletteRepositoryIsOwnerScopedAndCatalogReadOnly(t *testing.T) {
+	source, err := os.ReadFile("repository.go")
+	if err != nil {
+		t.Fatalf("read project repository: %v", err)
+	}
+	code := string(source)
+	start := strings.Index(code, "func (r *Repository) UpdateProjectPalette")
+	end := strings.Index(code[start:], "func (r *Repository) UpdateRoleColor")
+	if start < 0 || end < 0 {
+		t.Fatal("project palette update repository function is missing")
+	}
+	body := code[start : start+end]
+	for _, want := range []string{
+		"JOIN paper_projects p ON p.id = pp.project_id",
+		"pp.id = $1 AND pp.project_id = $2 AND p.user_id = $3",
+		"UPDATE project_palettes SET name",
+		"INSERT INTO palette_roles",
+		"DELETE FROM palette_roles",
+		"figure_selected_roles",
+		"http.StatusConflict",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("scoped palette update missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{"UPDATE palettes ", "DELETE FROM palettes", "palette_preview_cases"} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("project palette update must not touch public catalog path %q", forbidden)
+		}
+	}
+}
+
 type errString string
 
 func (e errString) Error() string {

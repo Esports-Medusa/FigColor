@@ -73,6 +73,20 @@ type CreateProjectPaletteRequest struct {
 	Name          *string `json:"name,omitempty"`
 }
 
+type UpdateProjectPaletteRoleRequest struct {
+	ID       *string `json:"id,omitempty"`
+	Key      string  `json:"key" binding:"required"`
+	Label    string  `json:"label" binding:"required"`
+	Color    string  `json:"color" binding:"required"`
+	RoleType string  `json:"roleType" binding:"required"`
+	Order    int     `json:"order"`
+}
+
+type UpdateProjectPaletteRequest struct {
+	Name  string                            `json:"name" binding:"required"`
+	Roles []UpdateProjectPaletteRoleRequest `json:"roles" binding:"required,min=2,dive"`
+}
+
 // FigureAssignment represents a figure in a project
 type FigureAssignment struct {
 	ID               string    `json:"id"`

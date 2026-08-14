@@ -3,10 +3,13 @@ package project
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	palettepkg "github.com/qiqi/figcolor/backend/internal/palette"
 )
+
+var projectHexColorPattern = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 
 type Service struct {
 	repo *Repository
@@ -309,6 +312,42 @@ func (s *Service) CreateProjectPalette(projectID string, userID string, req Crea
 		return nil, err
 	}
 	projectPalettes := []ProjectPalette{*projectPalette}
+	if err := attachProjectPalettePreviews(projectPalettes, userID); err != nil {
+		return nil, err
+	}
+	return &projectPalettes[0], nil
+}
+
+func (s *Service) UpdateProjectPalette(projectID, userID, paletteID string, req UpdateProjectPaletteRequest) (*ProjectPalette, error) {
+	if strings.TrimSpace(req.Name) == "" {
+		return nil, newRequestError(http.StatusUnprocessableEntity, "palette name is required")
+	}
+	if len(req.Roles) < 2 {
+		return nil, newRequestError(http.StatusUnprocessableEntity, "a project palette must contain at least two roles")
+	}
+	keys := make(map[string]bool, len(req.Roles))
+	for _, role := range req.Roles {
+		if strings.TrimSpace(role.Key) == "" || strings.TrimSpace(role.Label) == "" {
+			return nil, newRequestError(http.StatusUnprocessableEntity, "role key and label are required")
+		}
+		if keys[role.Key] {
+			return nil, newRequestError(http.StatusUnprocessableEntity, fmt.Sprintf("duplicate role key %q", role.Key))
+		}
+		keys[role.Key] = true
+		if !projectHexColorPattern.MatchString(role.Color) {
+			return nil, newRequestError(http.StatusUnprocessableEntity, fmt.Sprintf("invalid color for role %q", role.Key))
+		}
+		switch role.RoleType {
+		case "semantic", "group", "ui", "custom":
+		default:
+			return nil, newRequestError(http.StatusUnprocessableEntity, fmt.Sprintf("invalid role type for %q", role.Key))
+		}
+	}
+	palette, err := s.repo.UpdateProjectPalette(projectID, userID, paletteID, req)
+	if err != nil {
+		return nil, err
+	}
+	projectPalettes := []ProjectPalette{*palette}
 	if err := attachProjectPalettePreviews(projectPalettes, userID); err != nil {
 		return nil, err
 	}

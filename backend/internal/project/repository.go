@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -538,6 +540,129 @@ func (r *Repository) CreateProjectPalette(projectID string, userID string, req C
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}, nil
+}
+
+// UpdateProjectPalette synchronizes only the project-local palette and roles.
+// The base palettes catalog is intentionally absent from every write query.
+func (r *Repository) UpdateProjectPalette(projectID, userID, paletteID string, req UpdateProjectPaletteRequest) (*ProjectPalette, error) {
+	tx, err := database.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin project palette transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var palette ProjectPalette
+	err = tx.QueryRow(`
+		SELECT pp.id, pp.project_id, pp.base_palette_id, pp.is_default, pp.created_at
+		FROM project_palettes pp
+		JOIN paper_projects p ON p.id = pp.project_id
+		WHERE pp.id = $1 AND pp.project_id = $2 AND p.user_id = $3
+		FOR UPDATE
+	`, paletteID, projectID, userID).Scan(&palette.ID, &palette.ProjectID, &palette.BasePaletteID, &palette.IsDefault, &palette.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, newRequestError(http.StatusNotFound, "project palette not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to lock project palette: %w", err)
+	}
+
+	rows, err := tx.Query(`
+		SELECT id, key, label, color, role_type, sort_order, created_at, updated_at
+		FROM palette_roles WHERE palette_id = $1 FOR UPDATE
+	`, paletteID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query project palette roles: %w", err)
+	}
+	existing := make(map[string]PaletteRole)
+	for rows.Next() {
+		var role PaletteRole
+		role.PaletteID = paletteID
+		if err := rows.Scan(&role.ID, &role.Key, &role.Label, &role.Color, &role.RoleType, &role.Order, &role.CreatedAt, &role.UpdatedAt); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("failed to scan project palette role: %w", err)
+		}
+		existing[role.ID] = role
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close project palette roles: %w", err)
+	}
+
+	requestedExisting := make(map[string]bool)
+	for _, role := range req.Roles {
+		if role.ID == nil || *role.ID == "" {
+			continue
+		}
+		current, ok := existing[*role.ID]
+		if !ok {
+			return nil, newRequestError(http.StatusUnprocessableEntity, fmt.Sprintf("role %q does not belong to this project palette", *role.ID))
+		}
+		if current.Key != role.Key {
+			return nil, newRequestError(http.StatusUnprocessableEntity, fmt.Sprintf("existing role key %q cannot be changed", current.Key))
+		}
+		requestedExisting[*role.ID] = true
+	}
+
+	for id, role := range existing {
+		if requestedExisting[id] {
+			continue
+		}
+		var references int
+		err := tx.QueryRow(`
+			SELECT COUNT(*)
+			FROM figure_selected_roles fsr
+			JOIN figure_assignments fa ON fa.id = fsr.figure_id
+			WHERE fa.project_id = $1 AND fa.palette_id = $2 AND fsr.role_key = $3
+		`, projectID, palette.BasePaletteID, role.Key).Scan(&references)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check role references: %w", err)
+		}
+		if references > 0 {
+			return nil, newRequestError(http.StatusConflict, fmt.Sprintf("role %q is used by %d figure(s) and cannot be deleted", role.Key, references))
+		}
+	}
+
+	now := time.Now()
+	if _, err := tx.Exec(`UPDATE project_palettes SET name = $1, updated_at = $2 WHERE id = $3`, strings.TrimSpace(req.Name), now, paletteID); err != nil {
+		return nil, fmt.Errorf("failed to update project palette: %w", err)
+	}
+	for id := range existing {
+		if !requestedExisting[id] {
+			if _, err := tx.Exec(`DELETE FROM palette_roles WHERE id = $1 AND palette_id = $2`, id, paletteID); err != nil {
+				return nil, fmt.Errorf("failed to delete project palette role: %w", err)
+			}
+		}
+	}
+
+	roles := make([]PaletteRole, 0, len(req.Roles))
+	for _, input := range req.Roles {
+		roleID := uuid.New().String()
+		createdAt := now
+		if input.ID != nil && *input.ID != "" {
+			roleID = *input.ID
+			createdAt = existing[roleID].CreatedAt
+			_, err = tx.Exec(`
+				UPDATE palette_roles SET label = $1, color = $2, role_type = $3, sort_order = $4, updated_at = $5
+				WHERE id = $6 AND palette_id = $7
+			`, strings.TrimSpace(input.Label), strings.ToUpper(input.Color), input.RoleType, input.Order, now, roleID, paletteID)
+		} else {
+			_, err = tx.Exec(`
+				INSERT INTO palette_roles (id, palette_id, key, label, color, role_type, sort_order, created_at, updated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+			`, roleID, paletteID, input.Key, strings.TrimSpace(input.Label), strings.ToUpper(input.Color), input.RoleType, input.Order, now)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to persist project palette role: %w", err)
+		}
+		roles = append(roles, PaletteRole{ID: roleID, PaletteID: paletteID, Key: input.Key, Label: strings.TrimSpace(input.Label), Color: strings.ToUpper(input.Color), RoleType: input.RoleType, Order: input.Order, CreatedAt: createdAt, UpdatedAt: now})
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit project palette update: %w", err)
+	}
+	palette.Name = strings.TrimSpace(req.Name)
+	palette.Roles = roles
+	palette.UpdatedAt = now
+	return &palette, nil
 }
 
 func (r *Repository) UpdateRoleColor(roleID string, color string) error {
