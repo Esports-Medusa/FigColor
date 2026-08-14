@@ -27,11 +27,14 @@
             required
             autocomplete="current-password"
           />
+			<router-link to="/forgot-password" class="forgot-link">Forgot password?</router-link>
         </div>
 
         <div v-if="error" class="error-message">
           {{ error }}
+			<button v-if="emailNotVerified" type="button" class="resend-link" @click="handleResend">Resend verification email</button>
         </div>
+		<div v-if="resent" class="success-message">If the account exists, a verification email has been sent.</div>
 
         <button type="submit" class="btn-primary" :disabled="isLoading">
           {{ isLoading ? 'Signing in...' : 'Sign In' }}
@@ -52,21 +55,27 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
+import { AuthApiError, resendVerification } from '@/api/auth'
 
 const router = useRouter()
 const { login, isLoading, error } = useAuth()
 
 const email = ref('')
 const password = ref('')
+const emailNotVerified = ref(false)
+const resent = ref(false)
 
 async function handleLogin() {
   try {
+		emailNotVerified.value = false
     await login(email.value, password.value)
     router.push('/')
-  } catch (e) {
+	} catch (e) {
+		emailNotVerified.value = e instanceof AuthApiError && e.code === 'EMAIL_NOT_VERIFIED'
     // Error is handled by useAuth
   }
 }
+async function handleResend(){ await resendVerification(email.value); resent.value=true }
 </script>
 
 <style scoped>
@@ -173,4 +182,7 @@ async function handleLogin() {
 .auth-link:hover {
   text-decoration: underline;
 }
+.forgot-link { align-self:flex-end;font-size:.8rem;color:var(--color-primary);text-decoration:none; }
+.resend-link { display:block;margin-top:.5rem;border:0;background:none;color:var(--color-primary);padding:0;cursor:pointer; }
+.success-message { color:#16794a;background:#ecfdf3;padding:.75rem;border-radius:var(--radius-md);font-size:.875rem; }
 </style>

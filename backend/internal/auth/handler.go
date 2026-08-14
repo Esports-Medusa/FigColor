@@ -2,171 +2,175 @@ package auth
 
 import (
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/qiqi/figcolor/backend/internal/authctx"
 )
 
+type limiterEntry struct {
+	count int
+	reset time.Time
+}
 type Handler struct {
-	service *Service
+	service  *Service
+	mu       sync.Mutex
+	attempts map[string]limiterEntry
 }
 
 func NewHandler(service *Service) *Handler {
-	return &Handler{service: service}
+	return &Handler{service: service, attempts: make(map[string]limiterEntry)}
 }
 
-func (h *Handler) RegisterRoutes(router *gin.RouterGroup, jwtSecret string, authMiddleware gin.HandlerFunc) {
-	auth := router.Group("/auth")
-	{
-		// Public routes
-		auth.POST("/register", h.Register)
-		auth.POST("/login", h.Login)
-
-		// Protected routes with auth middleware
-		protected := auth.Group("")
-		protected.Use(authMiddleware)
-		{
-			protected.POST("/logout", h.Logout)
-			protected.GET("/me", h.GetMe)
+func (h *Handler) RegisterRoutes(router *gin.RouterGroup, _ string, authMiddleware gin.HandlerFunc) {
+	a := router.Group("/auth")
+	a.POST("/register", h.limit("register", 10, time.Hour), h.Register)
+	a.POST("/login", h.limit("login", 20, 15*time.Minute), h.Login)
+	a.POST("/verify-email", h.limit("verify", 30, time.Hour), h.VerifyEmail)
+	a.POST("/resend-verification-email", h.limit("resend", 10, time.Hour), h.ResendVerification)
+	a.POST("/forgot-password", h.limit("forgot", 10, time.Hour), h.ForgotPassword)
+	a.POST("/reset-password", h.limit("reset", 20, time.Hour), h.ResetPassword)
+	p := a.Group("")
+	p.Use(authMiddleware)
+	p.POST("/logout", h.Logout)
+	p.GET("/me", h.GetMe)
+	p.POST("/request-password-change", h.RequestPasswordChange)
+}
+func (h *Handler) limit(scope string, max int, window time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := scope + ":" + c.ClientIP()
+		now := time.Now()
+		h.mu.Lock()
+		entry := h.attempts[key]
+		if now.After(entry.reset) {
+			entry = limiterEntry{reset: now.Add(window)}
+		}
+		entry.count++
+		h.attempts[key] = entry
+		h.mu.Unlock()
+		if entry.count > max {
+			writeError(c, http.StatusTooManyRequests, authError("RATE_LIMITED", "Too many requests. Please try again later."))
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+func bind(c *gin.Context, dst any) bool {
+	if err := c.ShouldBindJSON(dst); err != nil {
+		writeError(c, http.StatusBadRequest, authError("INVALID_REQUEST", "Please check the submitted fields."))
+		return false
+	}
+	return true
+}
+func writeError(c *gin.Context, status int, err error) {
+	if e, ok := asAuthError(err); ok {
+		c.JSON(status, gin.H{"error": gin.H{"code": e.Code, "message": e.Message}})
+		return
+	}
+	c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL_ERROR", "message": "Something went wrong."}})
+}
+func statusFor(err error, fallback int) int {
+	if e, ok := asAuthError(err); ok {
+		switch e.Code {
+		case "INVALID_CREDENTIALS", "CURRENT_PASSWORD_INVALID":
+			return http.StatusUnauthorized
+		case "EMAIL_NOT_VERIFIED":
+			return http.StatusForbidden
+		case "EMAIL_ALREADY_REGISTERED":
+			return http.StatusConflict
+		case "RATE_LIMITED":
+			return http.StatusTooManyRequests
+		default:
+			return http.StatusBadRequest
 		}
 	}
-
-	// Placeholder routes for future wechat auth (framework only, not implemented)
-	{
-		// WeChat OAuth placeholder endpoints
-		auth.GET("/wechat/login", h.WeChatLoginPlaceholder)
-		auth.GET("/wechat/callback", h.WeChatCallbackPlaceholder)
-		auth.POST("/wechat/bind", h.WeChatBindPlaceholder)
-		auth.POST("/wechat/unbind", h.WeChatUnbindPlaceholder)
-
-		// Email verification placeholder endpoints
-		auth.POST("/verify-email", h.VerifyEmailPlaceholder)
-		auth.POST("/resend-verification-email", h.ResendVerificationPlaceholder)
-		auth.POST("/forgot-password", h.ForgotPasswordPlaceholder)
-		auth.POST("/reset-password", h.ResetPasswordPlaceholder)
-	}
+	return fallback
 }
 
-// Register godoc
-// @Summary Register a new user
-// @Description Create a new user account with email and password
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body RegisterRequest true "Registration details"
-// @Success 201 {object} AuthResponse
-// @Router /api/auth/register [post]
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !bind(c, &req) {
 		return
 	}
-
-	resp, err := h.service.Register(&req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := h.service.Register(&req); err != nil {
+		writeError(c, statusFor(err, http.StatusInternalServerError), err)
 		return
 	}
-
-	c.JSON(http.StatusCreated, resp)
+	c.JSON(http.StatusCreated, MessageResponse{Message: "Account created. Please check your email to verify your account."})
 }
-
-// Login godoc
-// @Summary Login user
-// @Description Authenticate user with email and password
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body LoginRequest true "Login credentials"
-// @Success 200 {object} AuthResponse
-// @Router /api/auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !bind(c, &req) {
 		return
 	}
-
 	resp, err := h.service.Login(&req)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		writeError(c, statusFor(err, http.StatusInternalServerError), err)
 		return
 	}
-
 	c.JSON(http.StatusOK, resp)
 }
-
-// Logout godoc
-// @Summary Logout user
-// @Description Logout current user (client should discard token)
-// @Tags auth
-// @Produce json
-// @Success 200 {object} map[string]string
-// @Router /api/auth/logout [post]
-func (h *Handler) Logout(c *gin.Context) {
-	// For JWT-based auth, logout is handled client-side
-	// Server just returns success
-	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
-}
-
-// GetMe godoc
-// @Summary Get current user
-// @Description Get the currently authenticated user's profile
-// @Tags auth
-// @Produce json
-// @Success 200 {object} user.User
-// @Router /api/auth/me [get]
-func (h *Handler) GetMe(c *gin.Context) {
-	userID := authctx.GetUserID(c)
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+func (h *Handler) VerifyEmail(c *gin.Context) {
+	var req VerifyEmailRequest
+	if !bind(c, &req) {
 		return
 	}
-
-	user, err := h.service.GetCurrentUser(userID)
+	if err := h.service.VerifyEmail(req.Token); err != nil {
+		writeError(c, statusFor(err, http.StatusInternalServerError), err)
+		return
+	}
+	c.JSON(http.StatusOK, MessageResponse{Message: "Email verified. You can now sign in."})
+}
+func (h *Handler) ResendVerification(c *gin.Context) {
+	var req ResendVerificationRequest
+	if !bind(c, &req) {
+		return
+	}
+	err := h.service.ResendVerification(req.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if e, ok := asAuthError(err); ok && e.Code == "RATE_LIMITED" {
+			writeError(c, http.StatusTooManyRequests, err)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, MessageResponse{Message: "If an account exists for this email, a verification email has been sent."})
+}
+func (h *Handler) ForgotPassword(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if !bind(c, &req) {
 		return
 	}
-	if user == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+	_ = h.service.ForgotPassword(req.Email)
+	c.JSON(http.StatusOK, MessageResponse{Message: publicRecoveryMessage})
+}
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if !bind(c, &req) {
 		return
 	}
-
-	c.JSON(http.StatusOK, user)
+	if err := h.service.ResetPassword(&req); err != nil {
+		writeError(c, statusFor(err, http.StatusInternalServerError), err)
+		return
+	}
+	c.JSON(http.StatusOK, MessageResponse{Message: "Password reset. Please sign in again."})
 }
-
-// Placeholder handlers for future implementations
-
-func (h *Handler) WeChatLoginPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "wechat login not implemented"})
+func (h *Handler) RequestPasswordChange(c *gin.Context) {
+	if err := h.service.RequestPasswordChange(authctx.GetUserID(c)); err != nil {
+		writeError(c, statusFor(err, http.StatusInternalServerError), err)
+		return
+	}
+	c.JSON(http.StatusOK, MessageResponse{Message: "A password update link has been sent to your email."})
 }
-
-func (h *Handler) WeChatCallbackPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "wechat callback not implemented"})
+func (h *Handler) Logout(c *gin.Context) {
+	c.JSON(http.StatusOK, MessageResponse{Message: "Logged out."})
 }
-
-func (h *Handler) WeChatBindPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "wechat bind not implemented"})
-}
-
-func (h *Handler) WeChatUnbindPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "wechat unbind not implemented"})
-}
-
-func (h *Handler) VerifyEmailPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "email verification not implemented"})
-}
-
-func (h *Handler) ResendVerificationPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "resend verification email not implemented"})
-}
-
-func (h *Handler) ForgotPasswordPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "forgot password not implemented"})
-}
-
-func (h *Handler) ResetPasswordPlaceholder(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "reset password not implemented"})
+func (h *Handler) GetMe(c *gin.Context) {
+	u, err := h.service.GetCurrentUser(authctx.GetUserID(c))
+	if err != nil || u == nil {
+		writeError(c, http.StatusUnauthorized, authError("UNAUTHENTICATED", "Not authenticated."))
+		return
+	}
+	c.JSON(http.StatusOK, u)
 }

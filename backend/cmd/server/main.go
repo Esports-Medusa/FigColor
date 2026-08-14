@@ -44,7 +44,12 @@ func main() {
 	paletteRepo := palette.NewRepository()
 
 	// Initialize services
-	authService := auth.NewService(userRepo, cfg.JWTSecret, cfg.JWTExpiry, cfg.BCryptCost)
+	authRepo := auth.NewRepository()
+	var mailer auth.Mailer = auth.SMTPMailer{Addr: cfg.SMTPAddr, From: cfg.MailFrom}
+	if os.Getenv("MAIL_PROVIDER") == "log" {
+		mailer = auth.LogMailer{}
+	}
+	authService := auth.NewService(userRepo, authRepo, mailer, cfg.JWTSecret, cfg.JWTExpiry, cfg.BCryptCost, cfg.AppBaseURL, cfg.EmailVerificationTTL, cfg.PasswordResetTTL)
 	userService := user.NewService(userRepo, cfg.BCryptCost)
 	projectRepo := project.NewRepository()
 	projectService := project.NewService(projectRepo)

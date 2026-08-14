@@ -8,12 +8,18 @@ import (
 )
 
 type Config struct {
-	DatabaseURL       string
-	ServerPort        string
-	JWTSecret         string
-	JWTExpiry         time.Duration
-	BCryptCost        int
-	IngestionRecovery IngestionRecoveryConfig
+	DatabaseURL          string
+	ServerPort           string
+	JWTSecret            string
+	JWTExpiry            time.Duration
+	BCryptCost           int
+	AppBaseURL           string
+	EmailVerificationTTL time.Duration
+	PasswordResetTTL     time.Duration
+	Environment          string
+	SMTPAddr             string
+	MailFrom             string
+	IngestionRecovery    IngestionRecoveryConfig
 }
 
 const (
@@ -57,14 +63,24 @@ func Load() *Config {
 	if err != nil {
 		panic(err)
 	}
-	return &Config{
-		DatabaseURL:       getEnv("DATABASE_URL", "postgres://localhost:5432/figcolor?sslmode=disable"),
-		ServerPort:        getEnv("SERVER_PORT", "8080"),
-		JWTSecret:         getEnv("JWT_SECRET", "figcolor-dev-secret-change-in-production"),
-		JWTExpiry:         24 * time.Hour,
-		BCryptCost:        12,
-		IngestionRecovery: ingestionRecovery,
+	cfg := &Config{
+		DatabaseURL:          getEnv("DATABASE_URL", "postgres://localhost:5432/figcolor?sslmode=disable"),
+		ServerPort:           getEnv("SERVER_PORT", "8080"),
+		JWTSecret:            getEnv("JWT_SECRET", "figcolor-dev-secret-change-in-production"),
+		JWTExpiry:            24 * time.Hour,
+		BCryptCost:           12,
+		AppBaseURL:           getEnv("APP_BASE_URL", "http://localhost:5173"),
+		EmailVerificationTTL: 24 * time.Hour,
+		PasswordResetTTL:     30 * time.Minute,
+		Environment:          getEnv("APP_ENV", "development"),
+		SMTPAddr:             getEnv("SMTP_ADDR", "localhost:1025"),
+		MailFrom:             getEnv("MAIL_FROM", "noreply@figcolor.local"),
+		IngestionRecovery:    ingestionRecovery,
 	}
+	if cfg.Environment == "production" && (cfg.JWTSecret == "figcolor-dev-secret-change-in-production" || len(cfg.JWTSecret) < 32) {
+		panic("JWT_SECRET must be changed to a strong value in production")
+	}
+	return cfg
 }
 
 func getEnv(key, defaultValue string) string {

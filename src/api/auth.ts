@@ -26,6 +26,16 @@ export interface RegisterRequest {
   email: string
   password: string
   name?: string
+	confirmPassword: string
+}
+
+export interface ApiErrorBody { error?: { code?: string; message?: string } | string }
+export class AuthApiError extends Error { constructor(public code: string, message: string, public status: number) { super(message) } }
+async function throwAuthError(response: Response, fallback: string): Promise<never> {
+	let body: ApiErrorBody = {}; try { body = await response.json() } catch {}
+	const detail = body.error
+	if (typeof detail === 'object' && detail) throw new AuthApiError(detail.code || 'REQUEST_FAILED', detail.message || fallback, response.status)
+	throw new AuthApiError('REQUEST_FAILED', typeof detail === 'string' ? detail : fallback, response.status)
 }
 
 const API_BASE = '/api'
@@ -56,7 +66,7 @@ export function getAuthHeaders(): HeadersInit {
 }
 
 // Register a new user
-export async function register(data: RegisterRequest): Promise<AuthResponse> {
+export async function register(data: RegisterRequest): Promise<void> {
   const response = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -64,13 +74,10 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
   })
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Registration failed')
+		return throwAuthError(response, 'Registration failed')
   }
 
-  const result: AuthResponse = await response.json()
-  setToken(result.token)
-  return result
+	await response.json()
 }
 
 // Login
@@ -82,13 +89,25 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
   })
 
   if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Login failed')
+		return throwAuthError(response, 'Login failed')
   }
 
   const result: AuthResponse = await response.json()
   setToken(result.token)
   return result
+}
+
+async function postPublic(path: string, data: unknown): Promise<void> {
+	const response = await fetch(`${API_BASE}/auth/${path}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) })
+	if (!response.ok) return throwAuthError(response, 'Request failed')
+}
+export const verifyEmail = (token:string) => postPublic('verify-email',{token})
+export const resendVerification = (email:string) => postPublic('resend-verification-email',{email})
+export const forgotPassword = (email:string) => postPublic('forgot-password',{email})
+export const resetPassword = (token:string,newPassword:string,confirmPassword:string) => postPublic('reset-password',{token,newPassword,confirmPassword})
+export async function requestPasswordChange():Promise<void>{
+	const response=await fetch(`${API_BASE}/auth/request-password-change`,{method:'POST',headers:getAuthHeaders()})
+	if(!response.ok)return throwAuthError(response,'Unable to send password update email')
 }
 
 // Logout
@@ -114,8 +133,7 @@ export async function getCurrentUser(): Promise<User> {
       removeToken()
       throw new Error('Not authenticated')
     }
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to get user')
+		return throwAuthError(response, 'Failed to get user')
   }
 
   return response.json()

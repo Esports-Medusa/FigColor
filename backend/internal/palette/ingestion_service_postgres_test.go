@@ -215,7 +215,7 @@ func TestIngestionHTTPPostgresEndToEnd(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO users(id,email,email_verified,status,role) VALUES($1,'http-ingestion@figcolor.local',true,'active','admin') ON CONFLICT(id) DO UPDATE SET role='admin'`, ingestionTestActorID); err != nil {
 		t.Fatal(err)
 	}
-	token, err := figjwt.GenerateToken(ingestionTestActorID, "http-ingestion@figcolor.local", secret, time.Hour)
+	token, err := figjwt.GenerateToken(ingestionTestActorID, "http-ingestion@figcolor.local", 1, secret, time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}

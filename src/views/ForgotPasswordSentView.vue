@@ -1,0 +1,2 @@
+<template><div class="auth-page"><section class="auth-card"><h1>Check your email</h1><p>If an account exists for that email, a password reset link has been sent.</p><router-link to="/login">Back to sign in</router-link></section></div></template>
+<style scoped>.auth-page{display:grid;place-items:center;min-height:60vh}.auth-card{width:min(400px,100%);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:2rem;text-align:center}</style>

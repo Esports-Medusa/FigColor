@@ -8,13 +8,13 @@ import (
 )
 
 type Service struct {
-	repo      *Repository
+	repo       *Repository
 	bcryptCost int
 }
 
 func NewService(repo *Repository, bcryptCost int) *Service {
 	return &Service{
-		repo:        repo,
+		repo:       repo,
 		bcryptCost: bcryptCost,
 	}
 }

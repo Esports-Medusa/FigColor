@@ -9,8 +9,9 @@ import (
 )
 
 type Claims struct {
-	UserID string `json:"userId"`
-	Email  string `json:"email"`
+	UserID      string `json:"userId"`
+	Email       string `json:"email"`
+	AuthVersion int    `json:"auth_version"`
 	jwt.RegisteredClaims
 }
 
@@ -35,10 +36,11 @@ func ValidateTokenStatic(tokenString, jwtSecret string) (*Claims, error) {
 }
 
 // GenerateToken generates a JWT token for a user
-func GenerateToken(userID, email, jwtSecret string, jwtExpiry time.Duration) (string, error) {
+func GenerateToken(userID, email string, authVersion int, jwtSecret string, jwtExpiry time.Duration) (string, error) {
 	claims := &Claims{
-		UserID: userID,
-		Email:  email,
+		UserID:      userID,
+		Email:       email,
+		AuthVersion: authVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

@@ -54,7 +54,7 @@ func TestAdminMiddlewareAuthenticationAndAuthorization(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodGet, "/api/admin/ping", nil)
 			if tc.withToken {
-				token, err := figjwt.GenerateToken("user-1", "user@example.com", secret, time.Hour)
+				token, err := figjwt.GenerateToken("user-1", "user@example.com", 1, secret, time.Hour)
 				if err != nil {
 					t.Fatalf("generate token: %v", err)
 				}
@@ -118,18 +118,21 @@ func (authScriptedConn) QueryContext(ctx context.Context, query string, args []d
 		values: [][]driver.Value{{
 			"user-1",
 			"user@example.com",
-			false,
+			true,
+			now,
 			nil,
 			nil,
 			authState.role,
 			"active",
 			now,
 			now,
+			nil,
+			int64(1),
 		}},
 	}, nil
 }
 
-var userColumns = []string{"id", "email", "email_verified", "name", "avatar_url", "role", "status", "created_at", "updated_at"}
+var userColumns = []string{"id", "email", "email_verified", "email_verified_at", "name", "avatar_url", "role", "status", "created_at", "updated_at", "password_changed_at", "auth_version"}
 
 type authRows struct {
 	columns []string

@@ -25,6 +25,13 @@
           </p>
         </div>
       </div>
+		<details class="advanced-settings">
+			<summary>Advanced settings</summary>
+			<div class="advanced-content"><h2>Password</h2><p>We’ll email you a secure link to choose a new password. Completing the update signs you out on every device.</p>
+				<button type="button" class="btn-update-password" :disabled="sendingPasswordEmail" @click="handlePasswordUpdate">{{ sendingPasswordEmail ? 'Sending…' : 'Email me a password update link' }}</button>
+				<p v-if="passwordMessage" :class="passwordMessageKind">{{ passwordMessage }}</p>
+			</div>
+		</details>
 
       <div class="profile-actions">
         <button @click="handleLogout" class="btn-logout">Logout</button>
@@ -36,12 +43,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
+import { AuthApiError, requestPasswordChange } from '@/api/auth'
 
 const router = useRouter()
 const { currentUser, logout } = useAuth()
+const sendingPasswordEmail=ref(false),passwordMessage=ref(''),passwordMessageKind=ref('password-success')
 
 const userInitial = computed(() => {
   if (currentUser.value?.name) {
@@ -66,13 +75,14 @@ async function handleLogout() {
   await logout()
   router.push('/')
 }
+async function handlePasswordUpdate(){passwordMessage.value='';sendingPasswordEmail.value=true;try{await requestPasswordChange();passwordMessageKind.value='password-success';passwordMessage.value=`A password update link was sent to ${currentUser.value?.email}.`}catch(e){passwordMessageKind.value='password-error';passwordMessage.value=e instanceof AuthApiError?e.message:'Unable to send the email.'}finally{sendingPasswordEmail.value=false}}
 </script>
 
 <style scoped>
 .profile-view {
   max-width: 800px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0;
 }
 
 .page-header {
@@ -87,16 +97,17 @@ async function handleLogout() {
   display: flex;
   gap: 2rem;
   background: white;
-  border-radius: 12px;
+  border: 1px solid var(--fc-line);
+  border-radius: var(--fc-radius-card);
   padding: 2rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .profile-avatar {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0066cc, #7c3aed);
+  background: var(--fc-ink);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,6 +176,7 @@ async function handleLogout() {
   padding-top: 2rem;
   border-top: 1px solid #eee;
 }
+.advanced-settings{margin-top:1.25rem;border-top:1px solid var(--fc-line);padding-top:1rem}.advanced-settings summary{cursor:pointer;color:var(--color-text-secondary);font-weight:500}.advanced-content{padding:1rem 0 0;max-width:560px}.advanced-content h2{font-size:1.1rem;margin-bottom:.35rem}.advanced-content p{color:var(--color-text-secondary);font-size:.875rem}.btn-update-password{padding:.65rem .9rem;border:1px solid var(--color-border);border-radius:var(--radius-md);background:white;color:var(--fc-ink);cursor:pointer}.password-success{color:#16794a!important}.password-error{color:#b42318!important}
 
 .btn-logout {
   background: none;

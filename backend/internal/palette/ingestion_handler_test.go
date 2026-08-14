@@ -311,17 +311,17 @@ func TestIngestionHandlerDependencyIsRequired(t *testing.T) {
 }
 
 func authUserRows(exists bool, role string) *scriptedRows {
-	rows := &scriptedRows{columns: []string{"id", "email", "email_verified", "name", "avatar_url", "role", "status", "created_at", "updated_at"}}
+	rows := &scriptedRows{columns: []string{"id", "email", "email_verified", "email_verified_at", "name", "avatar_url", "role", "status", "created_at", "updated_at", "password_changed_at", "auth_version"}}
 	if exists {
 		now := time.Now()
-		rows.values = [][]driver.Value{{"11111111-1111-4111-8111-111111111111", "admin@example.test", true, nil, nil, role, "active", now, now}}
+		rows.values = [][]driver.Value{{"11111111-1111-4111-8111-111111111111", "admin@example.test", true, now, nil, nil, role, "active", now, now, nil, int64(1)}}
 	}
 	return rows
 }
 
 func testJWT(t *testing.T, secret string, expiry time.Duration) string {
 	t.Helper()
-	token, err := figjwt.GenerateToken("11111111-1111-4111-8111-111111111111", "admin@example.test", secret, expiry)
+	token, err := figjwt.GenerateToken("11111111-1111-4111-8111-111111111111", "admin@example.test", 1, secret, expiry)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -49,6 +49,10 @@ func Auth(jwtSecret string, userRepo *user.Repository) gin.HandlerFunc {
 			abortAuthentication(c, "user not found")
 			return
 		}
+		if !u.EmailVerified || u.Status != "active" || claims.AuthVersion != u.AuthVersion {
+			abortAuthentication(c, "session is no longer valid")
+			return
+		}
 
 		// Store both user_id and role in context using authctx package
 		authctx.SetUser(c, claims.UserID, u.Role)

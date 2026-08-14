@@ -30,20 +30,21 @@
 
         <div class="form-group">
           <label for="password">Password</label>
-          <input
+			<div class="password-input"><input
             id="password"
             v-model="password"
-            type="password"
-            placeholder="At least 8 characters"
+			:type="showPassword ? 'text' : 'password'"
+			placeholder="At least 8 characters"
             required
-            minlength="8"
+			minlength="8"
+			maxlength="128"
             autocomplete="new-password"
-          />
+			/><button type="button" class="show-password" @click="showPassword=!showPassword">{{ showPassword ? 'Hide' : 'Show' }}</button></div>
         </div>
+		<div class="form-group"><label for="confirm-password">Confirm password</label><input id="confirm-password" v-model="confirmPassword" :type="showPassword ? 'text' : 'password'" required autocomplete="new-password" /></div>
 
-        <div class="form-hint">
-          Password must be at least 8 characters and contain both letters and numbers.
-        </div>
+		<div class="form-hint" :class="{valid: passwordValid}">At least 8 characters, including a letter and a number.</div>
+		<div v-if="confirmPassword && password !== confirmPassword" class="field-error">Passwords do not match.</div>
 
         <div v-if="error" class="error-message">
           {{ error }}
@@ -65,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 
@@ -75,23 +76,16 @@ const { register, isLoading, error } = useAuth()
 const name = ref('')
 const email = ref('')
 const password = ref('')
+const confirmPassword = ref('')
+const showPassword = ref(false)
+const passwordValid = computed(() => password.value.length >= 8 && password.value.length <= 128 && /[a-zA-Z]/.test(password.value) && /[0-9]/.test(password.value))
 
 async function handleRegister() {
-  // Basic validation
-  if (password.value.length < 8) {
-    return
-  }
-  
-  // Check password contains both letters and numbers
-  const hasLetter = /[a-zA-Z]/.test(password.value)
-  const hasNumber = /[0-9]/.test(password.value)
-  if (!hasLetter || !hasNumber) {
-    return
-  }
+	if (!passwordValid.value || password.value !== confirmPassword.value) return
 
   try {
-    await register(email.value, password.value, name.value || undefined)
-    router.push('/')
+		await register(email.value, password.value, confirmPassword.value, name.value || undefined)
+		router.push({path:'/verify-email/pending',query:{email:email.value.trim().toLowerCase()}})
   } catch (e) {
     // Error is handled by useAuth
   }
@@ -163,6 +157,11 @@ async function handleRegister() {
   color: var(--color-text-secondary);
   margin-top: -0.5rem;
 }
+.form-hint.valid { color: #16794a; }
+.field-error { color:#b42318;font-size:.8rem; }
+.password-input { display:flex;position:relative; }
+.password-input input { width:100%;padding-right:4rem; }
+.show-password { position:absolute;right:.5rem;top:.45rem;border:0;background:none;color:var(--color-primary);cursor:pointer; }
 
 .btn-primary {
   background: var(--color-primary);

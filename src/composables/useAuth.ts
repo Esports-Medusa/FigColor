@@ -43,12 +43,11 @@ export function useAuth() {
     }
   }
 
-  async function register(email: string, password: string, name?: string): Promise<void> {
+  async function register(email: string, password: string, confirmPassword: string, name?: string): Promise<void> {
     error.value = null
     isLoading.value = true
     try {
-      const response = await apiRegister({ email, password, name })
-      user.value = response.user
+		await apiRegister({ email, password, confirmPassword, name })
     } catch (e: any) {
       error.value = e.message
       throw e

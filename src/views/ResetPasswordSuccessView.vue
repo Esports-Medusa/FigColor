@@ -1,0 +1,2 @@
+<template><div class="auth-page"><section class="auth-card"><h1>Password reset</h1><p>Your password has been changed. Sign in with your new password.</p><router-link to="/login">Go to sign in</router-link></section></div></template>
+<style scoped>.auth-page{display:grid;place-items:center;min-height:60vh}.auth-card{width:min(400px,100%);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:2rem;text-align:center}</style>

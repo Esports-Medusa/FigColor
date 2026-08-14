@@ -17,21 +17,25 @@ func NewRepository() *Repository {
 func (r *Repository) GetByID(id string) (*User, error) {
 	var user User
 	var name, avatarURL sql.NullString
+	var verifiedAt, passwordChangedAt sql.NullTime
 
 	err := database.DB.QueryRow(`
-		SELECT id, email, email_verified, name, avatar_url, role, status, created_at, updated_at
+		SELECT id, email, email_verified_at IS NOT NULL, email_verified_at, name, avatar_url, role, status, created_at, updated_at, password_changed_at, auth_version
 		FROM users
 		WHERE id = $1
 	`, id).Scan(
 		&user.ID,
 		&user.Email,
 		&user.EmailVerified,
+		&verifiedAt,
 		&name,
 		&avatarURL,
 		&user.Role,
 		&user.Status,
 		&user.CreatedAt,
 		&user.UpdatedAt,
+		&passwordChangedAt,
+		&user.AuthVersion,
 	)
 
 	if err == sql.ErrNoRows {
@@ -47,6 +51,12 @@ func (r *Repository) GetByID(id string) (*User, error) {
 	if avatarURL.Valid {
 		user.AvatarURL = &avatarURL.String
 	}
+	if verifiedAt.Valid {
+		user.EmailVerifiedAt = &verifiedAt.Time
+	}
+	if passwordChangedAt.Valid {
+		user.PasswordChangedAt = &passwordChangedAt.Time
+	}
 
 	return &user, nil
 }
@@ -54,21 +64,25 @@ func (r *Repository) GetByID(id string) (*User, error) {
 func (r *Repository) GetByEmail(email string) (*User, error) {
 	var user User
 	var name, avatarURL sql.NullString
+	var verifiedAt, passwordChangedAt sql.NullTime
 
 	err := database.DB.QueryRow(`
-		SELECT id, email, email_verified, name, avatar_url, role, status, created_at, updated_at
+		SELECT id, email, email_verified_at IS NOT NULL, email_verified_at, name, avatar_url, role, status, created_at, updated_at, password_changed_at, auth_version
 		FROM users
-		WHERE email = $1
+		WHERE LOWER(email) = LOWER($1)
 	`, email).Scan(
 		&user.ID,
 		&user.Email,
 		&user.EmailVerified,
+		&verifiedAt,
 		&name,
 		&avatarURL,
 		&user.Role,
 		&user.Status,
 		&user.CreatedAt,
 		&user.UpdatedAt,
+		&passwordChangedAt,
+		&user.AuthVersion,
 	)
 
 	if err == sql.ErrNoRows {
@@ -83,6 +97,12 @@ func (r *Repository) GetByEmail(email string) (*User, error) {
 	}
 	if avatarURL.Valid {
 		user.AvatarURL = &avatarURL.String
+	}
+	if verifiedAt.Valid {
+		user.EmailVerifiedAt = &verifiedAt.Time
+	}
+	if passwordChangedAt.Valid {
+		user.PasswordChangedAt = &passwordChangedAt.Time
 	}
 
 	return &user, nil
@@ -148,7 +168,7 @@ func (r *Repository) UpdateAvatar(userID string, avatarURL *string) error {
 
 func (r *Repository) EmailExists(email string) (bool, error) {
 	var count int
-	err := database.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE email = $1`, email).Scan(&count)
+	err := database.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE LOWER(email) = LOWER($1)`, email).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("failed to check email existence: %w", err)
 	}
@@ -156,9 +176,15 @@ func (r *Repository) EmailExists(email string) (bool, error) {
 }
 
 func (r *Repository) GetPasswordHash(email string, passwordHash *string) error {
-	err := database.DB.QueryRow(`SELECT password_hash FROM users WHERE email = $1`, email).Scan(passwordHash)
+	err := database.DB.QueryRow(`SELECT password_hash FROM users WHERE LOWER(email) = LOWER($1)`, email).Scan(passwordHash)
 	if err == sql.ErrNoRows {
 		return fmt.Errorf("user not found")
 	}
 	return err
+}
+
+func (r *Repository) GetPasswordHashByID(userID string) (string, error) {
+	var hash string
+	err := database.DB.QueryRow(`SELECT password_hash FROM users WHERE id = $1`, userID).Scan(&hash)
+	return hash, err
 }

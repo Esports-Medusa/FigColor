@@ -73,6 +73,12 @@ const routes: RouteRecordRaw[] = [
       component: RegisterView,
       meta: { guestOnly: true }
     },
+	{ path:'/verify-email/pending', name:'verify-email-pending', component:()=>import('@/views/VerifyEmailPendingView.vue'), meta:{guestOnly:true} },
+	{ path:'/verify-email', name:'verify-email', component:()=>import('@/views/VerifyEmailView.vue'), meta:{guestOnly:true} },
+	{ path:'/forgot-password', name:'forgot-password', component:()=>import('@/views/ForgotPasswordView.vue'), meta:{guestOnly:true} },
+	{ path:'/forgot-password/sent', name:'forgot-password-sent', component:()=>import('@/views/ForgotPasswordSentView.vue'), meta:{guestOnly:true} },
+	{ path:'/reset-password', name:'reset-password', component:()=>import('@/views/ResetPasswordView.vue'), meta:{guestOnly:true} },
+	{ path:'/reset-password/success', name:'reset-password-success', component:()=>import('@/views/ResetPasswordSuccessView.vue'), meta:{guestOnly:true} },
     {
       path: '/profile',
       name: 'profile',
