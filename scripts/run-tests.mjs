@@ -36,6 +36,7 @@ const testModules = [
   '/src/views/admin/palettes/AdminPalettesList.test.ts',
   '/src/views/admin/palettes/PaletteImageColorPicker.test.ts',
   '/src/views/admin/palettes/AdminCandidateReview.test.ts',
+  '/src/views/admin/palettes/AdminPalettePublishDialog.test.ts',
   '/src/views/admin/palettes/CandidatePublication.logic.test.ts',
   '/src/views/admin/palettes/CandidateRejection.logic.test.ts',
   '/src/views/admin/palettes/CandidateTransition.logic.test.ts',

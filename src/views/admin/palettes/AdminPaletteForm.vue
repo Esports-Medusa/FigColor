@@ -268,10 +268,11 @@
           <button
             v-if="isCandidate"
             class="btn btn-success"
-            @click="publishCandidate"
+            type="button"
+            @click="openPublishDialog"
             :disabled="saving || candidateTransitionActive !== null || hasUnsavedChanges"
           >
-            {{ publishing ? 'Publishing...' : 'Publish to public catalog' }}
+            Publish to public catalog
           </button>
           <button
             v-if="isCandidate && importedCandidateEligible"
@@ -326,6 +327,20 @@
       </div>
     </div>
 
+    <ConfirmDialog
+      v-if="showPublishDialog"
+      title="Publish palette?"
+      :message="`Publish “${publishPaletteName}” to the public catalog?`"
+      description="This will make the palette visible in the public catalog."
+      status-change="Candidate → Published"
+      confirm-text="Publish to public catalog"
+      pending-text="Publishing…"
+      tone="primary"
+      :pending="publicationConfirmationPending"
+      @confirm="confirmPublishCandidate"
+      @cancel="closePublishDialog"
+    />
+
   </div>
 </template>
 
@@ -362,6 +377,7 @@ import AdminPreviewCaseEditor from './AdminPreviewCaseEditor.vue'
 import PalettePreview from '@/components/PalettePreview.vue'
 import PaletteChartPreview from '@/components/palettes/PaletteChartPreview.vue'
 import PaletteImageColorPicker from './PaletteImageColorPicker.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { appendCanonicalHex } from './imageColorInput'
 import {
   createCandidatePublicationController,
@@ -412,6 +428,8 @@ const previewCases = ref<PalettePreviewCase[]>([])
 const previewRequestInProgress = ref(false)
 const previewBackendIssues = ref<ValidationIssue[]>([])
 const previewWorkflowMessage = ref('')
+const showPublishDialog = ref(false)
+const publicationConfirmationSubmitted = ref(false)
 
 const availableChartTypes = [
   'line', 'bar', 'scatter', 'boxplot', 'violin', 
@@ -804,8 +822,26 @@ async function saveAsCandidate() {
   await savePalette()
 }
 
-async function publishCandidate() {
-  await candidatePublicationController.attempt()
+const publishPaletteName = computed(() => form.name.trim() || 'this palette')
+const publicationConfirmationPending = computed(() => publishing.value || publicationConfirmationSubmitted.value)
+
+function openPublishDialog() {
+  showPublishDialog.value = true
+}
+
+function closePublishDialog() {
+  if (publicationConfirmationPending.value) return
+  showPublishDialog.value = false
+}
+
+async function confirmPublishCandidate() {
+  if (publicationConfirmationPending.value) return
+  publicationConfirmationSubmitted.value = true
+  const outcome = await candidatePublicationController.attempt()
+  publicationConfirmationSubmitted.value = false
+  if (outcome === 'published' || outcome === 'reconciled-published') {
+    showPublishDialog.value = false
+  }
 }
 
 const candidatePublicationController = createCandidatePublicationController({
@@ -818,7 +854,7 @@ const candidatePublicationController = createCandidatePublicationController({
     dirty: hasUnsavedChanges.value,
     publishing: candidateTransitionActive.value !== null
   }),
-  confirm: (message) => window.confirm(message),
+  confirm: () => true,
   publish: publishPalette,
   reload: getPalette,
   transitionCoordinator: candidateTransitionCoordinator,
